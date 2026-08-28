@@ -14,7 +14,7 @@ class _FiledtitleState extends State<Filedtitle> {
     return Text(
       widget.text,
       style: TextStyle(
-        fontWeight: FontWeight(600),
+        fontWeight: FontWeight.w600,
         color: Color(0xff0B1C30),
         fontSize: 14,
       ),
