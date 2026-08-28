@@ -12,12 +12,9 @@ class _SubtitleState extends State<Subtitle> {
   @override
   Widget build(BuildContext context) {
     return Text(
-                  widget.text,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w300,
-                    fontSize: 16,
-                    color: Colors.black87,
-                  ),
-                );
+      widget.text,
+      textAlign: TextAlign.center,
+      style: TextStyle(color: Colors.grey[600], fontSize: 14),
+    );
   }
 }
