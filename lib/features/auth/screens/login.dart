@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/auth/screens/forgetPassword.dart';
 import 'package:prep_mate/features/auth/screens/registration.dart';
 import 'package:prep_mate/features/auth/widgets/button.dart';
 import 'package:prep_mate/features/auth/widgets/filedTitle.dart';
@@ -182,7 +183,14 @@ class _LoginState extends State<Login> {
                                     SizedBox(width: 153),
                                     Textbutton(
                                       text: "Forgot Password?",
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ForgotPasswordPage(),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
