@@ -5,12 +5,14 @@ class Inputfield extends StatefulWidget {
   final String hintText;
   final IconData icon;
   final bool isPassword;
+  final FormFieldValidator<String> validator;
   const Inputfield({
     super.key,
     required this.controller,
     required this.hintText,
     required this.icon,
     required this.isPassword,
+    required this.validator,
   });
 
   @override
@@ -46,10 +48,11 @@ class _InputfieldState extends State<Inputfield> {
       height: 40.59,
       width: 308,
 
-      child: TextField(
+      child: TextFormField(
         obscureText: widget.isPassword && !isPasswordVisible,
         controller: widget.controller,
         focusNode: _focusNode,
+        validator: widget.validator,
         textAlignVertical: TextAlignVertical.bottom,
         decoration: InputDecoration(
           hintText: widget.hintText,
