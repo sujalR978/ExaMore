@@ -45,7 +45,6 @@ class _InputfieldState extends State<Inputfield> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40.59,
       width: 308,
 
       child: TextFormField(
