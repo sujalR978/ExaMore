@@ -13,7 +13,13 @@ class _MaintitleState extends State<Maintitle> {
   Widget build(BuildContext context) {
     return Text(
       widget.text,
-      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 32),
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: Color(0xFF1E1B4B),
+        fontSize: 26,
+        fontWeight: FontWeight.bold,
+        height: 1.2,
+      ),
     );
   }
 }
