@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/auth/screens/registration.dart';
 import 'package:prep_mate/features/auth/widgets/button.dart';
 import 'package:prep_mate/features/auth/widgets/filedTitle.dart';
 import 'package:prep_mate/features/auth/widgets/googleButton.dart';
@@ -63,7 +64,7 @@ class _LoginState extends State<Login> {
                     border: Border.all(width: 1, color: Color(0xffE2E8F0)),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  height: 437.36,
+
                   width: 358,
                   padding: EdgeInsets.only(
                     top: 24,
@@ -125,9 +126,21 @@ class _LoginState extends State<Login> {
                                   hintText: "student@university.edu",
                                   icon: Icons.email,
                                   isPassword: false,
+
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return "Email is required";
+                                    }
+
+                                    if (!value.contains("@")) {
+                                      return "Enter a valid email";
+                                    }
+
+                                    return null;
+                                  },
                                 ),
                               ),
-
+                              Text(_email.text),
                               Container(
                                 child: Row(
                                   children: [
@@ -149,6 +162,17 @@ class _LoginState extends State<Login> {
                                   hintText: "••••••••",
                                   icon: Icons.lock,
                                   isPassword: true,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return "Password is required";
+                                    }
+
+                                    if (value.length < 6) {
+                                      return "Password must be at least 6 characters";
+                                    }
+
+                                    return null;
+                                  },
                                 ),
                               ),
                               SizedBox(
@@ -157,7 +181,11 @@ class _LoginState extends State<Login> {
                                 child: Button(
                                   text: "Login",
                                   icon: Icons.arrow_forward,
-                                  onPressed: () {},
+                                  onPressed: () {
+                                    if (_formKey.currentState!.validate()) {
+                                      print("Form is valid");
+                                    }
+                                  },
                                 ),
                               ),
 
@@ -167,7 +195,13 @@ class _LoginState extends State<Login> {
                                   Subtitle(text: "Don't have an account?"),
                                   Textbutton(
                                     text: "Register",
-                                    onPressed: () {},
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => Registration(),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
