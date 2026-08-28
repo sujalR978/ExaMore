@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/auth/screens/forgetPassword.dart';
-import 'package:prep_mate/features/auth/screens/registration.dart';
-import 'package:prep_mate/features/auth/widgets/button.dart';
-import 'package:prep_mate/features/auth/widgets/filedTitle.dart';
-import 'package:prep_mate/features/auth/widgets/googleButton.dart';
-import 'package:prep_mate/features/auth/widgets/inputField.dart';
-import 'package:prep_mate/features/auth/widgets/mainTitle.dart';
-import 'package:prep_mate/features/auth/widgets/subTitle.dart';
-import 'package:prep_mate/features/auth/widgets/textButton.dart';
+import 'package:prep_mate/features/Auth/screens/forgetPassword.dart';
+import 'package:prep_mate/features/Auth/screens/registration.dart';
+import 'package:prep_mate/features/Auth/widgets/button.dart';
+import 'package:prep_mate/features/Auth/widgets/filedTitle.dart';
+import 'package:prep_mate/features/Auth/widgets/googleButton.dart';
+import 'package:prep_mate/features/Auth/widgets/inputField.dart';
+import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
+import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
+import 'package:prep_mate/features/Auth/widgets/textButton.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
