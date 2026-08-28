@@ -17,8 +17,37 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _email = TextEditingController();
-  late TextEditingController _password = TextEditingController();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+  bool _isLogin = false;
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  //Login handel
+
+  Future<void> login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _isLogin = true;
+    });
+
+    try {} catch (e) {
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLogin = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,11 +157,15 @@ class _LoginState extends State<Login> {
                                   isPassword: false,
 
                                   validator: (value) {
-                                    if (value == null || value.isEmpty) {
+                                    if (value == null || value.trim().isEmpty) {
                                       return "Email is required";
                                     }
 
-                                    if (!value.contains("@")) {
+                                    final emailRegex = RegExp(
+                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                    );
+
+                                    if (!emailRegex.hasMatch(value.trim())) {
                                       return "Enter a valid email";
                                     }
 
@@ -140,7 +173,7 @@ class _LoginState extends State<Login> {
                                   },
                                 ),
                               ),
-                              Text(_email.text),
+
                               Container(
                                 child: Row(
                                   children: [
@@ -179,7 +212,7 @@ class _LoginState extends State<Login> {
                                 height: 55,
                                 width: 308,
                                 child: Button(
-                                  text: "Login",
+                                  text: _isLogin ? "Logging in..." : "Login",
                                   icon: Icons.arrow_forward,
                                   onPressed: () {
                                     if (_formKey.currentState!.validate()) {
