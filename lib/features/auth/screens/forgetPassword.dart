@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/auth/widgets/appBar.dart';
-import 'package:prep_mate/features/auth/widgets/inputField.dart';
-import 'package:prep_mate/features/auth/widgets/mainTitle.dart';
-import 'package:prep_mate/features/auth/widgets/subTitle.dart';
+import 'package:prep_mate/features/Auth/widgets/appBar.dart';
+import 'package:prep_mate/features/Auth/widgets/inputField.dart';
+import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
+import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
