@@ -122,7 +122,7 @@ class _LoginState extends State<Login> {
                               "OR LOG IN WITH EMAIL",
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xff494550),
+                                color: Color(0xff7A7582),
                                 fontSize: 12,
                               ),
                             ),
