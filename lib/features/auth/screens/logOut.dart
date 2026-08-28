@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/auth/widgets/appBar.dart';
 import 'package:prep_mate/features/auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/auth/widgets/subTitle.dart';
 
@@ -22,50 +23,7 @@ class _LogoutPageState extends State<LogoutPage> {
       backgroundColor: Colors.grey[100],
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(
-                  100,
-                ), // Perfect capsule shape
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  title: const Text(
-                    'Account',
-                    style: TextStyle(
-                      color: Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  centerTitle: true,
-                ),
-              ),
-            ),
-          ),
-        ),
+        child: CustomAppbar(text: "Account"),
       ),
       body: Center(
         child: SingleChildScrollView(
