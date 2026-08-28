@@ -215,9 +215,7 @@ class _LoginState extends State<Login> {
                                   text: _isLogin ? "Logging in..." : "Login",
                                   icon: Icons.arrow_forward,
                                   onPressed: () {
-                                    if (_formKey.currentState!.validate()) {
-                                      print("Form is valid");
-                                    }
+                                    if (!_isLogin) login();
                                   },
                                 ),
                               ),
