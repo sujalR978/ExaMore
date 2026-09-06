@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 
-class Googlebutton extends StatefulWidget {
+class Googlebutton extends StatelessWidget {
   const Googlebutton({super.key});
 
   @override
-  State<Googlebutton> createState() => _GooglebuttonState();
-}
-
-class _GooglebuttonState extends State<Googlebutton> {
-  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        side: BorderSide(width: 1, color: Color(0xffCBC4D2)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: theme.colorScheme.surface,
+        side: BorderSide(
+          width: 1,
+          color: theme.brightness == Brightness.dark
+              ? const Color(0xff475569)
+              : const Color(0xffCBC4D2),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
       onPressed: () {},
       child: Row(
@@ -25,14 +29,14 @@ class _GooglebuttonState extends State<Googlebutton> {
             width: 20,
             child: Image.asset('assets/icons/google.png'),
           ),
-          SizedBox(width: 13),
+          const SizedBox(width: 13),
           SizedBox(
             child: Text(
               "Continue with Google",
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xff0B1C30),
-                fontWeight: FontWeight(600),
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

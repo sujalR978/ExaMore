@@ -54,8 +54,11 @@ class _RegistrationState extends State<Registration> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
 
       body: GestureDetector(
         onTap: () {
@@ -79,21 +82,31 @@ class _RegistrationState extends State<Registration> {
                   decoration: BoxDecoration(
                     boxShadow: [
                       BoxShadow(
-                        offset: Offset(0, 4),
+                        offset: const Offset(0, 4),
                         blurRadius: 12,
-                        color: Color(0xFF4C1D95).withValues(alpha: 0.04),
+                        color: const Color(
+                          0xFF4C1D95,
+                        ).withValues(alpha: isDark ? 0.10 : 0.04),
                       ),
                     ],
 
-                    color: Colors.white,
+                    color: theme.colorScheme.surface,
 
                     borderRadius: BorderRadius.circular(12),
 
-                    border: Border.all(width: 1, color: Color(0xffE2E8F0)),
+                    border: Border.all(
+                      width: 1,
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xffE2E8F0),
+                    ),
                   ),
 
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 32, bottom: 32),
+                    padding: const EdgeInsets.only(
+                      top: 32,
+                      bottom: 32,
+                    ),
 
                     child: Column(
                       children: [
@@ -106,20 +119,28 @@ class _RegistrationState extends State<Registration> {
 
                             border: Border.all(
                               width: 1,
-                              color: Color(0xffE2E8F0),
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xffE2E8F0),
                             ),
                           ),
 
                           child: Padding(
                             padding: const EdgeInsets.all(2.0),
 
-                            child: Image.asset('assets/image/image.png'),
+                            child: Image.asset(
+                              'assets/image/image.png',
+                            ),
                           ),
                         ),
 
-                        Maintitle(text: "Create your Examora"),
+                        Maintitle(
+                          text: "Create your Examora",
+                        ),
 
-                        Maintitle(text: "account"),
+                        Maintitle(
+                          text: "account",
+                        ),
 
                         Subtitle(
                           text:
@@ -127,7 +148,10 @@ class _RegistrationState extends State<Registration> {
                         ),
 
                         Padding(
-                          padding: const EdgeInsets.only(top: 23, bottom: 23),
+                          padding: const EdgeInsets.only(
+                            top: 23,
+                            bottom: 23,
+                          ),
 
                           child: SizedBox(
                             width: 292,
@@ -149,7 +173,9 @@ class _RegistrationState extends State<Registration> {
                               Expanded(
                                 child: Divider(
                                   thickness: 1,
-                                  color: Color(0xffCBC4D2),
+                                  color: isDark
+                                      ? const Color(0xFF475569)
+                                      : const Color(0xffCBC4D2),
                                   endIndent: 10,
                                 ),
                               ),
@@ -159,7 +185,9 @@ class _RegistrationState extends State<Registration> {
 
                                 style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xff7A7582),
+                                  color: isDark
+                                      ? const Color(0xFF94A3B8)
+                                      : const Color(0xff7A7582),
                                   fontSize: 12,
                                 ),
                               ),
@@ -167,7 +195,9 @@ class _RegistrationState extends State<Registration> {
                               Expanded(
                                 child: Divider(
                                   thickness: 1,
-                                  color: Color(0xffCBC4D2),
+                                  color: isDark
+                                      ? const Color(0xFF475569)
+                                      : const Color(0xffCBC4D2),
                                   indent: 10,
                                 ),
                               ),
@@ -187,16 +217,23 @@ class _RegistrationState extends State<Registration> {
                               ),
 
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
 
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 4.0),
-                                    child: Filedtitle(text: "Full Name"),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 4.0,
+                                    ),
+                                    child: Filedtitle(
+                                      text: "Full Name",
+                                    ),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 15),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 15,
+                                    ),
                                     child: Inputfield(
                                       controller: _name,
                                       hintText: "John Doe",
@@ -218,14 +255,22 @@ class _RegistrationState extends State<Registration> {
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 4.0),
-                                    child: Filedtitle(text: "Email Address"),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 4.0,
+                                    ),
+                                    child: Filedtitle(
+                                      text: "Email Address",
+                                    ),
                                   ),
+
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 15),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 15,
+                                    ),
                                     child: Inputfield(
                                       controller: _email,
-                                      hintText: "student@university.edu",
+                                      hintText:
+                                          "student@university.edu",
                                       icon: Icons.email,
                                       isPassword: false,
 
@@ -251,19 +296,26 @@ class _RegistrationState extends State<Registration> {
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 4.0),
-                                    child: Filedtitle(text: "Password"),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 4.0,
+                                    ),
+                                    child: Filedtitle(
+                                      text: "Password",
+                                    ),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 15),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 15,
+                                    ),
                                     child: Inputfield(
                                       controller: _password,
                                       hintText: "••••••••",
                                       icon: Icons.lock,
                                       isPassword: true,
                                       validator: (value) {
-                                        if (value == null || value.isEmpty) {
+                                        if (value == null ||
+                                            value.isEmpty) {
                                           return "Password is required";
                                         }
 
@@ -275,20 +327,29 @@ class _RegistrationState extends State<Registration> {
                                       },
                                     ),
                                   ),
+
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 4.0),
-                                    child: Filedtitle(text: "Confirm Password"),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 4.0,
+                                    ),
+                                    child: Filedtitle(
+                                      text: "Confirm Password",
+                                    ),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(bottom: 15),
+                                    padding: const EdgeInsets.only(
+                                      bottom: 15,
+                                    ),
                                     child: Inputfield(
-                                      controller: _password,
+                                      // FIXED: use _cPassword
+                                      controller: _cPassword,
                                       hintText: "••••••••",
                                       icon: Icons.lock_outline,
                                       isPassword: true,
                                       validator: (value) {
-                                        if (value == null || value.isEmpty) {
+                                        if (value == null ||
+                                            value.isEmpty) {
                                           return "Confirm Password is required";
                                         }
 
@@ -300,6 +361,7 @@ class _RegistrationState extends State<Registration> {
                                       },
                                     ),
                                   ),
+
                                   SizedBox(
                                     height: 55,
                                     width: 308,
@@ -309,23 +371,29 @@ class _RegistrationState extends State<Registration> {
                                           : "Create Account",
                                       icon: Icons.arrow_forward,
                                       onPressed: () {
-                                        if (!_regis) _registor();
+                                        if (!_regis) {
+                                          _registor();
+                                        }
                                       },
                                     ),
                                   ),
 
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.center,
                                     children: [
                                       Subtitle(
-                                        text: "Already have an account? ",
+                                        text:
+                                            "Already have an account? ",
                                       ),
+
                                       Textbutton(
                                         text: "Login",
                                         onPressed: () {
                                           Navigator.of(context).push(
                                             MaterialPageRoute(
-                                              builder: (context) => Login(),
+                                              builder: (context) =>
+                                                  const Login(),
                                             ),
                                           );
                                         },

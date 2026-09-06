@@ -4,6 +4,7 @@ class Button extends StatefulWidget {
   final String text;
   final IconData icon;
   final VoidCallback onPressed;
+
   const Button({
     super.key,
     required this.text,
@@ -20,29 +21,40 @@ class _ButtonState extends State<Button> {
   Widget build(BuildContext context) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Color(0xffF59E0B),
+        backgroundColor: const Color(0xffF59E0B),
 
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        foregroundColor: const Color(0xff0B1C30),
+
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
+
       onPressed: widget.onPressed,
+
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
             child: Text(
               widget.text,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 24,
                 color: Color(0xff0B1C30),
-                fontWeight: FontWeight(600),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          SizedBox(width: 13),
+
+          const SizedBox(width: 13),
+
           SizedBox(
             height: 20,
             width: 20,
-            child: Icon(widget.icon, color: Color(0xff0B1C30)),
+            child: Icon(
+              widget.icon,
+              color: const Color(0xff0B1C30),
+            ),
           ),
         ],
       ),

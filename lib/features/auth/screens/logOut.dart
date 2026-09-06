@@ -19,12 +19,17 @@ class _LogoutPageState extends State<LogoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: theme.scaffoldBackgroundColor,
+
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: CustomAppbar(text: "Account"),
       ),
+
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -32,17 +37,26 @@ class _LogoutPageState extends State<LogoutPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(24.0),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(24.0),
-              border: Border.all(color: Colors.grey.shade200),
+
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF334155)
+                    : Colors.grey.shade200,
+              ),
+
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: Colors.black.withValues(
+                    alpha: isDark ? 0.20 : 0.03,
+                  ),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
+
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -50,34 +64,52 @@ class _LogoutPageState extends State<LogoutPage> {
                   width: 90,
                   height: 90,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: Colors.grey.shade200),
+
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : Colors.grey.shade200,
+                    ),
+
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.15 : 0.02,
+                        ),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: const Center(
+
+                  child: Center(
                     child: Icon(
                       Icons.school_outlined,
                       size: 45,
-                      color: Color(0xFF1E1B4B),
+                      color: isDark
+                          ? const Color(0xFFA78BFA)
+                          : const Color(0xFF1E1B4B),
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 32),
-                const Maintitle(text: "Ready to take a \nbreak?"),
+
+                const Maintitle(
+                  text: "Ready to take a \nbreak?",
+                ),
+
                 const SizedBox(height: 16),
 
                 Subtitle(
                   text:
                       'Your progress is saved. We\'ll be ready\nwhen you are.',
                 ),
+
                 const SizedBox(height: 40),
+
                 // Logout Button
                 SizedBox(
                   width: double.infinity,
@@ -85,13 +117,14 @@ class _LogoutPageState extends State<LogoutPage> {
                   child: ElevatedButton(
                     onPressed: () => _handleLogout(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFBBF24), // Amber/Orange
+                      backgroundColor: const Color(0xFFFBBF24),
                       foregroundColor: const Color(0xFF1E1B4B),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.0),
                       ),
                     ),
+
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -108,7 +141,9 @@ class _LogoutPageState extends State<LogoutPage> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
                 // Stay Logged In Button
                 SizedBox(
                   width: double.infinity,
@@ -124,6 +159,7 @@ class _LogoutPageState extends State<LogoutPage> {
                         borderRadius: BorderRadius.circular(12.0),
                       ),
                     ),
+
                     child: const Text(
                       'Stay Logged In',
                       style: TextStyle(

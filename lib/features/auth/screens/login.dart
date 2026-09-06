@@ -24,18 +24,17 @@ class _LoginState extends State<Login> {
 
   @override
   void dispose() {
-    // TODO: implement dispose
     _email.dispose();
     _password.dispose();
     super.dispose();
   }
 
-  //Login handel
-
+  // Login handel
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
     setState(() {
       _isLogin = true;
     });
@@ -52,8 +51,13 @@ class _LoginState extends State<Login> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Changed only for theme
+      backgroundColor: theme.scaffoldBackgroundColor,
+
       body: GestureDetector(
         onTap: () {
           FocusScope.of(context).unfocus();
@@ -65,43 +69,55 @@ class _LoginState extends State<Login> {
               children: [
                 Center(
                   child: Container(
-                    padding: EdgeInsets.all(2),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black12, width: 1),
+                      border: Border.all(
+                        color: isDark ? Colors.white24 : Colors.black12,
+                        width: 1,
+                      ),
                     ),
-                    child: CircleAvatar(
+                    child: const CircleAvatar(
                       radius: 54,
                       backgroundImage: AssetImage('assets/image/L_image.png'),
                     ),
                   ),
                 ),
 
-                SizedBox(height: 5),
+                const SizedBox(height: 5),
 
                 Maintitle(text: "ExaMora"),
 
-                SizedBox(height: 0),
+                const SizedBox(height: 0),
 
                 Subtitle(text: "Smart Exams. Better Results."),
 
-                SizedBox(height: 32),
+                const SizedBox(height: 32),
 
                 Container(
                   decoration: BoxDecoration(
-                    color: Color(0x33FFFFFF),
+                    color: theme.colorScheme.surface,
                     shape: BoxShape.rectangle,
-                    border: Border.all(width: 1, color: Color(0xffE2E8F0)),
+
+                    border: Border.all(
+                      width: 1,
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xffE2E8F0),
+                    ),
+
                     borderRadius: BorderRadius.circular(12),
                   ),
 
                   width: 358,
-                  padding: EdgeInsets.only(
+
+                  padding: const EdgeInsets.only(
                     top: 24,
                     bottom: 24,
                     left: 24,
                     right: 24,
                   ),
+
                   child: Column(
                     children: [
                       SizedBox(height: 46, width: 308, child: Googlebutton()),
@@ -113,8 +129,9 @@ class _LoginState extends State<Login> {
                             Expanded(
                               child: Divider(
                                 thickness: 1,
-                                color: Color(0xffCBC4D2),
-
+                                color: isDark
+                                    ? const Color(0xFF475569)
+                                    : const Color(0xffCBC4D2),
                                 endIndent: 10,
                               ),
                             ),
@@ -123,14 +140,19 @@ class _LoginState extends State<Login> {
                               "OR LOG IN WITH EMAIL",
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xff7A7582),
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xff7A7582),
                                 fontSize: 12,
                               ),
                             ),
+
                             Expanded(
                               child: Divider(
                                 thickness: 1,
-                                color: Color(0xffCBC4D2),
+                                color: isDark
+                                    ? const Color(0xFF475569)
+                                    : const Color(0xffCBC4D2),
                                 indent: 10,
                               ),
                             ),
@@ -180,14 +202,15 @@ class _LoginState extends State<Login> {
                                   children: [
                                     Filedtitle(text: "Password"),
 
-                                    SizedBox(width: 153),
+                                    const SizedBox(width: 153),
+
                                     Textbutton(
                                       text: "Forgot Password?",
                                       onPressed: () {
                                         Navigator.of(context).push(
                                           MaterialPageRoute(
                                             builder: (context) =>
-                                                ForgotPasswordPage(),
+                                                const ForgotPasswordPage(),
                                           ),
                                         );
                                       },
@@ -203,6 +226,7 @@ class _LoginState extends State<Login> {
                                   hintText: "••••••••",
                                   icon: Icons.lock,
                                   isPassword: true,
+
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
                                       return "Password is required";
@@ -216,6 +240,7 @@ class _LoginState extends State<Login> {
                                   },
                                 ),
                               ),
+
                               SizedBox(
                                 height: 55,
                                 width: 308,
@@ -232,12 +257,14 @@ class _LoginState extends State<Login> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Subtitle(text: "Don't have an account?"),
+
                                   Textbutton(
                                     text: "Register",
                                     onPressed: () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (context) => Registration(),
+                                          builder: (context) =>
+                                              const Registration(),
                                         ),
                                       );
                                     },

@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 
-class Filedtitle extends StatefulWidget {
+class Filedtitle extends StatelessWidget {
   final String text;
-  const Filedtitle({super.key, required this.text});
 
-  @override
-  State<Filedtitle> createState() => _FiledtitleState();
-}
+  const Filedtitle({
+    super.key,
+    required this.text,
+  });
 
-class _FiledtitleState extends State<Filedtitle> {
   @override
   Widget build(BuildContext context) {
     return Text(
-      widget.text,
+      text,
       style: TextStyle(
         fontWeight: FontWeight.w600,
-        color: Color(0xff0B1C30),
+        color: Theme.of(context).colorScheme.onSurface,
         fontSize: 14,
       ),
     );
