@@ -41,16 +41,12 @@ class _LogoutPageState extends State<LogoutPage> {
               borderRadius: BorderRadius.circular(24.0),
 
               border: Border.all(
-                color: isDark
-                    ? const Color(0xFF334155)
-                    : Colors.grey.shade200,
+                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
               ),
 
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: isDark ? 0.20 : 0.03,
-                  ),
+                  color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -97,9 +93,7 @@ class _LogoutPageState extends State<LogoutPage> {
 
                 const SizedBox(height: 32),
 
-                const Maintitle(
-                  text: "Ready to take a \nbreak?",
-                ),
+                const Maintitle(text: "Ready to take a \nbreak?"),
 
                 const SizedBox(height: 16),
 
@@ -151,8 +145,8 @@ class _LogoutPageState extends State<LogoutPage> {
                   child: OutlinedButton(
                     onPressed: () => _handleStayLoggedIn(context),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(
-                        color: Color(0xFF7C3AED),
+                      side: BorderSide(
+                        color: isDark ? Colors.white : Color(0xFF7C3AED),
                         width: 1.5,
                       ),
                       shape: RoundedRectangleBorder(
@@ -160,10 +154,10 @@ class _LogoutPageState extends State<LogoutPage> {
                       ),
                     ),
 
-                    child: const Text(
+                    child: Text(
                       'Stay Logged In',
                       style: TextStyle(
-                        color: Color(0xFF7C3AED),
+                        color: isDark ? Colors.white : Color(0xFF7C3AED),
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),

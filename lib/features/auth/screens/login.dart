@@ -9,6 +9,7 @@ import 'package:prep_mate/features/Auth/widgets/inputField.dart';
 import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/textButton.dart';
+import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 
 class Login extends StatefulWidget {
@@ -49,7 +50,7 @@ class _LoginState extends State<Login> {
       }
       if (_email.text == "user@gmail.com" && _password.text == "user123") {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => Userhomescreen()),
+          MaterialPageRoute(builder: (context) => MainNavigator()),
         );
       }
     } catch (e) {
@@ -89,7 +90,6 @@ class _LoginState extends State<Login> {
                         color: isDark ? Colors.white24 : Colors.black12,
                         width: 1,
                       ),
-                      
                     ),
                     child: const CircleAvatar(
                       radius: 54,

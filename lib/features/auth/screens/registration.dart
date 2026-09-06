@@ -137,7 +137,7 @@ class _RegistrationState extends State<Registration> {
 
                         Subtitle(
                           text:
-                              "Start your journey toward better exam \n                       results.",
+                              "Start your journey toward better exam results.",
                         ),
 
                         Padding(
