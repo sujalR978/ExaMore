@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:prep_mate/features/Auth/screens/login.dart';
+import 'package:prep_mate/features/Auth/screens/splashScreen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,7 +33,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const Login(),
+      home: const Splash(),
     );
   }
 }
