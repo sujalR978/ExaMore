@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class CustomAppbar extends StatefulWidget {
   final String text;
 
-  const CustomAppbar({
-    super.key,
-    required this.text,
-  });
+  const CustomAppbar({super.key, required this.text});
 
   @override
   State<CustomAppbar> createState() => _AppbarState();
@@ -20,23 +17,19 @@ class _AppbarState extends State<CustomAppbar> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16.0,
-          vertical: 8.0,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Container(
           decoration: BoxDecoration(
-            // Light: white
-            // Dark: theme surface
+            // Background
             color: theme.colorScheme.surface,
 
+            // Capsule shape
             borderRadius: BorderRadius.circular(100),
 
+            // Shadow
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: isDark ? 0.20 : 0.06,
-                ),
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -51,6 +44,7 @@ class _AppbarState extends State<CustomAppbar> {
               elevation: 0,
               scrolledUnderElevation: 0,
 
+              // Back button
               leading: IconButton(
                 icon: Icon(
                   Icons.arrow_back,
@@ -59,6 +53,7 @@ class _AppbarState extends State<CustomAppbar> {
                 onPressed: () => Navigator.pop(context),
               ),
 
+              // Title
               title: Text(
                 widget.text,
                 style: TextStyle(

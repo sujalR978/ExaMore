@@ -103,20 +103,15 @@ class _RegistrationState extends State<Registration> {
                   ),
 
                   child: Padding(
-                    padding: const EdgeInsets.only(
-                      top: 32,
-                      bottom: 32,
-                    ),
+                    padding: const EdgeInsets.only(top: 32, bottom: 32),
 
                     child: Column(
                       children: [
                         Container(
                           width: 80,
                           height: 80,
-
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-
                             border: Border.all(
                               width: 1,
                               color: isDark
@@ -124,23 +119,21 @@ class _RegistrationState extends State<Registration> {
                                   : const Color(0xffE2E8F0),
                             ),
                           ),
-
                           child: Padding(
                             padding: const EdgeInsets.all(2.0),
-
-                            child: Image.asset(
-                              'assets/image/image.png',
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.asset(
+                                'assets/image/image.png',
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
                         ),
 
-                        Maintitle(
-                          text: "Create your Examora",
-                        ),
+                        Maintitle(text: "Create your Examora"),
 
-                        Maintitle(
-                          text: "account",
-                        ),
+                        Maintitle(text: "account"),
 
                         Subtitle(
                           text:
@@ -148,10 +141,7 @@ class _RegistrationState extends State<Registration> {
                         ),
 
                         Padding(
-                          padding: const EdgeInsets.only(
-                            top: 23,
-                            bottom: 23,
-                          ),
+                          padding: const EdgeInsets.only(top: 23, bottom: 23),
 
                           child: SizedBox(
                             width: 292,
@@ -217,23 +207,16 @@ class _RegistrationState extends State<Registration> {
                               ),
 
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
 
                                 children: [
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 4.0,
-                                    ),
-                                    child: Filedtitle(
-                                      text: "Full Name",
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 4.0),
+                                    child: Filedtitle(text: "Full Name"),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 15,
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 15),
                                     child: Inputfield(
                                       controller: _name,
                                       hintText: "John Doe",
@@ -255,22 +238,15 @@ class _RegistrationState extends State<Registration> {
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 4.0,
-                                    ),
-                                    child: Filedtitle(
-                                      text: "Email Address",
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 4.0),
+                                    child: Filedtitle(text: "Email Address"),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 15,
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 15),
                                     child: Inputfield(
                                       controller: _email,
-                                      hintText:
-                                          "student@university.edu",
+                                      hintText: "student@university.edu",
                                       icon: Icons.email,
                                       isPassword: false,
 
@@ -296,26 +272,19 @@ class _RegistrationState extends State<Registration> {
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 4.0,
-                                    ),
-                                    child: Filedtitle(
-                                      text: "Password",
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 4.0),
+                                    child: Filedtitle(text: "Password"),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 15,
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 15),
                                     child: Inputfield(
                                       controller: _password,
                                       hintText: "••••••••",
                                       icon: Icons.lock,
                                       isPassword: true,
                                       validator: (value) {
-                                        if (value == null ||
-                                            value.isEmpty) {
+                                        if (value == null || value.isEmpty) {
                                           return "Password is required";
                                         }
 
@@ -329,18 +298,12 @@ class _RegistrationState extends State<Registration> {
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 4.0,
-                                    ),
-                                    child: Filedtitle(
-                                      text: "Confirm Password",
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 4.0),
+                                    child: Filedtitle(text: "Confirm Password"),
                                   ),
 
                                   Padding(
-                                    padding: const EdgeInsets.only(
-                                      bottom: 15,
-                                    ),
+                                    padding: const EdgeInsets.only(bottom: 15),
                                     child: Inputfield(
                                       // FIXED: use _cPassword
                                       controller: _cPassword,
@@ -348,8 +311,7 @@ class _RegistrationState extends State<Registration> {
                                       icon: Icons.lock_outline,
                                       isPassword: true,
                                       validator: (value) {
-                                        if (value == null ||
-                                            value.isEmpty) {
+                                        if (value == null || value.isEmpty) {
                                           return "Confirm Password is required";
                                         }
 
@@ -379,12 +341,10 @@ class _RegistrationState extends State<Registration> {
                                   ),
 
                                   Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.center,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Subtitle(
-                                        text:
-                                            "Already have an account? ",
+                                        text: "Already have an account? ",
                                       ),
 
                                       Textbutton(

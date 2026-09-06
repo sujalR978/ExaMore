@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
 
-class Textbutton extends StatefulWidget {
+class Textbutton extends StatelessWidget {
   final String text;
   final VoidCallback onPressed;
-  Textbutton({super.key, required this.text, required this.onPressed});
 
-  @override
-  State<Textbutton> createState() => _TextbuttonState();
-}
+  const Textbutton({super.key, required this.text, required this.onPressed});
 
-class _TextbuttonState extends State<Textbutton> {
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return TextButton(
-      onPressed: widget.onPressed,
+      onPressed: onPressed,
       // style: ButtonStyle(
       //   overlayColor: WidgetStatePropertyAll(Colors.transparent),
       // ),
       child: Text(
-        widget.text,
+        text,
         style: TextStyle(
           fontWeight: FontWeight.w800,
           fontSize: 12,
-          color: Color(0xff4C1D95),
+          color: theme.brightness == Brightness.dark
+              ? const Color(0xFFA78BFA)
+              : const Color(0xFF4C1D95),
         ),
       ),
     );

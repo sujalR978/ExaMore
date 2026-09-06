@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
 import 'package:prep_mate/features/Auth/screens/forgetPassword.dart';
 import 'package:prep_mate/features/Auth/screens/registration.dart';
 import 'package:prep_mate/features/Auth/widgets/button.dart';
@@ -8,6 +9,7 @@ import 'package:prep_mate/features/Auth/widgets/inputField.dart';
 import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/textButton.dart';
+import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -39,7 +41,18 @@ class _LoginState extends State<Login> {
       _isLogin = true;
     });
 
-    try {} catch (e) {
+    try {
+      if (_email.text == "admin@gmail.com" && _password.text == "admin123") {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => Adminhomescreen()),
+        );
+      }
+      if (_email.text == "user@gmail.com" && _password.text == "user123") {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => Userhomescreen()),
+        );
+      }
+    } catch (e) {
     } finally {
       if (mounted) {
         setState(() {
@@ -76,6 +89,7 @@ class _LoginState extends State<Login> {
                         color: isDark ? Colors.white24 : Colors.black12,
                         width: 1,
                       ),
+                      
                     ),
                     child: const CircleAvatar(
                       radius: 54,

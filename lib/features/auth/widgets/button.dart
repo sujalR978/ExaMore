@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class Button extends StatefulWidget {
+class Button extends StatelessWidget {
   final String text;
   final IconData icon;
   final VoidCallback onPressed;
@@ -13,34 +13,31 @@ class Button extends StatefulWidget {
   });
 
   @override
-  State<Button> createState() => _ButtonState();
-}
-
-class _ButtonState extends State<Button> {
-  @override
   Widget build(BuildContext context) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xffF59E0B),
+        // Amber CTA color
+        backgroundColor: const Color(0xFFF59E0B),
 
-        foregroundColor: const Color(0xff0B1C30),
+        // Text and icon color
+        foregroundColor: const Color(0xFF0B1C30),
 
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
       ),
 
-      onPressed: widget.onPressed,
+      onPressed: onPressed,
 
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
             child: Text(
-              widget.text,
+              text,
               style: const TextStyle(
                 fontSize: 24,
-                color: Color(0xff0B1C30),
+                color: Color(0xFF0B1C30),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -52,8 +49,8 @@ class _ButtonState extends State<Button> {
             height: 20,
             width: 20,
             child: Icon(
-              widget.icon,
-              color: const Color(0xff0B1C30),
+              icon,
+              color: const Color(0xFF0B1C30),
             ),
           ),
         ],

@@ -56,37 +56,41 @@ class _InputfieldState extends State<Inputfield> {
         focusNode: _focusNode,
         validator: widget.validator,
         textAlignVertical: TextAlignVertical.bottom,
-        style: TextStyle(
-          color: theme.colorScheme.onSurface,
-        ),
+
+        // Text color
+        style: TextStyle(color: theme.colorScheme.onSurface),
+
         decoration: InputDecoration(
           hintText: widget.hintText,
+
+          // Hint text color
           hintStyle: TextStyle(
-            color: isDark
-                ? const Color(0xff94A3B8)
-                : Colors.grey,
+            color: isDark ? const Color(0xFF94A3B8) : Colors.grey,
           ),
 
           // Background color
           filled: true,
           fillColor: isFocused
               ? isDark
-                  ? const Color(0xff1E3A5F)
-                  : const Color(0xFFEFF6FF)
+                    ? const Color(0xFF273449)
+                    : const Color(0xFFEFF6FF)
               : isDark
-                  ? const Color(0xff1E293B)
-                  : const Color(0xFFF8FAFC),
+              ? const Color(0xFF1E293B)
+              : const Color(0xFFF8FAFC),
 
-          // Icon color
+          // Prefix icon
           prefixIcon: Icon(
             widget.icon,
             color: isFocused
-                ? const Color(0xFF0052FF)
+                ? isDark
+                      ? const Color(0xFFA78BFA)
+                      : const Color(0xFF7C3AED)
                 : isDark
-                    ? const Color(0xff94A3B8)
-                    : Colors.grey,
+                ? const Color(0xFF94A3B8)
+                : Colors.grey,
           ),
 
+          // Password visibility icon
           suffixIcon: widget.isPassword
               ? IconButton(
                   onPressed: () {
@@ -95,14 +99,14 @@ class _InputfieldState extends State<Inputfield> {
                     });
                   },
                   icon: Icon(
-                    isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
+                    isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                     color: isFocused
-                        ? const Color(0xFF0052FF)
+                        ? isDark
+                              ? const Color(0xFFA78BFA)
+                              : const Color(0xFF7C3AED)
                         : isDark
-                            ? const Color(0xff94A3B8)
-                            : Colors.grey,
+                        ? const Color(0xFF94A3B8)
+                        : Colors.grey,
                   ),
                 )
               : null,
@@ -110,8 +114,8 @@ class _InputfieldState extends State<Inputfield> {
           // Normal border
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(
-              color: Colors.transparent,
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF334155) : Colors.transparent,
               width: 1,
             ),
           ),
@@ -119,8 +123,8 @@ class _InputfieldState extends State<Inputfield> {
           // Focused border
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(
-              color: Color(0xFF0052FF),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
               width: 1.5,
             ),
           ),

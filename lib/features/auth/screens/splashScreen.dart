@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Auth/screens/login.dart';
 
-
 class Splash extends StatefulWidget {
   const Splash({super.key});
 
@@ -16,18 +15,13 @@ class _SplashState extends State<Splash> {
   void initState() {
     super.initState();
 
-    Timer(
-      const Duration(seconds: 3),
-      () {
-        if (!mounted) return;
+    Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const Login(),
-          ),
-        );
-      },
-    );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (context) => const Login()));
+    });
   }
 
   @override
@@ -42,8 +36,8 @@ class _SplashState extends State<Splash> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF4C1D95),
-              Color(0xFF7C3AED),
+              Color.fromARGB(255, 240, 240, 240),
+              Color.fromARGB(255, 242, 241, 244),
             ],
           ),
         ),
@@ -59,7 +53,7 @@ class _SplashState extends State<Splash> {
               padding: const EdgeInsets.all(4),
 
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color.fromARGB(255, 4, 4, 4),
                 borderRadius: BorderRadius.circular(20),
 
                 boxShadow: [
@@ -73,10 +67,7 @@ class _SplashState extends State<Splash> {
 
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/image/image.png',
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset('assets/image/image.png', fit: BoxFit.cover),
               ),
             ),
 
@@ -86,7 +77,7 @@ class _SplashState extends State<Splash> {
             const Text(
               "Examora",
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,
@@ -99,7 +90,7 @@ class _SplashState extends State<Splash> {
             const Text(
               "Smart Exams. Better Results.",
               style: TextStyle(
-                color: Colors.white70,
+                color: Colors.black87,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -113,7 +104,7 @@ class _SplashState extends State<Splash> {
               height: 22,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Colors.white,
+                color: Color.fromARGB(255, 9, 8, 8),
               ),
             ),
           ],

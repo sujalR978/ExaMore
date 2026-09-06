@@ -14,8 +14,7 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _newPasswordController =
-      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
@@ -70,16 +69,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               borderRadius: BorderRadius.circular(24.0),
 
               border: Border.all(
-                color: isDark
-                    ? const Color(0xFF334155)
-                    : Colors.grey.shade200,
+                color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
               ),
 
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: isDark ? 0.20 : 0.03,
-                  ),
+                  color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -250,8 +245,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     child: OutlinedButton(
                       onPressed: () => _handleBackToLogin(context),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(
-                          color: Color(0xFF7C3AED),
+                        side: BorderSide(
+                          color: isDark ? Colors.white : Color(0xFF7C3AED),
                           width: 1.5,
                         ),
                         shape: RoundedRectangleBorder(
@@ -259,10 +254,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                       ),
 
-                      child: const Text(
+                      child: Text(
                         'Back to Login',
                         style: TextStyle(
-                          color: Color(0xFF7C3AED),
+                          color: isDark ? Colors.white : Color(0xFF7C3AED),
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
