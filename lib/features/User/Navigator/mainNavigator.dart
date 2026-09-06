@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'package:prep_mate/features/User/screen/showExam.dart';
 import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 import 'package:prep_mate/features/User/screen/userProfile.dart';
@@ -35,80 +34,62 @@ class _MainNavigatorState extends State<MainNavigator> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      // Using a Stack so the bottom nav bar floats transparently over the content
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          16.0,
-          16.0,
-          16.0,
-          100.0,
-        ), // Added 100px bottom padding so content scrolls above the capsule bar
-        child: Column(
-          children: [
-            // Screens take up the full body
-            IndexedStack(index: _currentIndex, children: _screens),
-
-            // Floating Capsule Navigation Bar positioned at the bottom
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 16,
-              child: SafeArea(
-                child: Container(
-                  height: 65,
-                  decoration: BoxDecoration(
-                    color: containerColor,
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(
-                      color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(
-                          isDarkMode ? 0.35 : 0.1,
-                        ),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(
-                        0,
-                        Icons.dashboard_outlined,
-                        Icons.dashboard,
-                        'Dashboard',
-                        isDarkMode,
-                      ),
-                      _buildNavItem(
-                        1,
-                        Icons.assignment,
-                        Icons.assignment_outlined,
-                        'Exams',
-                        isDarkMode,
-                      ),
-                      _buildNavItem(
-                        2,
-                        Icons.bolt,
-                        Icons.bolt_outlined,
-                        'Practice',
-                        isDarkMode,
-                      ),
-                      _buildNavItem(
-                        3,
-                        Icons.person,
-                        Icons.person_outline,
-                        'Profile',
-                        isDarkMode,
-                      ),
-                    ],
-                  ),
-                ),
+      // Using standard bottomNavigationBar slot. Flutter automatically sizes
+      // the body above it so your content will never be hidden or overridden!
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
+          child: Container(
+            height: 65,
+            decoration: BoxDecoration(
+              color: containerColor,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  0,
+                  Icons.dashboard_outlined,
+                  Icons.dashboard,
+                  'Dashboard',
+                  isDarkMode,
+                ),
+                _buildNavItem(
+                  1,
+                  Icons.assignment,
+                  Icons.assignment_outlined,
+                  'Exams',
+                  isDarkMode,
+                ),
+                _buildNavItem(
+                  2,
+                  Icons.bolt,
+                  Icons.bolt_outlined,
+                  'Practice',
+                  isDarkMode,
+                ),
+                _buildNavItem(
+                  3,
+                  Icons.person,
+                  Icons.person_outline,
+                  'Profile',
+                  isDarkMode,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
