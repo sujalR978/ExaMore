@@ -10,7 +10,6 @@ import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/textButton.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
-import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -32,7 +31,7 @@ class _LoginState extends State<Login> {
     super.dispose();
   }
 
-  // Login handel
+  // Login handler
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -45,15 +44,16 @@ class _LoginState extends State<Login> {
     try {
       if (_email.text == "admin@gmail.com" && _password.text == "admin123") {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => Adminhomescreen()),
+          MaterialPageRoute(builder: (context) => const Adminhomescreen()),
         );
-      }
-      if (_email.text == "user@gmail.com" && _password.text == "user123") {
+      } else if (_email.text == "user@gmail.com" &&
+          _password.text == "user123") {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => MainNavigator()),
+          MaterialPageRoute(builder: (context) => const MainNavigator()),
         );
       }
     } catch (e) {
+      // Handle error if necessary
     } finally {
       if (mounted) {
         setState(() {
@@ -69,16 +69,15 @@ class _LoginState extends State<Login> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      // Changed only for theme
       backgroundColor: theme.scaffoldBackgroundColor,
-
       body: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
+        onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.only(top: 80),
+            padding: const EdgeInsets.symmetric(
+              vertical: 80.0,
+              horizontal: 16.0,
+            ),
             child: Column(
               children: [
                 Center(
@@ -97,47 +96,33 @@ class _LoginState extends State<Login> {
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 5),
-
-                Maintitle(text: "ExaMora"),
-
-                const SizedBox(height: 0),
-
-                Subtitle(text: "Smart Exams. Better Results."),
-
+                const SizedBox(height: 12),
+                const Maintitle(text: "ExaMora"),
+                const SizedBox(height: 4),
+                const Subtitle(text: "Smart Exams. Better Results."),
                 const SizedBox(height: 32),
-
                 Container(
+                  width: 358,
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
-                    shape: BoxShape.rectangle,
-
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       width: 1,
                       color: isDark
                           ? const Color(0xFF334155)
                           : const Color(0xffE2E8F0),
                     ),
-
-                    borderRadius: BorderRadius.circular(12),
                   ),
-
-                  width: 358,
-
-                  padding: const EdgeInsets.only(
-                    top: 24,
-                    bottom: 24,
-                    left: 24,
-                    right: 24,
-                  ),
-
                   child: Column(
                     children: [
-                      SizedBox(height: 46, width: 308, child: Googlebutton()),
-
+                      SizedBox(
+                        height: 46,
+                        width: double.infinity,
+                        child: Googlebutton(),
+                      ),
                       Padding(
-                        padding: const EdgeInsets.only(top: 23, bottom: 23),
+                        padding: const EdgeInsets.symmetric(vertical: 23),
                         child: Row(
                           children: [
                             Expanded(
@@ -149,7 +134,6 @@ class _LoginState extends State<Login> {
                                 endIndent: 10,
                               ),
                             ),
-
                             Text(
                               "OR LOG IN WITH EMAIL",
                               style: TextStyle(
@@ -160,7 +144,6 @@ class _LoginState extends State<Login> {
                                 fontSize: 12,
                               ),
                             ),
-
                             Expanded(
                               child: Divider(
                                 thickness: 1,
@@ -173,120 +156,103 @@ class _LoginState extends State<Login> {
                           ],
                         ),
                       ),
-
                       Form(
                         key: _formKey,
-                        child: Container(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Filedtitle(text: "Email Address"),
-
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  top: 8.0,
-                                  bottom: 8,
-                                ),
-                                child: Inputfield(
-                                  controller: _email,
-                                  hintText: "student@university.edu",
-                                  icon: Icons.email,
-                                  isPassword: false,
-
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return "Email is required";
-                                    }
-
-                                    final emailRegex = RegExp(
-                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                    );
-
-                                    if (!emailRegex.hasMatch(value.trim())) {
-                                      return "Enter a valid email";
-                                    }
-
-                                    return null;
-                                  },
-                                ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Filedtitle(text: "Email Address"),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
                               ),
-
-                              Container(
-                                child: Row(
-                                  children: [
-                                    Filedtitle(text: "Password"),
-
-                                    const SizedBox(width: 153),
-
-                                    Textbutton(
-                                      text: "Forgot Password?",
-                                      onPressed: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const ForgotPasswordPage(),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
+                              child: Inputfield(
+                                controller: _email,
+                                hintText: "student@university.edu",
+                                icon: Icons.email,
+                                isPassword: false,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return "Email is required";
+                                  }
+                                  final emailRegex = RegExp(
+                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                  );
+                                  if (!emailRegex.hasMatch(value.trim())) {
+                                    return "Enter a valid email";
+                                  }
+                                  return null;
+                                },
                               ),
-
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 15),
-                                child: Inputfield(
-                                  controller: _password,
-                                  hintText: "••••••••",
-                                  icon: Icons.lock,
-                                  isPassword: true,
-
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return "Password is required";
-                                    }
-
-                                    if (value.length < 6) {
-                                      return "Password must be at least 6 characters";
-                                    }
-
-                                    return null;
-                                  },
-                                ),
-                              ),
-
-                              SizedBox(
-                                height: 55,
-                                width: 308,
-                                child: Button(
-                                  text: _isLogin ? "Logging in..." : "Login",
-                                  icon: Icons.arrow_forward,
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Filedtitle(text: "Password"),
+                                Textbutton(
+                                  text: "Forgot Password?",
                                   onPressed: () {
-                                    if (!_isLogin) login();
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const ForgotPasswordPage(),
+                                      ),
+                                    );
                                   },
                                 ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 8.0,
+                                bottom: 15,
                               ),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Subtitle(text: "Don't have an account?"),
-
-                                  Textbutton(
-                                    text: "Register",
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const Registration(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
+                              child: Inputfield(
+                                controller: _password,
+                                hintText: "••••••••",
+                                icon: Icons.lock,
+                                isPassword: true,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return "Password is required";
+                                  }
+                                  if (value.length < 6) {
+                                    return "Password must be at least 6 characters";
+                                  }
+                                  return null;
+                                },
                               ),
-                            ],
-                          ),
+                            ),
+                            SizedBox(
+                              height: 55,
+                              width: double.infinity,
+                              child: Button(
+                                text: _isLogin ? "Logging in..." : "Login",
+                                icon: Icons.arrow_forward,
+                                onPressed: () {
+                                  if (!_isLogin) login();
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Subtitle(text: "Don't have an account?"),
+                                Textbutton(
+                                  text: "Register",
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const Registration(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ],
