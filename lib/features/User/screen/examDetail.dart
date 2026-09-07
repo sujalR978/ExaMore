@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/User/screen/activeExamScreen.dart';
 
 class ExamdetailPage extends StatefulWidget {
   const ExamdetailPage({super.key});
@@ -10,7 +11,72 @@ class ExamdetailPage extends StatefulWidget {
 class _ExamdetailPageState extends State<ExamdetailPage> {
   // Separate method for Start Exam button onPressed
   void _handleStartExam(BuildContext context) {
-    print('Start Exam clicked');
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        final theme = Theme.of(context);
+        final isDarkMode = theme.brightness == Brightness.dark;
+
+        return AlertDialog(
+          backgroundColor: theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Are you sure?',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          content: Text(
+            'Do you really want to start this exam now? Your timer will begin immediately.',
+            style: TextStyle(
+              color: isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600],
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDarkMode
+                      ? const Color(0xFF94A3B8)
+                      : Colors.grey[600],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Close dialog
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ActiveExamScreen(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFBBF24), // Amber CTA
+                foregroundColor: const Color(0xFF1E1B4B),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Yes, Start',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

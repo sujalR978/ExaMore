@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Auth/screens/logOut.dart';
+import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
+import 'package:prep_mate/features/User/screen/savedExamScreen.dart';
+import 'package:prep_mate/features/User/screen/settingScreen.dart';
+import 'package:prep_mate/features/User/screen/supportCenterScreen.dart';
 
 class Userprofile extends StatefulWidget {
   const Userprofile({super.key});
@@ -10,7 +14,26 @@ class Userprofile extends StatefulWidget {
 
 class _profileState extends State<Userprofile> {
   void _handleMenuAction(String title) {
-    print('$title clicked');
+    if (title == 'Personal Information') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => PersonalInformationScreen()),
+      );
+    }
+    if (title == 'Saved Exams') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => SavedExamsScreen()));
+    }
+    if (title == 'Settings') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => Settingscreen()));
+    }
+    if (title == 'Help & Support') {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => SupportCenterScreen()));
+    }
   }
 
   void _handleLogout() {
@@ -284,7 +307,7 @@ class _profileState extends State<Userprofile> {
                     'Notification Settings',
                     textColor,
                     subtitleColor,
-                    () => _handleMenuAction('Notification Settings'),
+                    () => _handleMenuAction('Settings'),
                   ),
                   Divider(height: 1, color: borderColor),
                   _buildMenuRow(
