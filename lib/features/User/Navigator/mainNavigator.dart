@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/User/screen/ExamAttemptsHistoryScreen.dart';
 import 'package:prep_mate/features/User/screen/showExam.dart';
 import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 import 'package:prep_mate/features/User/screen/userProfile.dart';
@@ -16,7 +17,7 @@ class _MainNavigatorState extends State<MainNavigator> {
   final List<Widget> _screens = [
     const Userhomescreen(),
     const Showexam(),
-    const PlaceholderScreen(title: 'Practice / Results'),
+    const ExamAttemptsHistoryScreen(),
     const Userprofile(),
   ];
 
@@ -75,9 +76,9 @@ class _MainNavigatorState extends State<MainNavigator> {
                 ),
                 _buildNavItem(
                   2,
-                  Icons.bolt,
-                  Icons.bolt_outlined,
-                  'Practice',
+                  Icons.book,
+                  Icons.book_outlined,
+                  'Result',
                   isDarkMode,
                 ),
                 _buildNavItem(
