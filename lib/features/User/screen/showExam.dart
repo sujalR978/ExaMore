@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/User/screen/allExamScreen.dart';
+import 'package:prep_mate/features/User/screen/examDetail.dart';
 import 'package:prep_mate/features/User/widget/showExams.dart';
+
 class Showexam extends StatefulWidget {
   const Showexam({super.key});
 
@@ -14,11 +17,15 @@ class _ShowexamState extends State<Showexam> {
   final List<String> _categories = ['All Subjects', 'Science', 'Mathematics'];
 
   void _handleViewAll() {
-    print('View All clicked');
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => AllExamsScreen()));
   }
 
   void _handleStartExam(String title) {
-    print('Start Exam clicked for: $title');
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage()));
   }
 
   @override
@@ -34,7 +41,9 @@ class _ShowexamState extends State<Showexam> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     return Scaffold(
@@ -44,7 +53,10 @@ class _ShowexamState extends State<Showexam> {
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: containerColor,
@@ -74,7 +86,9 @@ class _ShowexamState extends State<Showexam> {
                   title: Text(
                     'Examora',
                     style: TextStyle(
-                      color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFFB45309),
                       fontWeight: FontWeight.bold,
                       fontSize: 22,
                     ),
@@ -111,10 +125,7 @@ class _ShowexamState extends State<Showexam> {
             const SizedBox(height: 4),
             Text(
               'Find practice tests and assessments across all subjects.',
-              style: TextStyle(
-                color: subtitleColor,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: subtitleColor, fontSize: 14),
             ),
             const SizedBox(height: 20),
 
@@ -140,7 +151,10 @@ class _ShowexamState extends State<Showexam> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16.0),
-                        borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF7C3AED),
+                          width: 1.5,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
                     ),
@@ -189,7 +203,9 @@ class _ShowexamState extends State<Showexam> {
                       labelStyle: TextStyle(
                         color: isSelected
                             ? Colors.white
-                            : (isDarkMode ? Colors.white70 : const Color(0xFF1E1B4B)),
+                            : (isDarkMode
+                                  ? Colors.white70
+                                  : const Color(0xFF1E1B4B)),
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -223,7 +239,9 @@ class _ShowexamState extends State<Showexam> {
                   child: Text(
                     'View All',
                     style: TextStyle(
-                      color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFFB45309),
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -235,10 +253,15 @@ class _ShowexamState extends State<Showexam> {
             // Exam Card 1: Advanced Calculus
             ExamCardWidget(
               badgeText: 'MATHEMATICS',
-              badgeColor: isDarkMode ? const Color(0xFF312E81) : const Color(0xFFDBEAFE),
-              badgeTextColor: isDarkMode ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+              badgeColor: isDarkMode
+                  ? const Color(0xFF312E81)
+                  : const Color(0xFFDBEAFE),
+              badgeTextColor: isDarkMode
+                  ? const Color(0xFF93C5FD)
+                  : const Color(0xFF1D4ED8),
               title: 'Advanced Calculus Midterm Prep',
-              description: 'Comprehensive review of derivatives, integrals, and limits with detailed...',
+              description:
+                  'Comprehensive review of derivatives, integrals, and limits with detailed...',
               time: '90 mins',
               mcqs: '40 MCQs',
               icon: Icons.calculate_outlined,
@@ -246,17 +269,23 @@ class _ShowexamState extends State<Showexam> {
               buttonText: 'Start Exam',
               buttonBgColor: const Color(0xFFFBBF24),
               buttonTextColor: const Color(0xFF1E1B4B),
-              onButtonPressed: () => _handleStartExam('Advanced Calculus Midterm Prep'),
+              onButtonPressed: () =>
+                  _handleStartExam('Advanced Calculus Midterm Prep'),
             ),
             const SizedBox(height: 16),
 
             // Exam Card 2: Organic Chemistry Fundamentals
             ExamCardWidget(
               badgeText: 'SCIENCE',
-              badgeColor: isDarkMode ? const Color(0xFF2E2A72) : const Color(0xFFDBEAFE),
-              badgeTextColor: isDarkMode ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+              badgeColor: isDarkMode
+                  ? const Color(0xFF2E2A72)
+                  : const Color(0xFFDBEAFE),
+              badgeTextColor: isDarkMode
+                  ? const Color(0xFF93C5FD)
+                  : const Color(0xFF1D4ED8),
               title: 'Organic Chemistry Fundamentals',
-              description: 'Test your knowledge on reaction mechanisms, functional groups, and...',
+              description:
+                  'Test your knowledge on reaction mechanisms, functional groups, and...',
               time: '60 mins',
               mcqs: '30 MCQs',
               icon: Icons.science_outlined,
@@ -264,7 +293,8 @@ class _ShowexamState extends State<Showexam> {
               buttonText: 'View Details',
               buttonBgColor: const Color(0xFF5B21B6),
               buttonTextColor: Colors.white,
-              onButtonPressed: () => _handleStartExam('Organic Chemistry Fundamentals'),
+              onButtonPressed: () =>
+                  _handleStartExam('Organic Chemistry Fundamentals'),
             ),
             const SizedBox(height: 30),
           ],
