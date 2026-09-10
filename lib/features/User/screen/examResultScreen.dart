@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 
 import 'package:prep_mate/features/User/screen/reviewAnswersScreen.dart';
-import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
+
 import 'package:prep_mate/features/User/widget/CircularProgressWithText.dart';
 
 class ExamResultScreen extends StatefulWidget {
@@ -21,7 +22,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   void _handleSave() {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => Userhomescreen()));
+    ).push(MaterialPageRoute(builder: (context) => MainNavigator()));
   }
 
   @override
@@ -91,14 +92,6 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.menu, color: textColor),
-                      onPressed: () {
-                        print('Menu clicked');
-                      },
-                    ),
-                  ],
                 ),
               ),
             ),
