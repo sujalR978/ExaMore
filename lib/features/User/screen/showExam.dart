@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/User/screen/allExamScreen.dart';
 import 'package:prep_mate/features/User/screen/examDetail.dart';
+import 'package:prep_mate/features/User/screen/settingScreen.dart';
 import 'package:prep_mate/features/User/widget/showExams.dart';
 
 class Showexam extends StatefulWidget {
@@ -98,7 +99,11 @@ class _ShowexamState extends State<Showexam> {
                     IconButton(
                       icon: Icon(Icons.settings_outlined, color: textColor),
                       onPressed: () {
-                        print('Settings clicked');
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => Settingscreen(),
+                          ),
+                        );
                       },
                     ),
                   ],
