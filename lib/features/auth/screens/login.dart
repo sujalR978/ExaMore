@@ -44,7 +44,7 @@ class _LoginState extends State<Login> {
     try {
       if (_email.text == "admin@gmail.com" && _password.text == "admin123") {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const Adminhomescreen()),
+          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
         );
       } else if (_email.text == "user@gmail.com" &&
           _password.text == "user123") {
