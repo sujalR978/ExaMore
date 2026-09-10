@@ -65,12 +65,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () {
-                      print('Menu clicked');
-                    },
-                  ),
+
                   title: Text(
                     'Support Center',
                     style: TextStyle(
