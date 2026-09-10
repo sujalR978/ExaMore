@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/Auth/widgets/appBar.dart';
 import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
@@ -11,7 +12,11 @@ class LogoutPage extends StatefulWidget {
 }
 
 class _LogoutPageState extends State<LogoutPage> {
-  void _handleLogout(BuildContext context) {}
+  void _handleLogout(BuildContext context) {
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (context) => Login()));
+  }
 
   void _handleStayLoggedIn(BuildContext context) {
     Navigator.pop(context);
