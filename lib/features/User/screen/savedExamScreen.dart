@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/User/screen/examDetail.dart';
 
 class SavedExamsScreen extends StatefulWidget {
   const SavedExamsScreen({super.key});
@@ -12,7 +13,9 @@ class _SavedExamsScreenState extends State<SavedExamsScreen> {
   final List<String> _categories = ['All', 'Recent', 'In Progress'];
 
   void _handleStartExam(String title) {
-    print('Start Exam clicked for: $title');
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage()));
   }
 
   void _handleBookmarkToggle(String title) {
@@ -73,14 +76,6 @@ class _SavedExamsScreenState extends State<SavedExamsScreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.search, color: textColor),
-                      onPressed: () {
-                        print('Search clicked');
-                      },
-                    ),
-                  ],
                 ),
               ),
             ),
