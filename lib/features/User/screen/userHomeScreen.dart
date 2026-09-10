@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/User/screen/allExamScreen.dart';
 import 'package:prep_mate/features/User/screen/examDetail.dart';
+import 'package:prep_mate/features/User/screen/settingScreen.dart';
 import 'package:prep_mate/features/User/widget/examCardWidget.dart';
 
 class Userhomescreen extends StatefulWidget {
@@ -101,7 +102,11 @@ class _HomeScreenState extends State<Userhomescreen> {
                         color: textColor,
                       ),
                       onPressed: () {
-                        print('Notifications clicked');
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => Settingscreen(),
+                          ),
+                        );
                       },
                     ),
                   ],
