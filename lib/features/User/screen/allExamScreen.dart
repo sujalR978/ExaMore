@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
+import 'package:prep_mate/features/User/screen/examDetail.dart';
 import 'package:prep_mate/features/User/widget/examListWidget.dart';
 
 class AllExamsScreen extends StatefulWidget {
@@ -22,7 +23,9 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
   ];
 
   void _handleExamTap(String title) {
-    print('Exam tapped: $title');
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage()));
   }
 
   @override
@@ -74,9 +77,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
                   scrolledUnderElevation: 0,
                   leading: IconButton(
                     icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => MainNavigator()),
-                    ),
+                    onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     'All Exams',
@@ -87,14 +88,6 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.filter_list, color: textColor),
-                      onPressed: () {
-                        print('Filter settings clicked');
-                      },
-                    ),
-                  ],
                 ),
               ),
             ),
