@@ -106,7 +106,11 @@ class _profileState extends State<Userprofile> {
                     IconButton(
                       icon: Icon(Icons.settings_outlined, color: textColor),
                       onPressed: () {
-                        print('Settings clicked');
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => Settingscreen(),
+                          ),
+                        );
                       },
                     ),
                   ],
