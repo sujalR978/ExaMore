@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 
 class CandidateDetailScreen extends StatefulWidget {
   const CandidateDetailScreen({super.key});
@@ -16,6 +17,7 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final GlobalKey<ScaffoldState> _scaffold = GlobalKey<ScaffoldState>();
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
@@ -28,6 +30,8 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      key: _scaffold,
+      drawer: const AdminMenuDrawer(),
       // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
@@ -85,7 +89,7 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
                     IconButton(
                       icon: Icon(Icons.menu, color: textColor),
                       onPressed: () {
-                        print('Menu clicked');
+                        _scaffold.currentState?.openDrawer();
                       },
                     ),
                   ],
