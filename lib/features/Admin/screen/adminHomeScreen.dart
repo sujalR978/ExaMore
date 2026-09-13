@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/ExamAnalyticsDetailScreen.dart';
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/StudentDirectoryScreen.dart';
+import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 import 'package:prep_mate/features/Admin/screen/questionBankScreen.dart';
 import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
 import 'package:prep_mate/features/Admin/screen/supportScreen.dart';
@@ -67,82 +68,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? const Color(0xFF1E1B4B)
-                    : const Color(0xFF1E1B4B),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'Examora Admin',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Navigation Menu',
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.dashboard_outlined),
-              title: const Text('Dashboard'),
-              onTap: () => Navigator.pop(context),
-            ),
-            ListTile(
-              leading: const Icon(Icons.assignment_outlined),
-              title: const Text('View Result'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => RecentResultsAndUsersScreen(),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('Question Bank'),
-              onTap: () {
-                Navigator.pop(context);
-                _handleQuestionBank();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('Exames'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => Showexamesscreen()),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('Support'),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => SupportOverviewScreen(),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Settings'),
-              onTap: () => Navigator.pop(context),
-            ),
-          ],
-        ),
-      ),
+      drawer: AdminMenuDrawer(),
       // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
