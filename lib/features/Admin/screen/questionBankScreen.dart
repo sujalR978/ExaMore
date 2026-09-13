@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
-
+import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 
 class QuestionBankScreen extends StatefulWidget {
   const QuestionBankScreen({super.key});
@@ -13,6 +13,7 @@ class QuestionBankScreen extends StatefulWidget {
 class _QuestionBankScreenState extends State<QuestionBankScreen> {
   int _selectedCategoryIndex = 0;
   final TextEditingController _searchController = TextEditingController();
+  final GlobalKey<ScaffoldState> _Scaffold = GlobalKey<ScaffoldState>();
 
   final List<String> _categories = [
     'All Subjects',
@@ -59,6 +60,8 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      key: _Scaffold,
+      drawer: const AdminMenuDrawer(),
       // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
@@ -116,7 +119,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                     IconButton(
                       icon: Icon(Icons.menu, color: textColor),
                       onPressed: () {
-                        print('Menu clicked');
+                        _Scaffold.currentState?.openDrawer();
                       },
                     ),
                   ],
