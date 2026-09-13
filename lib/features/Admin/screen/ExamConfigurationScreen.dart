@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
+import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 
 class ExamConfigurationScreen extends StatefulWidget {
   const ExamConfigurationScreen({super.key});
@@ -11,6 +12,7 @@ class ExamConfigurationScreen extends StatefulWidget {
 
 class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   final _formKey = GlobalKey<FormState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _durationController = TextEditingController(
     text: '120',
@@ -66,6 +68,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      key: _scaffoldKey, // Assigned the scaffold key
+      drawer: const AdminMenuDrawer(),
       // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
@@ -96,7 +100,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                   leading: IconButton(
                     icon: Icon(Icons.menu, color: textColor),
                     onPressed: () {
-                      print('Menu clicked');
+                      _scaffoldKey.currentState?.openDrawer();
                     },
                   ),
                   title: Text(
@@ -110,17 +114,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: IconButton(
-                        icon: Icon(Icons.person_outline, color: textColor),
-                        onPressed: () {
-                          print('Profile clicked');
-                        },
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
