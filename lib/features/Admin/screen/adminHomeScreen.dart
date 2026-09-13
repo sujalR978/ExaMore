@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/Admin/screen/ExamAnalyticsDetailScreen.dart';
+
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/StudentDirectoryScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 import 'package:prep_mate/features/Admin/screen/questionBankScreen.dart';
 import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
-import 'package:prep_mate/features/Admin/screen/supportScreen.dart';
-import 'package:prep_mate/features/Admin/screen/userResultScreen.dart';
-import 'package:prep_mate/features/User/screen/activeExamScreen.dart';
+
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
