@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
+
 import 'package:prep_mate/features/User/screen/examDetail.dart';
 import 'package:prep_mate/features/User/widget/examListWidget.dart';
 
