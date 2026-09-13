@@ -7,9 +7,8 @@ import 'package:prep_mate/features/Admin/screen/questionBankScreen.dart';
 import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
 import 'package:prep_mate/features/Admin/screen/supportScreen.dart';
 import 'package:prep_mate/features/Admin/screen/userResultScreen.dart';
-import 'package:prep_mate/features/User/screen/activeExamScreen.dart';
-import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
-import 'package:prep_mate/features/User/screen/showExam.dart';
+import 'package:prep_mate/features/Auth/screens/logOut.dart';
+
 
 class AdminMenuDrawer extends StatelessWidget {
   const AdminMenuDrawer({super.key});
@@ -178,6 +177,18 @@ class AdminMenuDrawer extends StatelessWidget {
                   builder: (context) => SupportOverviewScreen(),
                 ),
               );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Color(0xFFDC2626)),
+            title: Text(
+              'Log Out',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+            ),
+            onTap: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (context) => LogoutPage()));
             },
           ),
         ],
