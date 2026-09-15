@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
-
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:prep_mate/features/Auth/screens/splashScreen.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+void main()async {
+    await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(
     ChangeNotifierProvider(create: (_) => ThemeProvider(), child: MyApp()),
   );

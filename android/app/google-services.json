@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "706499653261",
+    "project_id": "examora-441d4",
+    "storage_bucket": "examora-441d4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706499653261:android:e8e06c40f1ba170d053cc4",
+        "android_client_info": {
+          "package_name": "com.example.prep_mate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARBVl5QH3p0g5eicouGuzvMWvrErKfPVw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
