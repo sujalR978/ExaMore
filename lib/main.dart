@@ -7,6 +7,7 @@ import 'package:prep_mate/features/Auth/screens/splashScreen.dart';
 import 'package:provider/provider.dart';
 
 void main()async {
+  WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
