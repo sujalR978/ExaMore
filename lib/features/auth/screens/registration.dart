@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Auth/models/user_model.dart';
 import 'package:prep_mate/features/Auth/screens/login.dart';
+import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/Auth/widgets/button.dart';
 import 'package:prep_mate/features/Auth/widgets/filedTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/googleButton.dart';
@@ -42,7 +44,21 @@ class _RegistrationState extends State<Registration> {
       _regis = true;
     });
 
-    try {} catch (e) {
+    try {
+      final AuthService authService = AuthService();
+      await authService.createUser(
+        name: _name.text.trim(),
+        email: _email.text.trim(),
+        password: _password.text.trim(),
+      );
+
+       Navigator.of(context).pushReplacement(
+    MaterialPageRoute(
+      builder: (context) => const Login(),
+    ),
+  );
+    } catch (e) {
+      print("ERROR: $e");
     } finally {
       if (mounted) {
         setState(() {
@@ -50,6 +66,7 @@ class _RegistrationState extends State<Registration> {
         });
       }
     }
+   
   }
 
   @override
