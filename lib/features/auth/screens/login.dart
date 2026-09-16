@@ -11,7 +11,7 @@ import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/textButton.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
-import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
+
 
 class Login extends StatefulWidget {
   const Login({super.key});
