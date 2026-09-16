@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/Auth/screens/logOut.dart';
+
+import 'package:prep_mate/features/Auth/screens/login.dart';
+import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
 import 'package:prep_mate/features/User/screen/savedExamScreen.dart';
 import 'package:prep_mate/features/User/screen/settingScreen.dart';
@@ -13,6 +15,8 @@ class Userprofile extends StatefulWidget {
 }
 
 class _profileState extends State<Userprofile> {
+  bool _isLoggingOut = false; // Track logout loading state
+
   void _handleMenuAction(String title) {
     if (title == 'Personal Information') {
       Navigator.of(context).push(
@@ -36,10 +40,33 @@ class _profileState extends State<Userprofile> {
     }
   }
 
-  void _handleLogout() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => LogoutPage()));
+  void _handleLogout() async {
+    setState(() {
+      _isLoggingOut = true;
+    });
+
+    try {
+      AuthService authService = AuthService();
+      await authService.signOut();
+
+      if (!mounted) return;
+
+      // Navigate back to your Login or Splash screen and remove all previous routes
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const Login()),
+        (route) => false,
+      );
+    } catch (e) {
+      print("LOGOUT ERROR: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
   }
 
   @override
@@ -326,12 +353,12 @@ class _profileState extends State<Userprofile> {
             ),
             const SizedBox(height: 24),
 
-            // Logout Button
+            // Logout Button with Loading Indicator
             SizedBox(
               width: double.infinity,
               height: 52,
               child: OutlinedButton(
-                onPressed: _handleLogout,
+                onPressed: _isLoggingOut ? null : _handleLogout,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.red,
                   side: const BorderSide(color: Colors.red, width: 1.5),
@@ -339,14 +366,24 @@ class _profileState extends State<Userprofile> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.logout, size: 20),
-                    SizedBox(width: 8),
+                    if (_isLoggingOut)
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.red,
+                        ),
+                      )
+                    else
+                      const Icon(Icons.logout, size: 20),
+                    const SizedBox(width: 8),
                     Text(
-                      'Logout',
-                      style: TextStyle(
+                      _isLoggingOut ? 'Logging out...' : 'Logout',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
