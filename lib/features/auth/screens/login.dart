@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
 import 'package:prep_mate/features/Auth/screens/forgetPassword.dart';
 import 'package:prep_mate/features/Auth/screens/registration.dart';
+import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/Auth/widgets/button.dart';
 import 'package:prep_mate/features/Auth/widgets/filedTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/googleButton.dart';
@@ -10,6 +11,7 @@ import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/textButton.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
+import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -33,6 +35,7 @@ class _LoginState extends State<Login> {
 
   // Login handler
   Future<void> login() async {
+   final AuthService _authService = AuthService();
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -42,18 +45,23 @@ class _LoginState extends State<Login> {
     });
 
     try {
-      if (_email.text == "admin@gmail.com" && _password.text == "admin123") {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
-        );
-      } else if (_email.text == "user@gmail.com" &&
-          _password.text == "user123") {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const MainNavigator()),
-        );
-      }
+      await _authService.signInUser(
+        email: _email.text,
+        password: _password.text,
+      );
+
+      // Navigate to your Home screen on success
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const MainNavigator(),
+        ), // Replace with your home screen
+      );
     } catch (e) {
-      // Handle error if necessary
+      // Show error message to the user (e.g., using a SnackBar)
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Login Failed: $e")));
     } finally {
       if (mounted) {
         setState(() {
