@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:prep_mate/features/Auth/models/user_model.dart';
 
 class AuthService {
@@ -38,5 +39,39 @@ class AuthService {
       print("FIRESTORE ERROR MESSAGE: ${e.message}");
       rethrow;
     }
+  }
+
+  Future<void> singInWithGoogle() async {
+    final GoogleSignInAccount? googleUser = await GoogleSignIn.instance
+        .authenticate();
+
+    if (googleUser == null) {
+      return;
+    }
+    final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      idToken: googleAuth.idToken,
+    );
+
+    final UserCredential userCredential = await _auth.signInWithCredential(
+      credential,
+    );
+    final User fierbaseUser = userCredential.user!;
+
+    UserModel user = UserModel(
+      uid: fierbaseUser.uid,
+      name: fierbaseUser.displayName ?? '',
+      email: fierbaseUser.email ?? '',
+      password: '',
+      loginMethod: 'google',
+      photoUrl: fierbaseUser.photoURL ?? '',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await _firestore
+        .collection('users')
+        .doc(fierbaseUser.uid)
+        .set(user.toMap(), SetOptions(merge: true));
   }
 }
