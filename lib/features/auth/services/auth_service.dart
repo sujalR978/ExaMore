@@ -41,10 +41,15 @@ class AuthService {
 
   Future<void> singInWithGoogle() async {
     try {
-      // Initialize with your Web Client ID
       await GoogleSignIn.instance.initialize(
-        serverClientId: '706499653261-2rt59tfu887s12tdo0s7iea03emhke70.apps.googleusercontent.com',
+        serverClientId:
+            '706499653261-2rt59tfu887s12tdo0s7iea03emhke70.apps.googleusercontent.com',
       );
+
+      // Force sign out to clear stale tokens/reauth state
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
 
       final GoogleSignInAccount? googleUser = await GoogleSignIn.instance
           .authenticate();
@@ -56,7 +61,7 @@ class AuthService {
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
-      
+
       if (googleAuth.idToken == null) {
         throw Exception("Google Auth ID Token is null.");
       }
@@ -85,7 +90,7 @@ class AuthService {
           .collection('users')
           .doc(firebaseUser.uid)
           .set(user.toMap(), SetOptions(merge: true));
-          
+
       print("GOOGLE SIGN IN SUCCESS");
     } catch (e) {
       print("GOOGLE SIGN IN ERROR: $e");
