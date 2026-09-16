@@ -97,4 +97,37 @@ class AuthService {
       rethrow;
     }
   }
+
+  Future<void> signInUser({
+  required String email,
+  required String password,
+}) async {
+  try {
+    UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password.trim(),
+    );
+
+    print("FIREBASE LOGIN SUCCESS: ${userCredential.user?.email}");
+  } on FirebaseAuthException catch (e) {
+    print("FIREBASE LOGIN ERROR CODE: ${e.code}");
+    print("FIREBASE LOGIN ERROR MESSAGE: ${e.message}");
+    rethrow;
+  }
+}
+
+Future<void> signOut() async {
+  try {
+    // 1. Sign out from Firebase
+    await _auth.signOut();
+
+    // 2. Sign out/disconnect from Google Sign-In session
+    await GoogleSignIn.instance.signOut();
+
+    print("USER SIGNED OUT SUCCESSFULLY");
+  } catch (e) {
+    print("SIGN OUT ERROR: $e");
+    rethrow;
+  }
+}
 }
