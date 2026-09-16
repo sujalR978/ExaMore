@@ -42,13 +42,20 @@ class AuthService {
   }
 
   Future<void> singInWithGoogle() async {
+    // Initialize with your Web Client ID for Android/cross-platform support
+    await GoogleSignIn.instance.initialize(
+      serverClientId: '706499653261-2rt59tfu887s12tdo0s7iea03emhke70.apps.googleusercontent.com',
+    );
+
     final GoogleSignInAccount? googleUser = await GoogleSignIn.instance
         .authenticate();
 
     if (googleUser == null) {
       return;
     }
-    final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+
+    final GoogleSignInAuthentication googleAuth =
+        await googleUser.authentication;
     final credential = GoogleAuthProvider.credential(
       idToken: googleAuth.idToken,
     );
@@ -56,22 +63,22 @@ class AuthService {
     final UserCredential userCredential = await _auth.signInWithCredential(
       credential,
     );
-    final User fierbaseUser = userCredential.user!;
+    final User firebaseUser = userCredential.user!;
 
     UserModel user = UserModel(
-      uid: fierbaseUser.uid,
-      name: fierbaseUser.displayName ?? '',
-      email: fierbaseUser.email ?? '',
+      uid: firebaseUser.uid,
+      name: firebaseUser.displayName ?? '',
+      email: firebaseUser.email ?? '',
       password: '',
       loginMethod: 'google',
-      photoUrl: fierbaseUser.photoURL ?? '',
+      photoUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
     await _firestore
         .collection('users')
-        .doc(fierbaseUser.uid)
+        .doc(firebaseUser.uid)
         .set(user.toMap(), SetOptions(merge: true));
   }
 }
