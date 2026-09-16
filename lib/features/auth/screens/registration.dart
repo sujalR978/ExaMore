@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/Auth/models/user_model.dart';
 import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/Auth/widgets/button.dart';
