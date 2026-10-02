@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
 
 import 'package:prep_mate/features/Auth/screens/forgetPassword.dart';
 import 'package:prep_mate/features/Auth/screens/registration.dart';
@@ -11,7 +12,6 @@ import 'package:prep_mate/features/Auth/widgets/mainTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/subTitle.dart';
 import 'package:prep_mate/features/Auth/widgets/textButton.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
-
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -35,7 +35,7 @@ class _LoginState extends State<Login> {
 
   // Login handler
   Future<void> login() async {
-   final AuthService _authService = AuthService();
+    final AuthService _authService = AuthService();
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -50,13 +50,26 @@ class _LoginState extends State<Login> {
         password: _password.text,
       );
 
-      // Navigate to your Home screen on success
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const MainNavigator(),
-        ), // Replace with your home screen
-      );
+      try {
+        String role = await _authService.signInUser(
+          email: _email.text,
+          password: _password.text,
+        );
+
+        if (role == 'admin') {
+          // Navigate to Admin Panel
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => AdminHomeScreen()),
+          );
+        } else {
+          // Navigate to Regular Student Dashboard
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => MainNavigator()),
+          );
+        }
+      } catch (e) {
+        // Handle login error (show Snackbar, etc.)
+      }
     } catch (e) {
       // Show error message to the user (e.g., using a SnackBar)
       ScaffoldMessenger.of(
