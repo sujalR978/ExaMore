@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
@@ -31,6 +33,7 @@ class _profileState extends State<Userprofile> {
         'photoUrl':
             'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
         'academicLevel': 'System Administrator',
+        'major': 'Computer Science',
       };
     }
 
@@ -41,26 +44,34 @@ class _profileState extends State<Userprofile> {
     return doc.data();
   }
 
-  void _handleMenuAction(String title) {
+  // Refreshes the profile page when returning from sub-screens
+  void _refreshProfile() {
+    setState(() {});
+  }
+
+  void _handleMenuAction(String title) async {
     if (title == 'Personal Information') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => PersonalInformationScreen()),
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const PersonalInformationScreen(),
+        ),
       );
-    }
-    if (title == 'Saved Exams') {
-      Navigator.of(
+      _refreshProfile(); // Refresh UI with updated Firestore data
+    } else if (title == 'Saved Exams') {
+      await Navigator.of(
         context,
-      ).push(MaterialPageRoute(builder: (context) => SavedExamsScreen()));
-    }
-    if (title == 'Settings') {
-      Navigator.of(
+      ).push(MaterialPageRoute(builder: (context) => const SavedExamsScreen()));
+      _refreshProfile();
+    } else if (title == 'Settings') {
+      await Navigator.of(
         context,
-      ).push(MaterialPageRoute(builder: (context) => Settingscreen()));
-    }
-    if (title == 'Help & Support') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => SupportCenterScreen()));
+      ).push(MaterialPageRoute(builder: (context) => const Settingscreen()));
+      _refreshProfile();
+    } else if (title == 'Help & Support') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const SupportCenterScreen()),
+      );
+      _refreshProfile();
     }
   }
 
@@ -92,6 +103,24 @@ class _profileState extends State<Userprofile> {
     }
   }
 
+  // Helper to load either NetworkImage or FileImage dynamically
+  ImageProvider _getProfileImage(String photoUrl) {
+    if (photoUrl.startsWith('http')) {
+      return NetworkImage(photoUrl);
+    } else {
+      // It's a local file path saved from the image picker
+      final file = File(photoUrl);
+      if (file.existsSync()) {
+        return FileImage(file);
+      } else {
+        // Fallback if file path is invalid
+        return const NetworkImage(
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -107,7 +136,6 @@ class _profileState extends State<Userprofile> {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _fetchUserData(),
       builder: (context, snapshot) {
-        // Loading state while fetching Firestore data
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
@@ -121,8 +149,8 @@ class _profileState extends State<Userprofile> {
         final String photoUrl =
             userData?['photoUrl'] ??
             'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
-        final String academicLevel =
-            userData?['academicLevel'] ?? 'Academic Level: Year 3';
+        final String academicLevel = userData?['academicLevel'] ?? 'Year 3';
+        final String major = userData?['major'] ?? 'Science Major';
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
@@ -158,7 +186,7 @@ class _profileState extends State<Userprofile> {
                       leading: Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: CircleAvatar(
-                          backgroundImage: NetworkImage(photoUrl),
+                          backgroundImage: _getProfileImage(photoUrl),
                         ),
                       ),
                       title: Text(
@@ -175,12 +203,13 @@ class _profileState extends State<Userprofile> {
                       actions: [
                         IconButton(
                           icon: Icon(Icons.settings_outlined, color: textColor),
-                          onPressed: () {
-                            Navigator.of(context).push(
+                          onPressed: () async {
+                            await Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => Settingscreen(),
+                                builder: (context) => const Settingscreen(),
                               ),
                             );
+                            _refreshProfile();
                           },
                         ),
                       ],
@@ -218,7 +247,7 @@ class _profileState extends State<Userprofile> {
                         children: [
                           CircleAvatar(
                             radius: 45,
-                            backgroundImage: NetworkImage(photoUrl),
+                            backgroundImage: _getProfileImage(photoUrl),
                           ),
                           Positioned(
                             bottom: 0,
@@ -249,22 +278,20 @@ class _profileState extends State<Userprofile> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        displayEmail.isNotEmpty ? displayEmail : academicLevel,
+                        displayEmail.isNotEmpty
+                            ? displayEmail
+                            : 'Academic Level: $academicLevel',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                       const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildTag(
-                            Icons.science_outlined,
-                            'Science Major',
-                            isDarkMode,
-                          ),
+                          _buildTag(Icons.science_outlined, major, isDarkMode),
                           const SizedBox(width: 8),
                           _buildTag(
-                            Icons.star_outline,
-                            'Honor Roll',
+                            Icons.school_outlined,
+                            academicLevel,
                             isDarkMode,
                           ),
                         ],

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 
@@ -16,9 +18,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
   final List<String> _categories = [
     'All',
-    'Engineering',
+    'Science Major',
+    'Computer Science',
     'Medicine',
-    'Fine Arts',
     'Business Admin',
   ];
 
@@ -38,12 +40,180 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     super.dispose();
   }
 
-  void _handleStudentTap(String name) {
-    print('Tapped student: $name');
+  // Helper to load either NetworkImage or FileImage dynamically
+  ImageProvider _getProfileImage(String photoUrl) {
+    if (photoUrl.startsWith('http')) {
+      return NetworkImage(photoUrl);
+    } else {
+      final file = File(photoUrl);
+      if (file.existsSync()) {
+        return FileImage(file);
+      } else {
+        return const NetworkImage(
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+        );
+      }
+    }
   }
 
-  void _handleLoadMore() {
-    print('Load More Students clicked');
+  // Show Student Information Popup Dialog
+  void _showStudentInfo(Map<String, dynamic> studentData) {
+    final String name = studentData['name'] ?? 'Unknown Student';
+    final String email = studentData['email'] ?? 'No email provided';
+    final String phone = studentData['phone'] ?? 'No phone provided';
+    final String major = studentData['major'] ?? 'General';
+    final String academicLevel = studentData['academicLevel'] ?? 'N/A';
+    final String photoUrl = studentData['photoUrl'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundImage: photoUrl.isNotEmpty
+                  ? _getProfileImage(photoUrl)
+                  : null,
+              child: photoUrl.isEmpty ? const Icon(Icons.person) : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Divider(),
+            _buildInfoRow(Icons.email_outlined, 'Email', email),
+            const SizedBox(height: 10),
+            _buildInfoRow(Icons.phone_outlined, 'Phone', phone),
+            const SizedBox(height: 10),
+            _buildInfoRow(Icons.science_outlined, 'Major', major),
+            const SizedBox(height: 10),
+            _buildInfoRow(
+              Icons.school_outlined,
+              'Academic Level',
+              academicLevel,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Close',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF7C3AED)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Confirm and Delete User from Firestore
+  void _confirmDeleteUser(String uid, String studentName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Are you sure?', style: TextStyle(color: Colors.red)),
+        content: Text(
+          'Do you want to delete "$studentName" from the directory?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context); // Close confirm dialog
+              try {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(uid)
+                    .delete();
+
+                if (!mounted) return;
+                // Show Success Popup Message
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    title: const Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green),
+                        SizedBox(width: 8),
+                        Text('Success'),
+                      ],
+                    ),
+                    content: Text(
+                      '"$studentName" has been deleted successfully.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          'OK',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to delete student: $e')),
+                );
+              }
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -58,74 +228,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    // Student directory items
-    final List<_StudentDirectoryData> students = [
-      _StudentDirectoryData(
-        name: 'Jane Cooper',
-        department: 'Computer Science',
-        id: '202401',
-        isImage: true,
-        imageUrl:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-      ),
-      _StudentDirectoryData(
-        name: 'Wade Warren',
-        department: 'Mechanical Eng',
-        id: '202442',
-        isImage: false,
-        initials: 'WL',
-        avatarBg: const Color(0xFFDBEAFE),
-        avatarText: const Color(0xFF1D4ED8),
-      ),
-      _StudentDirectoryData(
-        name: 'Cameron Williamson',
-        department: 'Medicine',
-        id: '202418',
-        isImage: true,
-        imageUrl:
-            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200',
-      ),
-      _StudentDirectoryData(
-        name: 'Brooklyn Simmons',
-        department: 'Fine Arts',
-        id: '202476',
-        isImage: false,
-        initials: 'BF',
-        avatarBg: const Color(0xFFDBEAFE),
-        avatarText: const Color(0xFF1D4ED8),
-      ),
-      _StudentDirectoryData(
-        name: 'Leslie Alexander',
-        department: 'Business Admin',
-        id: '202409',
-        isImage: true,
-        imageUrl:
-            'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200',
-      ),
-    ];
-
-    // Filter students by search and category
-    final filteredStudents = students.where((student) {
-      final matchesSearch =
-          student.name.toLowerCase().contains(_searchQuery) ||
-          student.id.toLowerCase().contains(_searchQuery) ||
-          student.department.toLowerCase().contains(_searchQuery);
-
-      if (_selectedCategoryIndex == 0) {
-        return matchesSearch;
-      }
-      final selectedCat = _categories[_selectedCategoryIndex].toLowerCase();
-      final matchesCategory = student.department.toLowerCase().contains(
-        selectedCat,
-      );
-
-      return matchesSearch && matchesCategory;
-    }).toList();
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-     drawer: AdminMenuDrawer(),
+      drawer: const AdminMenuDrawer(),
       // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
@@ -198,7 +304,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Search by name, ID...",
+                hintText: "Search by name, email...",
                 hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
                 prefixIcon: Icon(Icons.search, color: subtitleColor),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -247,9 +353,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           _selectedCategoryIndex = index;
                         });
                       },
-                      selectedColor: const Color(
-                        0xFFFBBF24,
-                      ), // Amber color matching screenshot selection
+                      selectedColor: const Color(0xFFFBBF24),
                       backgroundColor: containerColor,
                       labelStyle: TextStyle(
                         color: isSelected
@@ -273,88 +377,98 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Student List Cards
-            if (filteredStudents.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40.0),
-                child: Center(
-                  child: Text(
-                    'No students found matching "$_searchQuery"',
-                    style: TextStyle(color: subtitleColor, fontSize: 14),
-                  ),
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredStudents.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final student = filteredStudents[index];
-                  return _buildStudentCard(
-                    name: student.name,
-                    department: student.department,
-                    id: student.id,
-                    isImage: student.isImage,
-                    imageUrl: student.imageUrl,
-                    initials: student.initials,
-                    avatarBg: student.avatarBg,
-                    avatarText: student.avatarText,
-                    containerColor: containerColor,
-                    textColor: textColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                    onTap: () => _handleStudentTap(student.name),
+            // Firestore Stream Builder for Students
+            StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(child: CircularProgressIndicator()),
                   );
-                },
-              ),
-            const SizedBox(height: 30),
+                }
 
-            // Load More Students Button
-            Center(
-              child: SizedBox(
-                width: 240,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: _handleLoadMore,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: textColor,
-                    side: BorderSide(
-                      color: const Color(0xFF1E1B4B),
-                      width: 1.5,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Load More Students',
-                        style: TextStyle(
-                          color: isDarkMode
-                              ? Colors.white
-                              : const Color(0xFF1E1B4B),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        'No students found in Firestore',
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 20,
-                        color: isDarkMode
-                            ? Colors.white
-                            : const Color(0xFF1E1B4B),
+                    ),
+                  );
+                }
+
+                final docs = snapshot.data!.docs;
+
+                // Filter students by search query and category
+                final filteredDocs = docs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  final name = (data['name'] ?? '').toString().toLowerCase();
+                  final email = (data['email'] ?? '').toString().toLowerCase();
+                  final major = (data['major'] ?? '').toString().toLowerCase();
+
+                  final matchesSearch =
+                      name.contains(_searchQuery) ||
+                      email.contains(_searchQuery);
+
+                  if (_selectedCategoryIndex == 0) {
+                    return matchesSearch;
+                  }
+                  final selectedCat = _categories[_selectedCategoryIndex]
+                      .toLowerCase();
+                  final matchesCategory = major.contains(selectedCat);
+
+                  return matchesSearch && matchesCategory;
+                }).toList();
+
+                if (filteredDocs.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        'No students matching "$_searchQuery"',
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredDocs.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final doc = filteredDocs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    final String uid = doc.id;
+                    final String name = data['name'] ?? 'Unnamed Student';
+                    final String major = data['major'] ?? 'General';
+                    final String academicLevel =
+                        data['academicLevel'] ?? 'Year 3';
+                    final String photoUrl = data['photoUrl'] ?? '';
+
+                    return _buildStudentCard(
+                      uid: uid,
+                      name: name,
+                      department: '$major • $academicLevel',
+                      photoUrl: photoUrl,
+                      containerColor: containerColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      borderColor: borderColor,
+                      isDarkMode: isDarkMode,
+                      onTap: () => _showStudentInfo(data),
+                      onDelete: () => _confirmDeleteUser(uid, name),
+                    );
+                  },
+                );
+              },
             ),
             const SizedBox(height: 30),
           ],
@@ -364,20 +478,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   Widget _buildStudentCard({
+    required String uid,
     required String name,
     required String department,
-    required String id,
-    required bool isImage,
-    String? imageUrl,
-    String? initials,
-    Color? avatarBg,
-    Color? avatarText,
+    required String photoUrl,
     required Color containerColor,
     required Color textColor,
     required Color subtitleColor,
     required Color borderColor,
     required bool isDarkMode,
     required VoidCallback onTap,
+    required VoidCallback onDelete,
   }) {
     return InkWell(
       onTap: onTap,
@@ -398,23 +509,14 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         ),
         child: Row(
           children: [
-            isImage
-                ? CircleAvatar(
-                    radius: 28,
-                    backgroundImage: NetworkImage(imageUrl ?? ''),
-                  )
-                : CircleAvatar(
-                    radius: 28,
-                    backgroundColor: avatarBg ?? const Color(0xFFDBEAFE),
-                    child: Text(
-                      initials ?? '',
-                      style: TextStyle(
-                        color: avatarText ?? const Color(0xFF1D4ED8),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+            CircleAvatar(
+              radius: 28,
+              backgroundImage: photoUrl.isNotEmpty
+                  ? _getProfileImage(photoUrl)
+                  : const NetworkImage(
+                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
                     ),
-                  ),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -430,7 +532,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$department • ID: $id',
+                    department,
                     style: TextStyle(
                       color: subtitleColor,
                       fontSize: 13,
@@ -440,32 +542,19 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: subtitleColor, size: 20),
+            // Delete User Button
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+                size: 22,
+              ),
+              onPressed: onDelete,
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
           ],
         ),
       ),
     );
   }
-}
-
-class _StudentDirectoryData {
-  final String name;
-  final String department;
-  final String id;
-  final bool isImage;
-  final String? imageUrl;
-  final String? initials;
-  final Color? avatarBg;
-  final Color? avatarText;
-
-  _StudentDirectoryData({
-    required this.name,
-    required this.department,
-    required this.id,
-    required this.isImage,
-    this.imageUrl,
-    this.initials,
-    this.avatarBg,
-    this.avatarText,
-  });
 }
