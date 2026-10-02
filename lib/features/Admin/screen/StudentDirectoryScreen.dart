@@ -41,28 +41,35 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   ImageProvider _getProfileImage(String photoUrl) {
+    if (photoUrl.isEmpty) {
+      return const NetworkImage(
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      );
+    }
     if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
     } else {
       final file = File(photoUrl);
       if (file.existsSync()) {
         return FileImage(file);
-      } else {
-        return const NetworkImage(
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-        );
       }
+      return const NetworkImage(
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      );
     }
   }
 
   void _showStudentInfo(Map<String, dynamic> studentData) {
-    final String name = studentData['name'] ?? 'Unknown User';
-    final String email = studentData['email'] ?? 'No email provided';
-    final String phone = studentData['phone'] ?? 'No phone provided';
+    final String name = studentData['name']?.toString() ?? 'Unnamed Student';
+    final String email = studentData['email']?.toString() ?? 'No email';
+    final String phone = studentData['phone']?.toString() ?? 'No phone';
     final String major =
-        studentData['major'] ?? studentData['department'] ?? 'General';
-    final String academicLevel = studentData['academicLevel'] ?? 'N/A';
-    final String photoUrl = studentData['photoUrl'] ?? '';
+        studentData['major']?.toString() ??
+        studentData['department']?.toString() ??
+        'General';
+    final String academicLevel =
+        studentData['academicLevel']?.toString() ?? 'N/A';
+    final String photoUrl = studentData['photoUrl']?.toString() ?? '';
 
     showDialog(
       context: context,
@@ -72,10 +79,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundImage: photoUrl.isNotEmpty
-                  ? _getProfileImage(photoUrl)
-                  : null,
-              child: photoUrl.isEmpty ? const Icon(Icons.person) : null,
+              backgroundImage: _getProfileImage(photoUrl),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -149,9 +153,11 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   void _confirmDeleteUser(String uid, String studentName) {
+    final BuildContext parentContext = context; // Save the screen's context
+
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Are you sure?', style: TextStyle(color: Colors.red)),
         content: Text(
@@ -159,22 +165,28 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              // 1. Close the confirm dialog using its own dialogContext
+              Navigator.pop(dialogContext);
+
               try {
+                // 2. Perform delete
                 await FirebaseFirestore.instance
                     .collection('users')
                     .doc(uid)
                     .delete();
 
+                // 3. Ensure the screen is still active before using its context
                 if (!mounted) return;
+
+                // 4. Show success dialog using the parentContext
                 showDialog(
-                  context: context,
+                  context: parentContext,
                   builder: (context) => AlertDialog(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
@@ -201,7 +213,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   ),
                 );
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+                ScaffoldMessenger.of(parentContext).showSnackBar(
                   SnackBar(content: Text('Failed to delete user: $e')),
                 );
               }
@@ -257,9 +270,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   scrolledUnderElevation: 0,
                   leading: IconButton(
                     icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
-                    },
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   ),
                   title: Text(
                     'Student Directory',
@@ -272,17 +283,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundImage: const NetworkImage(
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -300,7 +300,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Search by name, email...",
+                hintText: "Search by name, email, major...",
                 hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
                 prefixIcon: Icon(Icons.search, color: subtitleColor),
                 suffixIcon: _searchQuery.isNotEmpty
@@ -331,7 +331,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Category Filter Chips Row
+            // Category Filter Chips
             SizedBox(
               height: 40,
               child: ListView.builder(
@@ -373,7 +373,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Firestore Stream Builder for Students
+            // Realtime Firestore Stream
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('users')
@@ -386,12 +386,24 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   );
                 }
 
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        'Error loading students: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                      ),
+                    ),
+                  );
+                }
+
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 40.0),
                     child: Center(
                       child: Text(
-                        'No users found in Firestore database',
+                        'No students found in the database.',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                     ),
@@ -400,23 +412,30 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
                 final docs = snapshot.data!.docs;
 
-                // Safe filtering: ensures users display even if fields are missing
+                // Safe and flexible matching logic
                 final filteredDocs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
+                  final data = doc.data() as Map<String, dynamic>? ?? {};
+
                   final name = (data['name'] ?? '').toString().toLowerCase();
                   final email = (data['email'] ?? '').toString().toLowerCase();
                   final major = (data['major'] ?? data['department'] ?? '')
                       .toString()
                       .toLowerCase();
+                  final docId = doc.id.toLowerCase();
 
+                  // Match search query against name, email, major, or UID
                   final matchesSearch =
                       _searchQuery.isEmpty ||
                       name.contains(_searchQuery) ||
-                      email.contains(_searchQuery);
+                      email.contains(_searchQuery) ||
+                      major.contains(_searchQuery) ||
+                      docId.contains(_searchQuery);
 
+                  // Category check (Index 0 is 'All')
                   if (_selectedCategoryIndex == 0) {
                     return matchesSearch;
                   }
+
                   final selectedCat = _categories[_selectedCategoryIndex]
                       .toLowerCase();
                   final matchesCategory = major.contains(selectedCat);
@@ -429,7 +448,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 40.0),
                     child: Center(
                       child: Text(
-                        'No students matching "$_searchQuery"',
+                        _searchQuery.isNotEmpty
+                            ? 'No students matching "$_searchQuery"'
+                            : 'No students found in category "${_categories[_selectedCategoryIndex]}"',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                     ),
@@ -444,14 +465,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                       const SizedBox(height: 16),
                   itemBuilder: (context, index) {
                     final doc = filteredDocs[index];
-                    final data = doc.data() as Map<String, dynamic>;
+                    final data = doc.data() as Map<String, dynamic>? ?? {};
                     final String uid = doc.id;
-                    final String name = data['name'] ?? 'Unnamed User';
+                    final String name =
+                        data['name']?.toString() ?? 'Unnamed Student';
                     final String major =
-                        data['major'] ?? data['department'] ?? 'General';
+                        data['major']?.toString() ??
+                        data['department']?.toString() ??
+                        'General';
                     final String academicLevel =
-                        data['academicLevel'] ?? 'Year 3';
-                    final String photoUrl = data['photoUrl'] ?? '';
+                        data['academicLevel']?.toString() ?? 'Year 3';
+                    final String photoUrl = data['photoUrl']?.toString() ?? '';
 
                     return _buildStudentCard(
                       uid: uid,
@@ -511,11 +535,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           children: [
             CircleAvatar(
               radius: 28,
-              backgroundImage: photoUrl.isNotEmpty
-                  ? _getProfileImage(photoUrl)
-                  : const NetworkImage(
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                    ),
+              backgroundImage: _getProfileImage(photoUrl),
             ),
             const SizedBox(width: 16),
             Expanded(
