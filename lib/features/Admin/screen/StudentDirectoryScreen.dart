@@ -29,7 +29,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     super.initState();
     _searchController.addListener(() {
       setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
+        _searchQuery = _searchController.text.trim().toLowerCase();
       });
     });
   }
@@ -40,7 +40,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     super.dispose();
   }
 
-  // Helper to load either NetworkImage or FileImage dynamically
   ImageProvider _getProfileImage(String photoUrl) {
     if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
@@ -56,12 +55,12 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     }
   }
 
-  // Show Student Information Popup Dialog
   void _showStudentInfo(Map<String, dynamic> studentData) {
-    final String name = studentData['name'] ?? 'Unknown Student';
+    final String name = studentData['name'] ?? 'Unknown User';
     final String email = studentData['email'] ?? 'No email provided';
     final String phone = studentData['phone'] ?? 'No phone provided';
-    final String major = studentData['major'] ?? 'General';
+    final String major =
+        studentData['major'] ?? studentData['department'] ?? 'General';
     final String academicLevel = studentData['academicLevel'] ?? 'N/A';
     final String photoUrl = studentData['photoUrl'] ?? '';
 
@@ -149,7 +148,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     );
   }
 
-  // Confirm and Delete User from Firestore
   void _confirmDeleteUser(String uid, String studentName) {
     showDialog(
       context: context,
@@ -167,7 +165,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context); // Close confirm dialog
+              Navigator.pop(context);
               try {
                 await FirebaseFirestore.instance
                     .collection('users')
@@ -175,7 +173,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     .delete();
 
                 if (!mounted) return;
-                // Show Success Popup Message
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
@@ -205,7 +202,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                 );
               } catch (e) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to delete student: $e')),
+                  SnackBar(content: Text('Failed to delete user: $e')),
                 );
               }
             },
@@ -232,7 +229,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -395,7 +391,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 40.0),
                     child: Center(
                       child: Text(
-                        'No students found in Firestore',
+                        'No users found in Firestore database',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                     ),
@@ -404,14 +400,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
                 final docs = snapshot.data!.docs;
 
-                // Filter students by search query and category
+                // Safe filtering: ensures users display even if fields are missing
                 final filteredDocs = docs.where((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   final name = (data['name'] ?? '').toString().toLowerCase();
                   final email = (data['email'] ?? '').toString().toLowerCase();
-                  final major = (data['major'] ?? '').toString().toLowerCase();
+                  final major = (data['major'] ?? data['department'] ?? '')
+                      .toString()
+                      .toLowerCase();
 
                   final matchesSearch =
+                      _searchQuery.isEmpty ||
                       name.contains(_searchQuery) ||
                       email.contains(_searchQuery);
 
@@ -447,8 +446,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     final doc = filteredDocs[index];
                     final data = doc.data() as Map<String, dynamic>;
                     final String uid = doc.id;
-                    final String name = data['name'] ?? 'Unnamed Student';
-                    final String major = data['major'] ?? 'General';
+                    final String name = data['name'] ?? 'Unnamed User';
+                    final String major =
+                        data['major'] ?? data['department'] ?? 'General';
                     final String academicLevel =
                         data['academicLevel'] ?? 'Year 3';
                     final String photoUrl = data['photoUrl'] ?? '';
@@ -542,7 +542,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                 ],
               ),
             ),
-            // Delete User Button
             IconButton(
               icon: const Icon(
                 Icons.delete_outline,
