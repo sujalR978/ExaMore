@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
@@ -19,13 +21,14 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _levelController = TextEditingController();
   final TextEditingController _majorController = TextEditingController();
-  final TextEditingController _photoUrlController = TextEditingController(); // Controller for image URL input
 
   bool _isEditing = false;
   bool _isLoading = true;
   bool _isSaving = false;
 
-  String _photoUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+  String _photoUrl =
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+  String? _selectedImagePath; // Stores the local file path of the picked image
 
   @override
   void initState() {
@@ -38,7 +41,10 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     if (user == null) return;
 
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (doc.exists) {
         final data = doc.data()!;
         setState(() {
@@ -48,14 +54,12 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           _levelController.text = data['academicLevel'] ?? 'Year 3';
           _majorController.text = data['major'] ?? 'Science Major';
           _photoUrl = data['photoUrl'] ?? _photoUrl;
-          _photoUrlController.text = _photoUrl;
           _isLoading = false;
         });
       } else {
         setState(() {
           _emailController.text = user.email ?? '';
           _nameController.text = user.displayName ?? '';
-          _photoUrlController.text = _photoUrl;
           _isLoading = false;
         });
       }
@@ -72,8 +76,22 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     _phoneController.dispose();
     _levelController.dispose();
     _majorController.dispose();
-    _photoUrlController.dispose();
     super.dispose();
+  }
+
+  // Pick an image from gallery
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 75,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImagePath = pickedFile.path;
+      });
+    }
   }
 
   Future<void> _saveChanges() async {
@@ -85,12 +103,10 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Use the URL from the text field or keep the old one
-      String finalPhotoUrl = _photoUrlController.text.trim().isNotEmpty
-          ? _photoUrlController.text.trim()
-          : _photoUrl;
+      // Use the newly picked local image path if available, otherwise keep the old one
+      String finalPhotoUrl = _selectedImagePath ?? _photoUrl;
 
-      // Update Firestore user document directly
+      // Update Firestore user document
       final updatedData = {
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
@@ -112,15 +128,55 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully in Firestore!')),
+
+      // Show Success Pop-up Dialog instead of bottom notification
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              SizedBox(width: 8),
+              Text('Success'),
+            ],
+          ),
+          content: const Text(
+            'Your profile information has been updated successfully!',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'OK',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
       );
     } catch (e) {
       print("Error updating profile: $e");
       setState(() => _isSaving = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update profile: $e')),
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('Error', style: TextStyle(color: Colors.red)),
+          content: Text('Failed to update profile: $e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     }
   }
@@ -218,18 +274,48 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Profile Picture Preview Section
+              // Profile Picture Section with Image Picker
               Center(
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundImage: NetworkImage(_photoUrl),
-                      onBackgroundImageError: (_, __) => const Icon(Icons.person),
+                    GestureDetector(
+                      onTap: _isEditing ? _pickImage : null,
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundImage: _selectedImagePath != null
+                                ? FileImage(File(_selectedImagePath!))
+                                      as ImageProvider
+                                : (_photoUrl.startsWith('http')
+                                      ? NetworkImage(_photoUrl) as ImageProvider
+                                      : FileImage(File(_photoUrl))),
+                          ),
+                          if (_isEditing)
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFBBF24),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Color(0xFF1E1B4B),
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      _isEditing ? 'Update profile image URL below' : 'Tap edit icon to update your details',
+                      _isEditing
+                          ? 'Tap image to select new photo'
+                          : 'Tap edit icon to update your details',
                       style: TextStyle(color: subtitleColor, fontSize: 12),
                     ),
                   ],
@@ -281,20 +367,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
-                      label: 'Profile Image URL',
-                      controller: _photoUrlController,
-                      icon: Icons.image_outlined,
-                      isEditing: _isEditing,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Image URL cannot be empty'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
                       label: 'Phone Number',
                       controller: _phoneController,
                       icon: Icons.phone_outlined,
@@ -303,7 +375,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       subtitleColor: subtitleColor,
                       borderColor: borderColor,
                       isDarkMode: isDarkMode,
-                      validator: (val) => val != null && val.isNotEmpty && val.length < 6
+                      validator: (val) =>
+                          val != null && val.isNotEmpty && val.length < 6
                           ? 'Enter a valid phone number'
                           : null,
                     ),

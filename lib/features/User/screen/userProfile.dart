@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
 import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
