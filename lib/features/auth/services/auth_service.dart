@@ -98,23 +98,33 @@ class AuthService {
     }
   }
 
-  Future<void> signInUser({
-  required String email,
-  required String password,
-}) async {
-  try {
-    UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password.trim(),
-    );
+  Future<String> signInUser({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      String trimmedEmail = email.trim();
+      String trimmedPassword = password.trim();
 
-    print("FIREBASE LOGIN SUCCESS: ${userCredential.user?.email}");
-  } on FirebaseAuthException catch (e) {
-    print("FIREBASE LOGIN ERROR CODE: ${e.code}");
-    print("FIREBASE LOGIN ERROR MESSAGE: ${e.message}");
-    rethrow;
+      // Check for Admin Credentials
+      if (trimmedEmail == 'admin@gmail.com' && trimmedPassword == 'admin123') {
+        print("ADMIN LOGIN SUCCESS");
+        return 'admin';
+      }
+
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: trimmedEmail,
+        password: trimmedPassword,
+      );
+
+      print("FIREBASE LOGIN SUCCESS: ${userCredential.user?.email}");
+      return 'user';
+    } on FirebaseAuthException catch (e) {
+      print("FIREBASE LOGIN ERROR CODE: ${e.code}");
+      print("FIREBASE LOGIN ERROR MESSAGE: ${e.message}");
+      rethrow;
+    }
   }
-}
 
 Future<void> signOut() async {
   try {
