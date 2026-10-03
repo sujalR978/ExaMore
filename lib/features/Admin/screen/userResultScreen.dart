@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/CandidateDetailScreen.dart';
-
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
+
 
 class RecentResultsAndUsersScreen extends StatefulWidget {
   const RecentResultsAndUsersScreen({super.key});
@@ -15,6 +17,8 @@ class _RecentResultsAndUsersScreenState
     extends State<RecentResultsAndUsersScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
+  final ExamService _examService = ExamService();
+
   String _searchQuery = '';
 
   @override
@@ -22,7 +26,7 @@ class _RecentResultsAndUsersScreenState
     super.initState();
     _searchController.addListener(() {
       setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
+        _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
   }
@@ -33,10 +37,28 @@ class _RecentResultsAndUsersScreenState
     super.dispose();
   }
 
-  void _handleViewDetails(String studentName, String examTitle) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => CandidateDetailScreen()));
+  void _handleViewDetails({
+    required String examId,
+    required StudentSubmissionModel submission,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CandidateDetailScreen(
+          examId: examId,
+          submissionId: submission.id,
+          initialData: submission,
+        ),
+      ),
+    );
+  }
+
+  String _getInitials(String name) {
+    if (name.trim().isEmpty) return 'ST';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
   }
 
   @override
@@ -46,55 +68,14 @@ class _RecentResultsAndUsersScreenState
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
-
-    // List of student mock test results
-    final List<_StudentResult> results = [
-      _StudentResult(
-        name: 'Jane Doe',
-        exam: 'Advanced Calculus - Mock A',
-        score: '92%',
-        isPassed: true,
-        isAvatarImage: false,
-        avatarText: 'JD',
-        avatarBgColor: const Color(0xFF312E81),
-        avatarTextColor: const Color(0xFF93C5FD),
-      ),
-      _StudentResult(
-        name: 'Alex Smith',
-        exam: 'Organic Chemistry - Final Prep',
-        score: '45%',
-        isPassed: false,
-        isAvatarImage: true,
-        imageUrl:
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-      ),
-      _StudentResult(
-        name: 'Elena Petrova',
-        exam: 'Physics 101 - Midterm Mock',
-        score: '78%',
-        isPassed: true,
-        isAvatarImage: false,
-        avatarText: 'EP',
-        avatarBgColor: const Color(0xFFDBEAFE),
-        avatarTextColor: const Color(0xFF1D4ED8),
-      ),
-    ];
-
-    // Filter results based on search query
-    final filteredResults = results.where((item) {
-      return item.name.toLowerCase().contains(_searchQuery) ||
-          item.exam.toLowerCase().contains(_searchQuery);
-    }).toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-drawer: AdminMenuDrawer(),
-      // Capsule-shaped Top Bar
+      drawer: const AdminMenuDrawer(),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -138,12 +119,12 @@ drawer: AdminMenuDrawer(),
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
+                  actions: const [
                     Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
+                      padding: EdgeInsets.only(right: 8.0),
                       child: CircleAvatar(
                         radius: 18,
-                        backgroundImage: const NetworkImage(
+                        backgroundImage: NetworkImage(
                           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
                         ),
                       ),
@@ -155,105 +136,162 @@ drawer: AdminMenuDrawer(),
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              'Recent Results & Users',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _examService.getAllRecentSubmissionsStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40.0),
+                child: CircularProgressIndicator(),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Review recent mock test performance across cohorts.',
-              style: TextStyle(color: subtitleColor, fontSize: 14, height: 1.4),
-            ),
-            const SizedBox(height: 20),
+            );
+          }
 
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Search students...",
-                hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                prefixIcon: Icon(Icons.search, color: subtitleColor),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: subtitleColor, size: 18),
-                        onPressed: () => _searchController.clear(),
-                      )
-                    : null,
-                filled: true,
-                fillColor: containerColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Error loading results: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF7C3AED),
-                    width: 1.5,
+              ),
+            );
+          }
+
+          final allResults = snapshot.data ?? [];
+
+          // Local Search Filter
+          final filteredResults = allResults.where((item) {
+            final submission = item['submission'] as StudentSubmissionModel;
+            return submission.studentName
+                    .toLowerCase()
+                    .contains(_searchQuery) ||
+                submission.examTitle.toLowerCase().contains(_searchQuery) ||
+                submission.studentId.toLowerCase().contains(_searchQuery);
+          }).toList();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Text(
+                  'Recent Results & Users',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Results List
-            if (filteredResults.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40.0),
-                child: Center(
-                  child: Text(
-                    'No student results found matching "$_searchQuery"',
-                    style: TextStyle(color: subtitleColor, fontSize: 14),
+                const SizedBox(height: 6),
+                Text(
+                  'Review recent mock test performance across cohorts.',
+                  style: TextStyle(
+                    color: subtitleColor,
+                    fontSize: 14,
+                    height: 1.4,
                   ),
                 ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredResults.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final item = filteredResults[index];
-                  return _buildResultCard(
-                    studentName: item.name,
-                    examTitle: item.exam,
-                    score: item.score,
-                    isPassed: item.isPassed,
-                    isAvatarImage: item.isAvatarImage,
-                    avatarText: item.avatarText,
-                    avatarBgColor: item.avatarBgColor,
-                    avatarTextColor: item.avatarTextColor,
-                    imageUrl: item.imageUrl,
-                    containerColor: containerColor,
-                    textColor: textColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                    onViewDetails: () =>
-                        _handleViewDetails(item.name, item.exam),
-                  );
-                },
-              ),
-            const SizedBox(height: 30),
-          ],
-        ),
+                const SizedBox(height: 20),
+
+                // Search Bar
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: "Search students or exams...",
+                    hintStyle: TextStyle(
+                      color: subtitleColor,
+                      fontSize: 13,
+                    ),
+                    prefixIcon: Icon(Icons.search, color: subtitleColor),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear,
+                              color: subtitleColor,
+                              size: 18,
+                            ),
+                            onPressed: () => _searchController.clear(),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: containerColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF7C3AED),
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Results List
+                if (filteredResults.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        allResults.isEmpty
+                            ? 'No student results submitted yet.'
+                            : 'No student results found matching "$_searchQuery"',
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredResults.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final item = filteredResults[index];
+                      final examId = item['examId'] as String;
+                      final submission =
+                          item['submission'] as StudentSubmissionModel;
+
+                      return _buildResultCard(
+                        studentName: submission.studentName,
+                        examTitle: submission.examTitle,
+                        score: '${submission.scorePercentage.toInt()}%',
+                        isPassed: submission.isPassed,
+                        imageUrl: submission.studentImageUrl,
+                        initials: _getInitials(submission.studentName),
+                        containerColor: containerColor,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        onViewDetails: () => _handleViewDetails(
+                          examId: examId,
+                          submission: submission,
+                        ),
+                      );
+                    },
+                  ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -263,10 +301,7 @@ drawer: AdminMenuDrawer(),
     required String examTitle,
     required String score,
     required bool isPassed,
-    required bool isAvatarImage,
-    String? avatarText,
-    Color? avatarBgColor,
-    Color? avatarTextColor,
+    required String initials,
     String? imageUrl,
     required Color containerColor,
     required Color textColor,
@@ -294,19 +329,22 @@ drawer: AdminMenuDrawer(),
         children: [
           Row(
             children: [
-              // Avatar
-              isAvatarImage
+              imageUrl != null && imageUrl.isNotEmpty
                   ? CircleAvatar(
                       radius: 24,
-                      backgroundImage: NetworkImage(imageUrl ?? ''),
+                      backgroundImage: NetworkImage(imageUrl),
                     )
                   : CircleAvatar(
                       radius: 24,
-                      backgroundColor: avatarBgColor ?? const Color(0xFF312E81),
+                      backgroundColor: isPassed
+                          ? const Color(0xFF312E81)
+                          : const Color(0xFFFEF2F2),
                       child: Text(
-                        avatarText ?? '',
+                        initials,
                         style: TextStyle(
-                          color: avatarTextColor ?? Colors.white,
+                          color: isPassed
+                              ? const Color(0xFF93C5FD)
+                              : const Color(0xFFDC2626),
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -377,11 +415,11 @@ drawer: AdminMenuDrawer(),
                     decoration: BoxDecoration(
                       color: isPassed
                           ? (isDarkMode
-                                ? const Color(0xFF064E3B)
-                                : const Color(0xFFD1FAE5))
+                              ? const Color(0xFF064E3B)
+                              : const Color(0xFFD1FAE5))
                           : (isDarkMode
-                                ? const Color(0xFF451A03)
-                                : const Color(0xFFFEF2F2)),
+                              ? const Color(0xFF451A03)
+                              : const Color(0xFFFEF2F2)),
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Text(
@@ -389,8 +427,8 @@ drawer: AdminMenuDrawer(),
                       style: TextStyle(
                         color: isPassed
                             ? (isDarkMode
-                                  ? const Color(0xFF34D399)
-                                  : const Color(0xFF065F46))
+                                ? const Color(0xFF34D399)
+                                : const Color(0xFF065F46))
                             : const Color(0xFFDC2626),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -401,7 +439,7 @@ drawer: AdminMenuDrawer(),
                   ElevatedButton(
                     onPressed: onViewDetails,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4C1D95), // Deep Indigo
+                      backgroundColor: const Color(0xFF4C1D95),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
@@ -428,28 +466,4 @@ drawer: AdminMenuDrawer(),
       ),
     );
   }
-}
-
-class _StudentResult {
-  final String name;
-  final String exam;
-  final String score;
-  final bool isPassed;
-  final bool isAvatarImage;
-  final String? avatarText;
-  final Color? avatarBgColor;
-  final Color? avatarTextColor;
-  final String? imageUrl;
-
-  _StudentResult({
-    required this.name,
-    required this.exam,
-    required this.score,
-    required this.isPassed,
-    required this.isAvatarImage,
-    this.avatarText,
-    this.avatarBgColor,
-    this.avatarTextColor,
-    this.imageUrl,
-  });
 }
