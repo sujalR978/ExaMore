@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
+
 
 class EditActiveExamScreen extends StatefulWidget {
-  final String examTitle;
-  final String examId;
-  final String startDate;
-  final String duration;
-  final String enrolled;
+  final ExamModel exam;
 
-  const EditActiveExamScreen({
-    super.key,
-    this.examTitle = 'Finals 2024 – Advanced Physics',
-    this.examId = 'EXM-2024-089',
-    this.startDate = 'Oct 24, 09:00 AM',
-    this.duration = '120',
-    this.enrolled = '145',
-  });
+  const EditActiveExamScreen({super.key, required this.exam});
 
   @override
   State<EditActiveExamScreen> createState() => _EditActiveExamScreenState();
@@ -22,6 +14,7 @@ class EditActiveExamScreen extends StatefulWidget {
 
 class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
   final _formKey = GlobalKey<FormState>();
+  final ExamService _examService = ExamService();
 
   late final TextEditingController _titleController;
   late final TextEditingController _idController;
@@ -29,16 +22,129 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
   late final TextEditingController _durationController;
   late final TextEditingController _enrolledController;
 
-  bool _isPublished = true;
+  late bool _isPublished;
+  DateTime? _selectedDateTime;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.examTitle);
-    _idController = TextEditingController(text: widget.examId);
-    _startDateController = TextEditingController(text: widget.startDate);
-    _durationController = TextEditingController(text: widget.duration);
-    _enrolledController = TextEditingController(text: widget.enrolled);
+    final exam = widget.exam;
+    _selectedDateTime = exam.startDate ?? exam.createdAt;
+
+    _titleController = TextEditingController(text: exam.title);
+    _idController = TextEditingController(text: exam.examCode);
+    _startDateController = TextEditingController(
+      text: _formatDisplayDate(_selectedDateTime),
+    );
+    _durationController = TextEditingController(
+      text: exam.durationMinutes.toString(),
+    );
+    _enrolledController = TextEditingController(
+      text: exam.enrolledCount.toString(),
+    );
+
+    _isPublished = exam.status.toLowerCase() == 'published';
+  }
+
+  String _formatDisplayDate(DateTime? date) {
+    if (date == null) return '';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = months[date.month - 1];
+    final day = date.day.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    final hour12 = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final hour = hour12.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '$month $day, $hour:$minute $period';
+  }
+
+  Future<void> _pickDateTime() async {
+    final now = DateTime.now();
+    final initialDate = _selectedDateTime ?? now;
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialDate),
+    );
+
+    if (pickedTime == null || !mounted) return;
+
+    setState(() {
+      _selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+      _startDateController.text = _formatDisplayDate(_selectedDateTime);
+    });
+  }
+
+  Future<void> _handleSaveChanges() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final updatedExam = widget.exam.copyWith(
+        title: _titleController.text.trim(),
+        examCode: _idController.text.trim(),
+        durationMinutes: int.tryParse(_durationController.text.trim()) ?? 0,
+        enrolledCount: int.tryParse(_enrolledController.text.trim()) ?? 0,
+        status: _isPublished ? 'Published' : 'Draft',
+        startDate: _selectedDateTime,
+        updatedAt: DateTime.now(),
+      );
+
+      await _examService.updateExam(updatedExam);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exam updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update exam: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _handleCancel() {
+    Navigator.pop(context);
   }
 
   @override
@@ -49,20 +155,6 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
     _durationController.dispose();
     _enrolledController.dispose();
     super.dispose();
-  }
-
-  void _handleSaveChanges() {
-    if (_formKey.currentState!.validate()) {
-      print('Saving updated exam parameters...');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Exam updated successfully!')),
-      );
-      Navigator.pop(context);
-    }
-  }
-
-  void _handleCancel() {
-    Navigator.pop(context);
   }
 
   @override
@@ -79,8 +171,6 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -109,7 +199,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                   scrolledUnderElevation: 0,
                   leading: IconButton(
                     icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: _handleCancel,
                   ),
                   title: Text(
                     'Edit Active Exam',
@@ -227,7 +317,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
+                      validator: (val) => val == null || val.trim().isEmpty
                           ? 'Title cannot be empty'
                           : null,
                     ),
@@ -248,23 +338,25 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
+                      validator: (val) => val == null || val.trim().isEmpty
                           ? 'Exam ID cannot be empty'
                           : null,
                     ),
                     const SizedBox(height: 16),
 
-                    // Start Date Field
+                    // Start Date Field (with Date Picker)
                     _buildFieldLabel('Start Date & Time *', subtitleColor),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _startDateController,
+                      readOnly: true,
+                      onTap: _pickDateTime,
                       style: TextStyle(
                         color: textColor,
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: _inputDecoration(
-                        hint: 'Oct 24, 09:00 AM',
+                        hint: 'Select start date & time',
                         prefixIcon: Icon(
                           Icons.calendar_today_outlined,
                           color: subtitleColor,
@@ -274,7 +366,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
+                      validator: (val) => val == null || val.trim().isEmpty
                           ? 'Start date cannot be empty'
                           : null,
                     ),
@@ -301,9 +393,15 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Duration cannot be empty'
-                          : null,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Duration cannot be empty';
+                        }
+                        if (int.tryParse(val.trim()) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -328,9 +426,15 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Enrolled count cannot be empty'
-                          : null,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Enrolled count cannot be empty';
+                        }
+                        if (int.tryParse(val.trim()) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
                     Divider(color: borderColor, height: 1),
@@ -343,7 +447,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                           child: SizedBox(
                             height: 48,
                             child: OutlinedButton(
-                              onPressed: _handleCancel,
+                              onPressed: _isLoading ? null : _handleCancel,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: textColor,
                                 side: BorderSide(
@@ -370,31 +474,42 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                           child: SizedBox(
                             height: 48,
                             child: ElevatedButton(
-                              onPressed: _handleSaveChanges,
+                              onPressed: _isLoading ? null : _handleSaveChanges,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(
-                                  0xFFFBBF24,
-                                ), // Amber CTA style
+                                backgroundColor: const Color(0xFFFBBF24),
                                 foregroundColor: const Color(0xFF1E1B4B),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.save_outlined, size: 18),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'Save Changes',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Color(0xFF1E1B4B),
+                                            ),
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.save_outlined, size: 18),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'Save Changes',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                         ),
