@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/Admin/screen/EditActiveExamScreen.dart';
-import 'package:prep_mate/features/Admin/screen/ExamAnalyticsDetailScreen.dart';
-import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
+import 'package:intl/intl.dart';
 
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
+
+import 'package:prep_mate/features/Admin/screen/ExamAnalyticsDetailScreen.dart';
+import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
 class Showexamesscreen extends StatefulWidget {
   const Showexamesscreen({super.key});
@@ -15,6 +18,8 @@ class Showexamesscreen extends StatefulWidget {
 class _ActiveExamsScreenState extends State<Showexamesscreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
+  final ExamService _examService = ExamService();
+
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
 
@@ -23,7 +28,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     'Mathematics',
     'Science',
     'History',
-    'Physics',
+    'Computer Science',
   ];
 
   @override
@@ -31,7 +36,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     super.initState();
     _searchController.addListener(() {
       setState(() {
-        _searchQuery = _searchController.text.toLowerCase();
+        _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
   }
@@ -42,22 +47,88 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     super.dispose();
   }
 
-  void _handleAction(String actionName, String examTitle) {
-    if (actionName == 'View Results') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => ExamAnalyticsDetailScreen()),
+  void _handleEditExam(ExamModel exam) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ExamConfigurationScreen(exam: exam),
+      ),
+    );
+  }
+
+  Future<void> _handlePublishExam(ExamModel exam) async {
+    try {
+      await _examService.publishExam(exam.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${exam.title} published successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to publish exam: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
-    if (actionName == 'Publish Exam') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => AdminHomeScreen()));
+  }
+
+  Future<void> _handleDeleteExam(ExamModel exam) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Exam'),
+        content: Text('Are you sure you want to delete "${exam.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _examService.deleteExam(exam.id);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Exam deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
-    if (actionName == 'Edit') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => EditActiveExamScreen()));
-    }
+  }
+
+  void _handleViewResults(ExamModel exam) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ExamAnalyticsDetailScreen(),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Not scheduled';
+    return DateFormat('MMM dd, hh:mm a').format(date);
   }
 
   @override
@@ -72,66 +143,14 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    // List of active/draft exams
-    final List<_ExamItemData> exams = [
-      _ExamItemData(
-        title: 'Finals 2024 – Advanced Physics',
-        id: 'EXM-2024-089',
-        category: 'Physics',
-        status: 'Published',
-        isPublished: true,
-        startDate: 'Oct 24, 09:00 AM',
-        duration: '120 mins',
-        enrolled: '145 Students',
-        submissions: '0 / 145',
-        isSubmissionsMetric: true,
-      ),
-      _ExamItemData(
-        title: 'Midterm – Calculus III',
-        id: 'EXM-2024-092',
-        category: 'Mathematics',
-        status: 'Draft',
-        isPublished: false,
-        startDate: 'Nov 02, 10:00 AM',
-        duration: '90 mins',
-        enrolled: '82 Students',
-        submissions: '45 Qs',
-        isSubmissionsMetric: false,
-      ),
-      _ExamItemData(
-        title: 'Quiz 3 – Organic Chemistry',
-        id: 'EXM-2024-071',
-        category: 'Science',
-        status: 'Published',
-        isPublished: true,
-        startDate: 'Oct 26, 02:00 PM',
-        duration: '45 mins',
-        enrolled: '210 Students',
-        submissions: '0 / 210',
-        isSubmissionsMetric: true,
-      ),
-    ];
-
-    // Filter exams based on search query and category chip selection
-    final filteredExams = exams.where((exam) {
-      final matchesSearch =
-          exam.title.toLowerCase().contains(_searchQuery) ||
-          exam.id.toLowerCase().contains(_searchQuery);
-
-      if (_selectedCategoryIndex == 0) {
-        return matchesSearch;
-      }
-      final selectedCategoryName = _categories[_selectedCategoryIndex];
-      final matchesCategory =
-          exam.category.toLowerCase() == selectedCategoryName.toLowerCase();
-      return matchesSearch && matchesCategory;
-    }).toList();
+    final selectedCategory = _selectedCategoryIndex == 0
+        ? null
+        : _categories[_selectedCategoryIndex];
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: AdminMenuDrawer(),
-      // Capsule-shaped Top Bar
+      drawer: const AdminMenuDrawer(),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -175,12 +194,12 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
+                  actions: const [
                     Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
+                      padding: EdgeInsets.only(right: 8.0),
                       child: CircleAvatar(
                         radius: 18,
-                        backgroundImage: const NetworkImage(
+                        backgroundImage: NetworkImage(
                           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
                         ),
                       ),
@@ -243,7 +262,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
             ),
             const SizedBox(height: 16),
 
-            // Filter Category Chips Row
+            // Filter Category Chips
             SizedBox(
               height: 40,
               child: ListView.builder(
@@ -285,49 +304,85 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
             ),
             const SizedBox(height: 24),
 
-            // List of Exams
-            if (filteredExams.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40.0),
-                child: Center(
-                  child: Text(
-                    'No exams found matching your search',
-                    style: TextStyle(color: subtitleColor, fontSize: 14),
-                  ),
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredExams.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 20),
-                itemBuilder: (context, index) {
-                  final exam = filteredExams[index];
-                  return _buildExamCard(
-                    title: exam.title,
-                    id: exam.id,
-                    status: exam.status,
-                    isPublished: exam.isPublished,
-                    startDate: exam.startDate,
-                    duration: exam.duration,
-                    enrolled: exam.enrolled,
-                    submissions: exam.submissions,
-                    isSubmissionsMetric: exam.isSubmissionsMetric,
-                    containerColor: containerColor,
-                    textColor: textColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                    onPrimaryAction: () => _handleAction(
-                      exam.isPublished ? 'View Results' : 'Publish Exam',
-                      exam.title,
+            // Live Stream of Exams
+            StreamBuilder<List<ExamModel>>(
+              stream: _examService.getExamsStream(category: selectedCategory),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40.0),
+                      child: CircularProgressIndicator(),
                     ),
-                    onEdit: () => _handleAction('Edit', exam.title),
                   );
-                },
-              ),
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40.0),
+                      child: Text(
+                        'Error loading exams: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  );
+                }
+
+                final allExams = snapshot.data ?? [];
+
+                // Filter locally by search query
+                final filteredExams = allExams.where((exam) {
+                  return exam.title.toLowerCase().contains(_searchQuery) ||
+                      exam.examCode.toLowerCase().contains(_searchQuery);
+                }).toList();
+
+                if (filteredExams.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        'No exams found matching your criteria',
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
+                      ),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredExams.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 20),
+                  itemBuilder: (context, index) {
+                    final exam = filteredExams[index];
+                    final isPublished =
+                        exam.status.toLowerCase() == 'published';
+
+                    return _buildExamCard(
+                      exam: exam,
+                      isPublished: isPublished,
+                      startDate: _formatDate(exam.startDate ?? exam.createdAt),
+                      containerColor: containerColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      borderColor: borderColor,
+                      isDarkMode: isDarkMode,
+                      onPrimaryAction: () {
+                        if (isPublished) {
+                          _handleViewResults(exam);
+                        } else {
+                          _handlePublishExam(exam);
+                        }
+                      },
+                      onEdit: () => _handleEditExam(exam),
+                      onDelete: () => _handleDeleteExam(exam),
+                    );
+                  },
+                );
+              },
+            ),
             const SizedBox(height: 30),
           ],
         ),
@@ -336,15 +391,9 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   }
 
   Widget _buildExamCard({
-    required String title,
-    required String id,
-    required String status,
+    required ExamModel exam,
     required bool isPublished,
     required String startDate,
-    required String duration,
-    required String enrolled,
-    required String submissions,
-    required bool isSubmissionsMetric,
     required Color containerColor,
     required Color textColor,
     required Color subtitleColor,
@@ -352,7 +401,12 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     required bool isDarkMode,
     required VoidCallback onPrimaryAction,
     required VoidCallback onEdit,
+    required VoidCallback onDelete,
   }) {
+    final submissionsDisplay = isPublished
+        ? '${exam.submissionsCount} / ${exam.enrolledCount}'
+        : '${exam.questions.length} Qs';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -391,7 +445,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      status,
+                      exam.status,
                       style: TextStyle(
                         color: isPublished
                             ? (isDarkMode
@@ -405,7 +459,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'ID: $id',
+                    'ID: ${exam.examCode.isNotEmpty ? exam.examCode : exam.id.substring(0, 6)}',
                     style: TextStyle(
                       color: subtitleColor,
                       fontSize: 12,
@@ -414,19 +468,28 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                   ),
                 ],
               ),
-              IconButton(
+              PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: subtitleColor, size: 20),
-                onPressed: () {
-                  print('More options clicked for $title');
+                onSelected: (val) {
+                  if (val == 'edit') onEdit();
+                  if (val == 'delete') onDelete();
                 },
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit Exam')),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text(
+                      'Delete Exam',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            title,
+            exam.title,
             style: TextStyle(
               color: textColor,
               fontSize: 22,
@@ -436,7 +499,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
           ),
           const SizedBox(height: 16),
 
-          // Details Grid (Start Date, Duration, Enrolled, Submissions/Questions)
+          // Details Grid
           Row(
             children: [
               Expanded(
@@ -483,7 +546,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          duration,
+                          '${exam.durationMinutes} mins',
                           style: TextStyle(
                             color: textColor,
                             fontSize: 13,
@@ -514,7 +577,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          enrolled,
+                          '${exam.enrolledCount} Students',
                           style: TextStyle(
                             color: textColor,
                             fontSize: 13,
@@ -530,7 +593,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                 child: Row(
                   children: [
                     Icon(
-                      isSubmissionsMetric
+                      isPublished
                           ? Icons.assignment_turned_in_outlined
                           : Icons.list_alt,
                       size: 16,
@@ -541,12 +604,12 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isSubmissionsMetric ? 'Submissions' : 'Questions',
+                          isPublished ? 'Submissions' : 'Questions',
                           style: TextStyle(color: subtitleColor, fontSize: 11),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          submissions,
+                          submissionsDisplay,
                           style: TextStyle(
                             color: textColor,
                             fontSize: 13,
@@ -564,7 +627,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
           Divider(color: borderColor, height: 1),
           const SizedBox(height: 16),
 
-          // Action Buttons Row (View Results / Publish Exam & Edit)
+          // Action Buttons
           Row(
             children: [
               Expanded(
@@ -644,30 +707,4 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
       ),
     );
   }
-}
-
-class _ExamItemData {
-  final String title;
-  final String id;
-  final String category;
-  final String status;
-  final bool isPublished;
-  final String startDate;
-  final String duration;
-  final String enrolled;
-  final String submissions;
-  final bool isSubmissionsMetric;
-
-  _ExamItemData({
-    required this.title,
-    required this.id,
-    required this.category,
-    required this.status,
-    required this.isPublished,
-    required this.startDate,
-    required this.duration,
-    required this.enrolled,
-    required this.submissions,
-    required this.isSubmissionsMetric,
-  });
 }
