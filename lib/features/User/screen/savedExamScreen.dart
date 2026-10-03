@@ -1,4 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/screen/examDetail.dart';
 
 class SavedExamsScreen extends StatefulWidget {
@@ -9,17 +13,46 @@ class SavedExamsScreen extends StatefulWidget {
 }
 
 class _SavedExamsScreenState extends State<SavedExamsScreen> {
+  final ExamService _examService = ExamService();
+
   int _selectedCategoryIndex = 0;
   final List<String> _categories = ['All', 'Recent', 'In Progress'];
 
-  void _handleStartExam(String title) {
+  void _handleStartExam(ExamModel exam) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage()));
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage(exam: exam)));
   }
 
-  void _handleBookmarkToggle(String title) {
-    print('Bookmark toggled for: $title');
+  Future<void> _handleBookmarkToggle(ExamModel exam, String userId) async {
+    if (userId.isEmpty) return;
+
+    try {
+      await _examService.toggleSaveExam(userId: userId, exam: exam);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed "${exam.title}" from saved exams'),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: const Color(0xFFFBBF24),
+            onPressed: () =>
+                _examService.toggleSaveExam(userId: userId, exam: exam),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating bookmark: $e')));
+    }
+  }
+
+  String _formatSavedDate(DateTime? date) {
+    if (date == null) return 'Recently saved';
+    return 'Saved on ${DateFormat('MMM dd').format(date)}';
   }
 
   @override
@@ -36,7 +69,6 @@ class _SavedExamsScreenState extends State<SavedExamsScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -82,89 +114,198 @@ class _SavedExamsScreenState extends State<SavedExamsScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Filter Choice Chips Row
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final isSelected = _selectedCategoryIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(_categories[index]),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                        });
-                      },
-                      selectedColor: const Color(0xFF1E1B4B),
-                      backgroundColor: containerColor,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : (isDarkMode
-                                  ? Colors.white70
-                                  : const Color(0xFF1E1B4B)),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: BorderSide(
-                          color: isSelected ? Colors.transparent : borderColor,
-                        ),
-                      ),
+      // Listen to live Auth changes so userId is never stale or empty
+      body: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, authSnapshot) {
+          final currentUser = authSnapshot.data;
+          final userId = currentUser?.uid ?? '';
+
+          if (userId.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.lock_outline, size: 48, color: subtitleColor),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Please log in to view your saved exams.',
+                      style: TextStyle(color: subtitleColor, fontSize: 14),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+            );
+          }
 
-            // Saved Exam Card 1: Calculus II Midterm Prep
-            _buildSavedExamCard(
-              badgeText: 'MATHEMATICS',
-              title: 'Calculus II Midterm Prep',
-              mcqs: '45 MCQs',
-              time: '90 Mins',
-              savedDate: 'Saved on Oct 12',
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              isDarkMode: isDarkMode,
-              onStart: () => _handleStartExam('Calculus II Midterm Prep'),
-              onBookmark: () =>
-                  _handleBookmarkToggle('Calculus II Midterm Prep'),
-            ),
-            const SizedBox(height: 16),
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Filter Choice Chips Row
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final isSelected = _selectedCategoryIndex == index;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(_categories[index]),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedCategoryIndex = index;
+                            });
+                          },
+                          selectedColor: const Color(0xFF1E1B4B),
+                          backgroundColor: containerColor,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isDarkMode
+                                      ? Colors.white70
+                                      : const Color(0xFF1E1B4B)),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? Colors.transparent
+                                  : borderColor,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
 
-            // Saved Exam Card 2: European History 101
-            _buildSavedExamCard(
-              badgeText: 'HISTORY',
-              title: 'European History 101',
-              mcqs: '30 MCQs',
-              time: '60 Mins',
-              savedDate: 'Saved on Oct 10',
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              isDarkMode: isDarkMode,
-              onStart: () => _handleStartExam('European History 101'),
-              onBookmark: () => _handleBookmarkToggle('European History 101'),
+                // Live Stream of Saved Exams
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _examService.getSavedExamsStream(userId),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20.0),
+                          child: Text(
+                            'Error: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final savedItems = snapshot.data ?? [];
+
+                    // Filter based on chips
+                    final filteredItems = savedItems.where((item) {
+                      final savedAt = item['savedAt'] as DateTime?;
+
+                      if (_selectedCategoryIndex == 1) {
+                        // Recent: within the last 7 days
+                        if (savedAt == null) return false;
+                        return DateTime.now().difference(savedAt).inDays <= 7;
+                      } else if (_selectedCategoryIndex == 2) {
+                        // In Progress: user has submissions
+                        final exam = item['exam'] as ExamModel;
+                        return exam.submissionsCount > 0;
+                      }
+                      return true;
+                    }).toList();
+
+                    if (filteredItems.isEmpty) {
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: containerColor,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.bookmark_border_outlined,
+                              size: 48,
+                              color: subtitleColor,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              savedItems.isEmpty
+                                  ? 'No saved exams yet.'
+                                  : 'No exams found for "${_categories[_selectedCategoryIndex]}"',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Bookmark exams from the details page or catalog to access them quickly here.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final item = filteredItems[index];
+                        final exam = item['exam'] as ExamModel;
+                        final savedAt = item['savedAt'] as DateTime?;
+
+                        return _buildSavedExamCard(
+                          badgeText: exam.category.toUpperCase(),
+                          title: exam.title,
+                          mcqs: '${exam.questions.length} MCQs',
+                          time: '${exam.durationMinutes} Mins',
+                          savedDate: _formatSavedDate(savedAt),
+                          containerColor: containerColor,
+                          textColor: textColor,
+                          subtitleColor: subtitleColor,
+                          borderColor: borderColor,
+                          isDarkMode: isDarkMode,
+                          onStart: () => _handleStartExam(exam),
+                          onBookmark: () => _handleBookmarkToggle(exam, userId),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 30),
+              ],
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -288,9 +429,7 @@ class _SavedExamsScreenState extends State<SavedExamsScreen> {
             child: ElevatedButton(
               onPressed: onStart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(
-                  0xFFFBBF24,
-                ), // Amber CTA button style
+                backgroundColor: const Color(0xFFFBBF24),
                 foregroundColor: const Color(0xFF1E1B4B),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
