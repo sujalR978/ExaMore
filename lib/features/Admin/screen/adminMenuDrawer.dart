@@ -5,7 +5,7 @@ import 'package:prep_mate/features/Admin/screen/StudentDirectoryScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
 import 'package:prep_mate/features/Admin/screen/questionBankScreen.dart';
 import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
-import 'package:prep_mate/features/Admin/screen/supportScreen.dart';
+
 import 'package:prep_mate/features/Admin/screen/userResultScreen.dart';
 import 'package:prep_mate/features/Auth/screens/logOut.dart';
 
