@@ -9,7 +9,6 @@ import 'package:prep_mate/features/Admin/screen/supportScreen.dart';
 import 'package:prep_mate/features/Admin/screen/userResultScreen.dart';
 import 'package:prep_mate/features/Auth/screens/logOut.dart';
 
-
 class AdminMenuDrawer extends StatelessWidget {
   const AdminMenuDrawer({super.key});
 
@@ -162,23 +161,7 @@ class AdminMenuDrawer extends StatelessWidget {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(
-              Icons.support_agent_outlined,
-              color: Color(0xFFDC2626),
-            ),
-            title: Text(
-              'Support Overview',
-              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-            ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => SupportOverviewScreen(),
-                ),
-              );
-            },
-          ),
+
           ListTile(
             leading: const Icon(Icons.logout, color: Color(0xFFDC2626)),
             title: Text(

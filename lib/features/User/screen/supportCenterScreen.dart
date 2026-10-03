@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SupportCenterScreen extends StatefulWidget {
   const SupportCenterScreen({super.key});
@@ -9,19 +13,164 @@ class SupportCenterScreen extends StatefulWidget {
 
 class _SupportCenterScreenState extends State<SupportCenterScreen> {
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
-  void _handleQuestionTap(String question) {
-    print('Tapped question: $question');
-  }
-
-  void _handleEmailSupport() {
-    print('Email Support clicked');
-  }
+  // FAQ Data Structure
+  final List<Map<String, String>> _faqList = [
+    {
+      'question': 'How do I reset my password?',
+      'answer':
+          'Go to the login screen and tap "Forgot Password". Enter your registered email address, and we will send you a password reset link within a few minutes.',
+      'category': 'Account',
+    },
+    {
+      'question': 'What happens if my internet disconnects during an exam?',
+      'answer':
+          'Examora caches your progress locally. If your connection drops, keep the app open. Your answers will automatically sync to the server once the connection is restored.',
+      'category': 'Technical',
+    },
+    {
+      'question': 'How do I upgrade to Premium?',
+      'answer':
+          'Navigate to Settings > Subscription and choose your preferred monthly or annual plan to unlock unlimited exams and performance analytics.',
+      'category': 'Billing',
+    },
+    {
+      'question': 'Where can I see my past exam results and analytics?',
+      'answer':
+          'Head over to the "Saved Exams" tab from your User Profile screen or access detailed performance breakdowns from the Dashboard.',
+      'category': 'Exams',
+    },
+    {
+      'question': 'Can I edit my profile information and picture?',
+      'answer':
+          'Yes! Open the User Profile screen, tap "Personal Information", and click the edit icon in the top right to update your name, major, or profile picture.',
+      'category': 'Account',
+    },
+  ];
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Fetch current user's profile image from Firestore
+  Future<String?> _fetchUserProfileImage() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (doc.exists && doc.data() != null) {
+        return doc.data()?['photoUrl'] as String?;
+      }
+    } catch (e) {
+      debugPrint("Error fetching user profile image: $e");
+    }
+    return null;
+  }
+
+  ImageProvider _resolveProfileImage(String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) {
+      return const NetworkImage(
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      );
+    }
+    if (photoUrl.startsWith('http')) {
+      return NetworkImage(photoUrl);
+    } else {
+      final file = File(photoUrl);
+      if (file.existsSync()) {
+        return FileImage(file);
+      }
+      return const NetworkImage(
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      );
+    }
+  }
+
+  // Open native email app
+  Future<void> _handleEmailSupport() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'support@examora.com',
+      queryParameters: {
+        'subject': 'Support Request - Examora App',
+        'body': 'Hello Examora Support Team,\n\nI need help with:\n',
+      },
+    );
+
+    try {
+      final bool launched = await launchUrl(
+        emailLaunchUri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No email client found. Contact: support@examora.com',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open email: $e')));
+    }
+  }
+
+  // Show answer dialog when a question is tapped
+  void _showAnswerDialog(String question, String answer, String category) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          question,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEDE9FE),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                category,
+                style: const TextStyle(
+                  color: Color(0xFF6D28D9),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(answer, style: const TextStyle(fontSize: 15, height: 1.5)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Got it',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -35,6 +184,17 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
         ? const Color(0xFF94A3B8)
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+
+    // Filter FAQs by search input
+    final filteredFaqs = _faqList.where((faq) {
+      if (_searchQuery.isEmpty) return true;
+      final q = (faq['question'] ?? '').toLowerCase();
+      final a = (faq['answer'] ?? '').toLowerCase();
+      final c = (faq['category'] ?? '').toLowerCase();
+      return q.contains(_searchQuery) ||
+          a.contains(_searchQuery) ||
+          c.contains(_searchQuery);
+    }).toList();
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -65,7 +225,10 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
-
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back, color: textColor),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                   title: Text(
                     'Support Center',
                     style: TextStyle(
@@ -77,12 +240,17 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
                   centerTitle: true,
                   actions: [
                     Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundImage: const NetworkImage(
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                        ),
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: FutureBuilder<String?>(
+                        future: _fetchUserProfileImage(),
+                        builder: (context, snapshot) {
+                          return CircleAvatar(
+                            radius: 18,
+                            backgroundImage: _resolveProfileImage(
+                              snapshot.data,
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -114,13 +282,29 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Search Bar
+            // Search Bar with onChanged
             TextField(
               controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.trim().toLowerCase();
+                });
+              },
               decoration: InputDecoration(
                 hintText: "Search for articles, questions...",
                 hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
                 prefixIcon: Icon(Icons.search, color: subtitleColor),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, color: subtitleColor, size: 18),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
                 filled: true,
                 fillColor: containerColor,
                 border: OutlineInputBorder(
@@ -154,67 +338,75 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Popular Questions Container Box
-            Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+            // Filtered Questions Container Box
+            if (filteredFaqs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0),
+                child: Center(
+                  child: Text(
+                    'No questions match "$_searchQuery"',
+                    style: TextStyle(color: subtitleColor, fontSize: 14),
                   ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  _buildQuestionItem(
-                    question: 'How do I reset my password?',
-                    category: 'Account',
-                    categoryBgColor: isDarkMode
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFE0E7FF),
-                    categoryTextColor: isDarkMode
-                        ? const Color(0xFF93C5FD)
-                        : const Color(0xFF3730A3),
-                    textColor: textColor,
-                    subtitleColor: subtitleColor,
-                    onTap: () =>
-                        _handleQuestionTap('How do I reset my password?'),
-                  ),
-                  Divider(height: 1, color: borderColor),
-                  _buildQuestionItem(
-                    question:
-                        'What happens if my internet disconnects during an exam?',
-                    category: 'Technical',
-                    categoryBgColor: isDarkMode
-                        ? const Color(0xFF451A03)
-                        : const Color(0xFFFEF2F2),
-                    categoryTextColor: const Color(0xFFDC2626),
-                    textColor: textColor,
-                    subtitleColor: subtitleColor,
-                    onTap: () => _handleQuestionTap(
-                      'What happens if my internet disconnects during an exam?',
+                ),
+              )
+            else
+              Container(
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
-                  ),
-                  Divider(height: 1, color: borderColor),
-                  _buildQuestionItem(
-                    question: 'How to upgrade to Premium?',
-                    category: 'Billing',
-                    categoryBgColor: isDarkMode
-                        ? const Color(0xFF451A03)
-                        : const Color(0xFFFEF3C7),
-                    categoryTextColor: const Color(0xFFB45309),
-                    textColor: textColor,
-                    subtitleColor: subtitleColor,
-                    onTap: () =>
-                        _handleQuestionTap('How to upgrade to Premium?'),
-                  ),
-                ],
+                  ],
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredFaqs.length,
+                  separatorBuilder: (context, index) =>
+                      Divider(height: 1, color: borderColor),
+                  itemBuilder: (context, index) {
+                    final item = filteredFaqs[index];
+                    final question = item['question']!;
+                    final answer = item['answer']!;
+                    final category = item['category']!;
+
+                    Color catBg = isDarkMode
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFE0E7FF);
+                    Color catText = isDarkMode
+                        ? const Color(0xFF93C5FD)
+                        : const Color(0xFF3730A3);
+
+                    if (category == 'Technical') {
+                      catBg = isDarkMode
+                          ? const Color(0xFF451A03)
+                          : const Color(0xFFFEF2F2);
+                      catText = const Color(0xFFDC2626);
+                    } else if (category == 'Billing') {
+                      catBg = isDarkMode
+                          ? const Color(0xFF451A03)
+                          : const Color(0xFFFEF3C7);
+                      catText = const Color(0xFFB45309);
+                    }
+
+                    return _buildQuestionItem(
+                      question: question,
+                      category: category,
+                      categoryBgColor: catBg,
+                      categoryTextColor: catText,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      onTap: () =>
+                          _showAnswerDialog(question, answer, category),
+                    );
+                  },
+                ),
               ),
-            ),
             const SizedBox(height: 28),
 
             // Still Need Help? Banner Card
@@ -222,9 +414,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: isDarkMode
-                    ? const Color(0xFF1E1B4B)
-                    : const Color(0xFF1E1B4B),
+                color: const Color(0xFF1E1B4B),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(

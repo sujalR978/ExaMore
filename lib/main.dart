@@ -6,7 +6,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 import 'firebase_options.dart';
-
 import 'package:provider/provider.dart';
 
 void main() async {
