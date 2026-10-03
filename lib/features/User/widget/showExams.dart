@@ -32,7 +32,7 @@ class ExamCardWidget extends StatefulWidget {
     required this.buttonText,
     required this.buttonBgColor,
     required this.buttonTextColor,
-    required this.onButtonPressed,
+    required this.onButtonPressed, required Future<dynamic> Function() onBookmarkToggle,
   });
 
   @override
