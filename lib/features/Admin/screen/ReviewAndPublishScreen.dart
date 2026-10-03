@@ -1,33 +1,178 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
-
+import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
+import 'package:prep_mate/features/User/screen/activeExamScreen.dart';
 
 class ReviewAndPublishScreen extends StatefulWidget {
-  const ReviewAndPublishScreen({super.key});
+  final ExamModel? exam; // 1. Changed to nullable
+
+  const ReviewAndPublishScreen({super.key, this.exam}); // 2. Removed 'required'
 
   @override
   State<ReviewAndPublishScreen> createState() => _ReviewAndPublishScreenState();
 }
 
 class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
-  bool _shuffleQuestions = true;
-  bool _showResultsImmediately = false;
+  final ExamService _examService = ExamService();
 
-  void _handleSaveDraft() {}
+  late ExamModel _currentExam;
+  late bool _shuffleQuestions;
+  late bool _showResultsImmediately;
+  bool _isSavingDraft = false;
+  bool _isPublishing = false;
 
-  void _handlePublishExam() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => AdminHomeScreen()));
+  @override
+  void initState() {
+    super.initState();
+    // 3. Fallback to a default exam instance if null is provided
+    _currentExam =
+        widget.exam ??
+        ExamModel(
+          id: '',
+          examCode: '',
+          title: 'Sample Exam',
+          category: 'General',
+          durationMinutes: 90,
+          totalMarks: 100,
+          passingScorePercentage: 65,
+          questions: [],
+        );
+
+    _shuffleQuestions = _currentExam.shuffleQuestions;
+    _showResultsImmediately = _currentExam.showResultsImmediately;
+  }
+
+  ExamModel _prepareUpdatedExam({String? newStatus}) {
+    return _currentExam.copyWith(
+      shuffleQuestions: _shuffleQuestions,
+      showResultsImmediately: _showResultsImmediately,
+      status: newStatus ?? _currentExam.status,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  Future<void> _handleSaveDraft() async {
+    setState(() => _isSavingDraft = true);
+    try {
+      final updatedExam = _prepareUpdatedExam(newStatus: 'Draft');
+      await _examService.updateExam(updatedExam);
+      _currentExam = updatedExam;
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exam draft saved successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save draft: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingDraft = false);
+
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => Showexamesscreen()));
+    }
+  }
+
+  Future<void> _handlePublishExam() async {
+    if (_currentExam.questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one question before publishing.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isPublishing = true);
+    try {
+      final updatedExam = _prepareUpdatedExam(newStatus: 'Published');
+      await _examService.updateExam(updatedExam);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Exam published successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate back to Admin Dashboard and clear stack
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to publish exam: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isPublishing = false);
+    }
   }
 
   void _handleAddMoreQuestions() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AddMultipleChoiceQuestionScreen(),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) =>
+                AddMultipleChoiceQuestionScreen(exam: _prepareUpdatedExam()),
+          ),
+        )
+        .then((_) => _refreshExamData());
+  }
+
+  void _handleEditQuestion(QuestionModel question, int index) {
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) => AddMultipleChoiceQuestionScreen(
+              exam: _prepareUpdatedExam(),
+              editingQuestion: question,
+              questionIndex: index,
+            ),
+          ),
+        )
+        .then((_) => _refreshExamData());
+  }
+
+  Future<void> _handleDeleteQuestion(int index) async {
+    final updatedList = List<QuestionModel>.from(_currentExam.questions)
+      ..removeAt(index);
+    final updatedExam = _currentExam.copyWith(questions: updatedList);
+
+    setState(() {
+      _currentExam = updatedExam;
+    });
+
+    await _examService.updateExam(updatedExam);
+  }
+
+  // Refresh exam in case child screens modified it
+  Future<void> _refreshExamData() async {
+    final stream = _examService.getExamStream(_currentExam.id);
+    final latestExam = await stream.first;
+    if (mounted) {
+      setState(() {
+        _currentExam = latestExam;
+      });
+    }
   }
 
   @override
@@ -44,7 +189,6 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -140,7 +284,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'BACK TO DRAFTS',
+                    'BACK TO QUESTIONS',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
@@ -174,11 +318,11 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _handleSaveDraft,
+                    onPressed: _isSavingDraft || _isPublishing
+                        ? null
+                        : _handleSaveDraft,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isDarkMode
-                          ? const Color(0xFF1E1B4B)
-                          : const Color(0xFF1E1B4B),
+                      backgroundColor: const Color(0xFF1E1B4B),
                       foregroundColor: Colors.white,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -186,30 +330,41 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.save_outlined, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Save Draft',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                    child: _isSavingDraft
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.save_outlined, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'Save Draft',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _handlePublishExam,
+                    onPressed: _isSavingDraft || _isPublishing
+                        ? null
+                        : _handlePublishExam,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(
-                        0xFFFBBF24,
-                      ), // Amber CTA button
+                      backgroundColor: const Color(0xFFFBBF24),
                       foregroundColor: const Color(0xFF1E1B4B),
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -217,20 +372,31 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.bolt, size: 18),
-                        SizedBox(width: 6),
-                        Text(
-                          'Publish Exam',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                    child: _isPublishing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF1E1B4B),
+                              ),
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.bolt, size: 18),
+                              SizedBox(width: 6),
+                              Text(
+                                'Publish Exam',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -261,7 +427,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(
-                    '15 Items',
+                    '${_currentExam.questions.length} Items',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFF93C5FD)
@@ -275,144 +441,205 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Question Card with left accent stripe
-            Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(
-                        color: const Color(
-                          0xFF10B981,
-                        ), // Emerald indicator stripe
-                        width: 5,
-                      ),
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 28,
-                                height: 28,
-                                decoration: BoxDecoration(
-                                  color: isDarkMode
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFFDBEAFE),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '1',
-                                    style: TextStyle(
-                                      color: isDarkMode
-                                          ? const Color(0xFF93C5FD)
-                                          : const Color(0xFF1D4ED8),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDarkMode
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'MULTIPLE CHOICE',
-                                  style: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color: subtitleColor,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '2m',
-                                    style: TextStyle(
-                                      color: subtitleColor,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '2.0',
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'MARKS',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Which of the following cellular processes is primarily responsible for the generation of ATP in eukaryotic cells?',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
+            // Dynamic Questions List
+            if (_currentExam.questions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Center(
+                  child: Text(
+                    'No questions added yet.',
+                    style: TextStyle(color: subtitleColor, fontSize: 14),
                   ),
                 ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _currentExam.questions.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final question = _currentExam.questions[index];
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(
+                            isDarkMode ? 0.2 : 0.02,
+                          ),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            left: BorderSide(
+                              color: Color(0xFF10B981),
+                              width: 5,
+                            ),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: isDarkMode
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFFDBEAFE),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${index + 1}',
+                                          style: TextStyle(
+                                            color: isDarkMode
+                                                ? const Color(0xFF93C5FD)
+                                                : const Color(0xFF1D4ED8),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isDarkMode
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        question.type.replaceAll('_', ' '),
+                                        style: TextStyle(
+                                          color: subtitleColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.access_time,
+                                          size: 14,
+                                          color: subtitleColor,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${question.estimatedTimeMinutes}m',
+                                          style: TextStyle(
+                                            color: subtitleColor,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          question.marks.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          'MARKS',
+                                          style: TextStyle(
+                                            color: subtitleColor,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 8),
+                                    PopupMenuButton<String>(
+                                      icon: Icon(
+                                        Icons.more_vert,
+                                        color: subtitleColor,
+                                        size: 20,
+                                      ),
+                                      onSelected: (value) {
+                                        if (value == 'edit') {
+                                          _handleEditQuestion(question, index);
+                                        } else if (value == 'delete') {
+                                          _handleDeleteQuestion(index);
+                                        }
+                                      },
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('Edit Question'),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text(
+                                            'Delete Question',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              question.questionText,
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            ),
             const SizedBox(height: 16),
 
             // Dashed Add Questions from Bank Button
@@ -426,8 +653,6 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
-                    style: BorderStyle
-                        .solid, // Note: Flutter uses dashed border packages or custom painters, solid with dash appearance simulated via custom widgets if needed
                     width: 1.5,
                   ),
                 ),
@@ -446,7 +671,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Add Questions from Bank',
+                      'Add Question',
                       style: TextStyle(
                         color: textColor,
                         fontSize: 14,
@@ -499,7 +724,9 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Advanced Cellular Biology Midterm',
+                    _currentExam.title.isEmpty
+                        ? 'Untitled Exam'
+                        : _currentExam.title,
                     style: TextStyle(
                       color: textColor,
                       fontSize: 18,
@@ -531,7 +758,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                '100',
+                                _currentExam.totalMarks.toInt().toString(),
                                 style: TextStyle(
                                   color: textColor,
                                   fontSize: 26,
@@ -573,7 +800,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                '90m',
+                                '${_currentExam.durationMinutes}m',
                                 style: TextStyle(
                                   color: textColor,
                                   fontSize: 26,
@@ -624,7 +851,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          '65%',
+                          '${_currentExam.passingScorePercentage.toInt()}%',
                           style: TextStyle(
                             color: isDarkMode
                                 ? const Color(0xFF93C5FD)
