@@ -1,16 +1,122 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/screen/activeExamScreen.dart';
 
 class ExamdetailPage extends StatefulWidget {
-  const ExamdetailPage({super.key});
+  final ExamModel? exam;
+
+  const ExamdetailPage({super.key, this.exam});
 
   @override
   State<ExamdetailPage> createState() => _ExamdetailPageState();
 }
 
 class _ExamdetailPageState extends State<ExamdetailPage> {
-  // Separate method for Start Exam button onPressed
+  final ExamService _examService = ExamService();
+  late ExamModel _exam;
+  bool _isSaved = false;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _exam =
+        widget.exam ??
+        ExamModel(
+          id: '',
+          examCode: 'EXM-2026-001',
+          title: 'General Assessment',
+          category: 'General',
+          durationMinutes: 60,
+          totalMarks: 100,
+          status: 'Published',
+        );
+
+    _checkIfSaved();
+  }
+
+  Future<void> _checkIfSaved() async {
+    final uid = _currentUser?.uid;
+    if (uid == null || _exam.id.isEmpty) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('saved_exams')
+          .doc(_exam.id)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _isSaved = doc.exists;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleToggleBookmark() async {
+    final uid = _currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to save exams.')),
+      );
+      return;
+    }
+
+    // Safety check: Ensure the exam ID exists
+    if (_exam.id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot save: Invalid Exam ID.')),
+      );
+      return;
+    }
+
+    try {
+      final savedNow = await _examService.toggleSaveExam(
+        userId: uid,
+        exam: _exam,
+      );
+
+      if (!mounted) return;
+      setState(() => _isSaved = savedNow);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedNow ? 'Exam saved to bookmarks!' : 'Removed from saved exams.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update bookmark: $e')));
+    }
+  }
+
+  String _formatScheduleDate(DateTime? date) {
+    if (date == null) return 'Available anytime on demand';
+    return 'Scheduled for: ${DateFormat('MMM dd, yyyy • hh:mm a').format(date)}';
+  }
+
   void _handleStartExam(BuildContext context) {
+    if (_exam.questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This exam currently has no questions available.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -31,7 +137,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
           ),
           content: Text(
-            'Do you really want to start this exam now? Your timer will begin immediately.',
+            'Do you really want to start "${_exam.title}" now? Your timer (${_exam.durationMinutes} mins) will begin immediately.',
             style: TextStyle(
               color: isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600],
               fontSize: 14,
@@ -53,15 +159,15 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Close dialog
+                Navigator.of(dialogContext).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => const ActiveExamScreen(),
+                    builder: (context) => ActiveExamScreen(exam: _exam),
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFBBF24), // Amber CTA
+                backgroundColor: const Color(0xFFFBBF24),
                 foregroundColor: const Color(0xFF1E1B4B),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -91,9 +197,10 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
+    final isPublished = _exam.status.toLowerCase() == 'published';
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -133,6 +240,19 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     ),
                   ),
                   centerTitle: true,
+                  actions: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: IconButton(
+                        icon: Icon(
+                          _isSaved ? Icons.bookmark : Icons.bookmark_border,
+                          color: _isSaved ? const Color(0xFFFBBF24) : textColor,
+                          size: 24,
+                        ),
+                        onPressed: _handleToggleBookmark,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -168,7 +288,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Organic Chemistry Finals',
+                          _exam.title,
                           style: TextStyle(
                             color: textColor,
                             fontSize: 24,
@@ -189,7 +309,9 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'CHM-301',
+                          _exam.examCode.isNotEmpty
+                              ? _exam.examCode
+                              : _exam.category.toUpperCase(),
                           style: TextStyle(
                             color: isDarkMode
                                 ? const Color(0xFF93C5FD)
@@ -202,35 +324,51 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Draft Status Badge
+                  // Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF451A03)
-                          : const Color(0xFFFEF3C7),
+                      color: isPublished
+                          ? (isDarkMode
+                                ? const Color(0xFF064E3B)
+                                : const Color(0xFFD1FAE5))
+                          : (isDarkMode
+                                ? const Color(0xFF451A03)
+                                : const Color(0xFFFEF3C7)),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.mail_outline,
+                          isPublished
+                              ? Icons.check_circle_outline
+                              : Icons.mail_outline,
                           size: 14,
-                          color: isDarkMode
-                              ? const Color(0xFFFCD34D)
-                              : const Color(0xFFB45309),
+                          color: isPublished
+                              ? (isDarkMode
+                                    ? const Color(0xFF34D399)
+                                    : const Color(0xFF065F46))
+                              : (isDarkMode
+                                    ? const Color(0xFFFCD34D)
+                                    : const Color(0xFFB45309)),
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Draft / Not Published',
+                          isPublished
+                              ? 'Live & Published'
+                              : 'Draft / Not Published',
                           style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFFFCD34D)
-                                : const Color(0xFFB45309),
+                            color: isPublished
+                                ? (isDarkMode
+                                      ? const Color(0xFF34D399)
+                                      : const Color(0xFF065F46))
+                                : (isDarkMode
+                                      ? const Color(0xFFFCD34D)
+                                      : const Color(0xFFB45309)),
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -258,14 +396,16 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                               : const Color(0xFF2563EB),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Scheduled for: Oct 25, 2024 • 10:00 AM',
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFF93C5FD)
-                                : const Color(0xFF1D4ED8),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            _formatScheduleDate(_exam.startDate),
+                            style: TextStyle(
+                              color: isDarkMode
+                                  ? const Color(0xFF93C5FD)
+                                  : const Color(0xFF1D4ED8),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ],
@@ -273,7 +413,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Comprehensive examination covering reaction mechanisms, stereochemistry, and synthesis.',
+                    'Subject: ${_exam.category}. Passing requirement is ${_exam.passingScorePercentage.toInt()}%. Negative marking penalty: ${_exam.negativeMarking} pts per wrong answer.',
                     style: TextStyle(
                       color: subtitleColor,
                       fontSize: 14,
@@ -287,7 +427,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                       Expanded(
                         child: _buildStatItem(
                           Icons.access_time,
-                          '60',
+                          '${_exam.durationMinutes}',
                           'MINS',
                           isDarkMode,
                           containerColor,
@@ -300,7 +440,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                       Expanded(
                         child: _buildStatItem(
                           Icons.list_alt,
-                          '50',
+                          '${_exam.questions.length}',
                           'MCQS',
                           isDarkMode,
                           containerColor,
@@ -313,7 +453,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                       Expanded(
                         child: _buildStatItem(
                           Icons.military_tech_outlined,
-                          '100',
+                          '${_exam.totalMarks.toInt()}',
                           'MARKS',
                           isDarkMode,
                           containerColor,
@@ -392,65 +532,76 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // Top Performers Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            // Top Performers Card (Live Stream from Submissions)
+            StreamBuilder<List<StudentSubmissionModel>>(
+              stream: _examService.getExamSubmissionsStream(_exam.id),
+              builder: (context, snapshot) {
+                final submissions = snapshot.data ?? [];
+                final topPerformers = submissions.take(3).toList();
+
+                return Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.emoji_events_outlined,
-                        color: isDarkMode
-                            ? const Color(0xFFFBBF24)
-                            : const Color(0xFF1E1B4B),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.emoji_events_outlined,
+                            color: isDarkMode
+                                ? const Color(0xFFFBBF24)
+                                : const Color(0xFF1E1B4B),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Top Performers',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Top Performers',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(height: 16),
+                      if (topPerformers.isEmpty)
+                        Text(
+                          'No candidates have completed this assessment yet. Be the first!',
+                          style: TextStyle(color: subtitleColor, fontSize: 13),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: topPerformers.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 24),
+                          itemBuilder: (context, idx) {
+                            final p = topPerformers[idx];
+                            final rank = idx == 0
+                                ? '1st'
+                                : idx == 1
+                                ? '2nd'
+                                : '3rd';
+                            return _buildPerformerRow(
+                              rank,
+                              p.studentName,
+                              '${p.marksObtained.toInt()} /${p.totalMarks.toInt()}',
+                              isDarkMode,
+                              textColor,
+                              subtitleColor,
+                            );
+                          },
                         ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildPerformerRow(
-                    '1st',
-                    'Alex Johnson',
-                    '98 /100',
-                    isDarkMode,
-                    textColor,
-                    subtitleColor,
-                  ),
-                  const Divider(height: 24),
-                  _buildPerformerRow(
-                    '2nd',
-                    'Sarah Miller',
-                    '95 /100',
-                    isDarkMode,
-                    textColor,
-                    subtitleColor,
-                  ),
-                  const Divider(height: 24),
-                  _buildPerformerRow(
-                    '3rd',
-                    'David Chen',
-                    '92 /100',
-                    isDarkMode,
-                    textColor,
-                    subtitleColor,
-                  ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 20),
 
@@ -489,11 +640,9 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildTopicChip('Alkanes & Cycloalkanes', isDarkMode),
-                      _buildTopicChip('Stereochemistry', isDarkMode),
-                      _buildTopicChip('Nucleophilic Substitution', isDarkMode),
-                      _buildTopicChip('Elimination Reactions', isDarkMode),
-                      _buildTopicChip('Alkenes & Alkynes', isDarkMode),
+                      _buildTopicChip(_exam.category, isDarkMode),
+                      _buildTopicChip('Assessment Questions', isDarkMode),
+                      _buildTopicChip('Graded Evaluation', isDarkMode),
                     ],
                   ),
                 ],
@@ -543,7 +692,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
               child: ElevatedButton(
                 onPressed: () => _handleStartExam(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFBBF24), // Amber CTA
+                  backgroundColor: const Color(0xFFFBBF24),
                   foregroundColor: const Color(0xFF1E1B4B),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
