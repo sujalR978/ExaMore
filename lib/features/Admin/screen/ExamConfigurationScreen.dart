@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
+
 
 class ExamConfigurationScreen extends StatefulWidget {
-  const ExamConfigurationScreen({super.key});
+  final ExamModel?
+  exam; // Pass null to create new, or pass existing exam to edit
+
+  const ExamConfigurationScreen({super.key, this.exam});
 
   @override
   State<ExamConfigurationScreen> createState() =>
@@ -13,17 +19,16 @@ class ExamConfigurationScreen extends StatefulWidget {
 class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   final _formKey = GlobalKey<FormState>();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _durationController = TextEditingController(
-    text: '120',
-  );
-  final TextEditingController _marksController = TextEditingController(
-    text: '100',
-  );
-  final TextEditingController _negativeMarkingController =
-      TextEditingController(text: '0.25');
+  final ExamService _examService = ExamService();
+
+  late TextEditingController _titleController;
+  late TextEditingController _durationController;
+  late TextEditingController _marksController;
+  late TextEditingController _negativeMarkingController;
 
   String? _selectedCategory;
+  bool _isLoading = false;
+
   final List<String> _categories = [
     'Mathematics',
     'Science',
@@ -31,13 +36,95 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     'Computer Science',
   ];
 
-  void _handleNext() {
-    if (_formKey.currentState!.validate()) {
+  bool get _isEditing => widget.exam != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-populate if editing an existing exam
+    _titleController = TextEditingController(text: widget.exam?.title ?? '');
+    _durationController = TextEditingController(
+      text: widget.exam != null
+          ? widget.exam!.durationMinutes.toString()
+          : '120',
+    );
+    _marksController = TextEditingController(
+      text: widget.exam != null
+          ? widget.exam!.totalMarks.toInt().toString()
+          : '100',
+    );
+    _negativeMarkingController = TextEditingController(
+      text: widget.exam != null
+          ? widget.exam!.negativeMarking.toString()
+          : '0.25',
+    );
+
+    if (widget.exam != null && _categories.contains(widget.exam!.category)) {
+      _selectedCategory = widget.exam!.category;
+    } else if (widget.exam != null && widget.exam!.category.isNotEmpty) {
+      _categories.add(widget.exam!.category);
+      _selectedCategory = widget.exam!.category;
+    }
+  }
+
+  Future<void> _handleNext() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final title = _titleController.text.trim();
+      final category = _selectedCategory ?? 'General';
+      final duration = int.tryParse(_durationController.text.trim()) ?? 120;
+      final totalMarks = double.tryParse(_marksController.text.trim()) ?? 100.0;
+      final negativeMarking =
+          double.tryParse(_negativeMarkingController.text.trim()) ?? 0.0;
+
+      ExamModel currentExam;
+
+      if (_isEditing) {
+        currentExam = widget.exam!.copyWith(
+          title: title,
+          category: category,
+          durationMinutes: duration,
+          totalMarks: totalMarks,
+          negativeMarking: negativeMarking,
+          updatedAt: DateTime.now(),
+        );
+        await _examService.updateExam(currentExam);
+      } else {
+        currentExam = ExamModel(
+          id: '',
+          examCode: '',
+          title: title,
+          category: category,
+          durationMinutes: duration,
+          totalMarks: totalMarks,
+          negativeMarking: negativeMarking,
+          status: 'Draft',
+        );
+        final newDocId = await _examService.createExamDraft(currentExam);
+        currentExam = currentExam.copyWith(id: newDocId);
+      }
+
+      if (!mounted) return;
+
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => AddMultipleChoiceQuestionScreen(),
+          builder: (context) =>
+              AddMultipleChoiceQuestionScreen(exam: currentExam),
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save configuration: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -68,9 +155,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      key: _scaffoldKey, // Assigned the scaffold key
+      key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -104,7 +190,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     },
                   ),
                   title: Text(
-                    'Exam Administration',
+                    _isEditing ? 'Edit Exam' : 'Exam Administration',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
@@ -190,7 +276,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Exam Configuration',
+                      _isEditing ? 'Edit Configuration' : 'Exam Configuration',
                       style: TextStyle(
                         color: textColor,
                         fontSize: 22,
@@ -213,7 +299,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
+                      validator: (val) => val == null || val.trim().isEmpty
                           ? 'Please enter exam title'
                           : null,
                     ),
@@ -267,9 +353,15 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Please enter duration'
-                          : null,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Please enter duration';
+                        }
+                        if (int.tryParse(val.trim()) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -286,6 +378,14 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
+                      validator: (val) {
+                        if (val != null &&
+                            val.isNotEmpty &&
+                            double.tryParse(val.trim()) == null) {
+                          return 'Please enter a valid number';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -361,14 +461,14 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     Divider(color: borderColor, height: 1),
                     const SizedBox(height: 20),
 
-                    // Bottom Action Buttons (Cancel & Next)
+                    // Bottom Action Buttons
                     Row(
                       children: [
                         Expanded(
                           child: SizedBox(
                             height: 48,
                             child: OutlinedButton(
-                              onPressed: _handleCancel,
+                              onPressed: _isLoading ? null : _handleCancel,
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: textColor,
                                 side: BorderSide(
@@ -395,31 +495,42 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                           child: SizedBox(
                             height: 48,
                             child: ElevatedButton(
-                              onPressed: _handleNext,
+                              onPressed: _isLoading ? null : _handleNext,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(
-                                  0xFFFBBF24,
-                                ), // Amber CTA button
+                                backgroundColor: const Color(0xFFFBBF24),
                                 foregroundColor: const Color(0xFF1E1B4B),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Next: Add Questions',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Color(0xFF1E1B4B),
+                                            ),
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'Next: Add Questions',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        SizedBox(width: 6),
+                                        Icon(Icons.arrow_forward, size: 18),
+                                      ],
                                     ),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Icon(Icons.arrow_forward, size: 18),
-                                ],
-                              ),
                             ),
                           ),
                         ),
@@ -450,9 +561,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           height: 32,
           decoration: BoxDecoration(
             color: isActive
-                ? (isDarkMode
-                      ? const Color(0xFF1E1B4B)
-                      : const Color(0xFF1E1B4B))
+                ? const Color(0xFF1E1B4B)
                 : (isDarkMode
                       ? const Color(0xFF1E293B)
                       : const Color(0xFFE2E8F0)),
