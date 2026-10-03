@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/ReviewAndPublishScreen.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
+
 
 class AddMultipleChoiceQuestionScreen extends StatefulWidget {
-  const AddMultipleChoiceQuestionScreen({super.key});
+  final ExamModel exam;
+  final QuestionModel? editingQuestion;
+  final int? questionIndex;
+  final bool isForQuestionBank; 
+
+  const AddMultipleChoiceQuestionScreen({
+    super.key,
+    required this.exam,
+    this.editingQuestion,
+    this.questionIndex,
+    this.isForQuestionBank = false,
+  });
 
   @override
   State<AddMultipleChoiceQuestionScreen> createState() =>
@@ -11,38 +25,244 @@ class AddMultipleChoiceQuestionScreen extends StatefulWidget {
 
 class _AddMultipleChoiceQuestionScreenState
     extends State<AddMultipleChoiceQuestionScreen> {
-  final TextEditingController _questionController = TextEditingController();
-  final TextEditingController _marksController = TextEditingController(
-    text: '1',
-  );
+  final ExamService _examService = ExamService();
 
-  // Controllers for options A, B, C, D
-  final List<TextEditingController> _optionControllers = [
-    TextEditingController(),
-    TextEditingController(text: 'This is the correct answer selected'),
-    TextEditingController(),
-    TextEditingController(),
-  ];
+  late ExamModel _currentExam;
+  late TextEditingController _questionController;
+  late TextEditingController _marksController;
+  late List<TextEditingController> _optionControllers;
 
-  int _selectedCorrectOption = 1; // Index 1 is Option B
+  int _selectedCorrectOption = 0;
+  bool _isLoading = false;
+
+  bool get _isEditingQuestion => widget.editingQuestion != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentExam = widget.exam;
+
+    if (_isEditingQuestion) {
+      final q = widget.editingQuestion!;
+      _questionController = TextEditingController(text: q.questionText);
+      _marksController = TextEditingController(
+        text: q.marks.toInt().toString(),
+      );
+
+      _optionControllers = q.options
+          .map((opt) => TextEditingController(text: opt.text))
+          .toList();
+
+      final correctIdx = q.options.indexWhere(
+        (opt) => opt.id == q.correctOptionId,
+      );
+      _selectedCorrectOption = correctIdx >= 0 ? correctIdx : 0;
+    } else {
+      _questionController = TextEditingController();
+      _marksController = TextEditingController(text: '1');
+      _optionControllers = [
+        TextEditingController(),
+        TextEditingController(),
+        TextEditingController(),
+        TextEditingController(),
+      ];
+      _selectedCorrectOption = 0;
+    }
+  }
+
+  QuestionModel? _buildQuestionFromInputs() {
+    final questionText = _questionController.text.trim();
+    if (questionText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter question text'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return null;
+    }
+
+    final validOptions = <QuestionOption>[];
+    for (int i = 0; i < _optionControllers.length; i++) {
+      final text = _optionControllers[i].text.trim();
+      if (text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please enter text for Option ${String.fromCharCode(65 + i)}',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return null;
+      }
+      validOptions.add(
+        QuestionOption(id: String.fromCharCode(65 + i), text: text),
+      );
+    }
+
+    if (validOptions.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('At least 2 options are required'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return null;
+    }
+
+    final marks = double.tryParse(_marksController.text.trim()) ?? 1.0;
+    final selectedOptionLetter = String.fromCharCode(
+      65 + _selectedCorrectOption,
+    );
+
+    return QuestionModel(
+      id: _isEditingQuestion
+          ? widget.editingQuestion!.id
+          : DateTime.now().millisecondsSinceEpoch.toString(),
+      questionText: questionText,
+      marks: marks,
+      options: validOptions,
+      correctOptionId: selectedOptionLetter,
+      type: 'MULTIPLE_CHOICE',
+      estimatedTimeMinutes: 2,
+    );
+  }
+
+  Future<bool> _saveCurrentQuestionToFirebase(QuestionModel question) async {
+    setState(() => _isLoading = true);
+
+    try {
+      // If adding directly into Question Bank collection
+      if (widget.isForQuestionBank) {
+        final bankQuestion = QuestionModel(
+          id: question.id,
+          questionText: question.questionText,
+          marks: question.marks,
+          options: question.options,
+          correctOptionId: question.correctOptionId,
+          type: question.type,
+          category: _currentExam.category.isEmpty ? 'General' : _currentExam.category,
+          difficulty: 'Medium',
+          views: 0,
+          estimatedTimeMinutes: question.estimatedTimeMinutes,
+          createdAt: DateTime.now(),
+        );
+
+        await _examService.addQuestionToBank(bankQuestion);
+        return true;
+      }
+
+      // Normal Exam workflow
+      List<QuestionModel> updatedQuestions = List.from(_currentExam.questions);
+
+      if (_isEditingQuestion && widget.questionIndex != null) {
+        updatedQuestions[widget.questionIndex!] = question;
+      } else {
+        updatedQuestions.add(question);
+      }
+
+      final updatedExam = _currentExam.copyWith(
+        questions: updatedQuestions,
+        updatedAt: DateTime.now(),
+      );
+
+      await _examService.updateExam(updatedExam);
+      _currentExam = updatedExam;
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving question: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return false;
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _handleCancel() {
     Navigator.pop(context);
   }
 
-  void _handleSaveAndAddAnother() {
-    print('Save & Add Another clicked');
+  Future<void> _handleSaveAndAddAnother() async {
+    final question = _buildQuestionFromInputs();
+    if (question == null) return;
+
+    final success = await _saveCurrentQuestionToFirebase(question);
+    if (!success || !mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Question saved successfully!'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Reset controllers for next question
+    setState(() {
+      _questionController.clear();
+      _marksController.text = '1';
+      for (var c in _optionControllers) {
+        c.clear();
+      }
+      _selectedCorrectOption = 0;
+    });
   }
 
-  void _handleDone() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => ReviewAndPublishScreen()));
+  Future<void> _handleDone() async {
+    if (_questionController.text.trim().isNotEmpty) {
+      final question = _buildQuestionFromInputs();
+      if (question == null) return;
+
+      final success = await _saveCurrentQuestionToFirebase(question);
+      if (!success || !mounted) return;
+    }
+
+    if (!mounted) return;
+
+    if (widget.isForQuestionBank) {
+      // Pop back to Question Bank screen
+      Navigator.pop(context);
+    } else {
+      // Continue to review exam
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ReviewAndPublishScreen(exam: _currentExam),
+        ),
+      );
+    }
   }
 
   void _handleAddOption() {
+    if (_optionControllers.length >= 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maximum 6 options allowed')),
+      );
+      return;
+    }
     setState(() {
       _optionControllers.add(TextEditingController());
+    });
+  }
+
+  void _handleRemoveOption(int index) {
+    if (_optionControllers.length <= 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Minimum 2 options required')),
+      );
+      return;
+    }
+    setState(() {
+      _optionControllers[index].dispose();
+      _optionControllers.removeAt(index);
+      if (_selectedCorrectOption >= _optionControllers.length) {
+        _selectedCorrectOption = _optionControllers.length - 1;
+      }
     });
   }
 
@@ -70,7 +290,6 @@ class _AddMultipleChoiceQuestionScreenState
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -98,10 +317,8 @@ class _AddMultipleChoiceQuestionScreenState
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   leading: IconButton(
-                    icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () {
-                      print('Menu clicked');
-                    },
+                    icon: Icon(Icons.arrow_back, color: textColor),
+                    onPressed: _handleCancel,
                   ),
                   title: Text(
                     'Exam Administration',
@@ -114,17 +331,6 @@ class _AddMultipleChoiceQuestionScreenState
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: IconButton(
-                        icon: Icon(Icons.person_outline, color: textColor),
-                        onPressed: () {
-                          print('Profile clicked');
-                        },
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -146,7 +352,9 @@ class _AddMultipleChoiceQuestionScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Add Multiple Choice\nQuestion',
+                        _isEditingQuestion
+                            ? 'Edit Multiple Choice\nQuestion'
+                            : 'Add Multiple Choice\nQuestion',
                         style: TextStyle(
                           color: textColor,
                           fontSize: 26,
@@ -314,7 +522,6 @@ class _AddMultipleChoiceQuestionScreenState
                     ),
                     child: Column(
                       children: [
-                        // Formatting Toolbar
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -346,7 +553,6 @@ class _AddMultipleChoiceQuestionScreenState
                             ],
                           ),
                         ),
-                        // Text Area
                         TextField(
                           controller: _questionController,
                           maxLines: 4,
@@ -399,9 +605,7 @@ class _AddMultipleChoiceQuestionScreenState
                         const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final isSelected = _selectedCorrectOption == index;
-                      final optionLabel = String.fromCharCode(
-                        65 + index,
-                      ); // A, B, C, D...
+                      final optionLabel = String.fromCharCode(65 + index);
 
                       return Container(
                         padding: const EdgeInsets.symmetric(
@@ -413,9 +617,7 @@ class _AddMultipleChoiceQuestionScreenState
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected
-                                ? const Color(
-                                    0xFF10B981,
-                                  ) // Green border for correct answer
+                                ? const Color(0xFF10B981)
                                 : borderColor,
                             width: isSelected ? 1.5 : 1.0,
                           ),
@@ -479,6 +681,15 @@ class _AddMultipleChoiceQuestionScreenState
                                 ),
                               ),
                             ),
+                            if (_optionControllers.length > 2)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () => _handleRemoveOption(index),
+                              ),
                           ],
                         ),
                       );
@@ -518,7 +729,7 @@ class _AddMultipleChoiceQuestionScreenState
                         child: SizedBox(
                           height: 48,
                           child: OutlinedButton(
-                            onPressed: _handleCancel,
+                            onPressed: _isLoading ? null : _handleCancel,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: textColor,
                               side: BorderSide(color: borderColor, width: 1.5),
@@ -542,7 +753,9 @@ class _AddMultipleChoiceQuestionScreenState
                         child: SizedBox(
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: _handleSaveAndAddAnother,
+                            onPressed: _isLoading
+                                ? null
+                                : _handleSaveAndAddAnother,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF1E1B4B),
                               foregroundColor: Colors.white,
@@ -578,24 +791,33 @@ class _AddMultipleChoiceQuestionScreenState
                         child: SizedBox(
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: _handleDone,
+                            onPressed: _isLoading ? null : _handleDone,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(
-                                0xFFFBBF24,
-                              ), // Amber CTA button
+                              backgroundColor: const Color(0xFFFBBF24),
                               foregroundColor: const Color(0xFF1E1B4B),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: const Text(
-                              'Done',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF1E1B4B),
+                                      ),
+                                    ),
+                                  )
+                                : const Text(
+                                    'Done',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
@@ -616,7 +838,6 @@ class _AddMultipleChoiceQuestionScreenState
   }
 }
 
-// Simple custom painter/widget to render a dashed divider line
 class DottedDivider extends StatelessWidget {
   final Color color;
 
