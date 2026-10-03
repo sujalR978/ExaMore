@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
 class QuestionBankScreen extends StatefulWidget {
   const QuestionBankScreen({super.key});
@@ -11,9 +13,14 @@ class QuestionBankScreen extends StatefulWidget {
 }
 
 class _QuestionBankScreenState extends State<QuestionBankScreen> {
-  int _selectedCategoryIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
-  final GlobalKey<ScaffoldState> _Scaffold = GlobalKey<ScaffoldState>();
+  final ExamService _examService = ExamService();
+
+  int _selectedCategoryIndex = 0;
+  String _searchQuery = '';
+  final Set<String> _selectedQuestionIds = {};
+  bool _isCreatingExam = false;
 
   final List<String> _categories = [
     'All Subjects',
@@ -23,27 +30,115 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     'Literature',
   ];
 
-  // Track checked state of individual question cards
-  final List<bool> _checkedStatus = [false, false, true, false];
-
-  void _handleCreateExam() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => ExamConfigurationScreen()));
-  }
-
-  void _handleAddQuestion() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AddMultipleChoiceQuestionScreen(),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase().trim();
+      });
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays >= 7) return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'Just now';
+  }
+
+  // Opens Add Question screen with a fallback ExamModel
+  void _handleAddQuestion() {
+    final currentCategory =
+        _categories[_selectedCategoryIndex] == 'All Subjects'
+        ? 'General'
+        : _categories[_selectedCategoryIndex];
+
+    final tempExam = ExamModel(
+      id: '',
+      examCode: '',
+      title: 'Question Bank Entry',
+      category: currentCategory,
+      durationMinutes: 60,
+      totalMarks: 100,
+    );
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddMultipleChoiceQuestionScreen(
+          exam: tempExam,
+          isForQuestionBank:
+              true, // <-- Tell the screen to save into question_bank
+        ),
+      ),
+    );
+  }
+
+  // Create an exam from selected bank questions or start blank
+  Future<void> _handleCreateExam(List<QuestionModel> allQuestions) async {
+    if (_selectedQuestionIds.isEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const ExamConfigurationScreen(),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isCreatingExam = true);
+
+    try {
+      final selectedQuestions = allQuestions
+          .where((q) => _selectedQuestionIds.contains(q.id))
+          .toList();
+
+      final category = _selectedCategoryIndex == 0
+          ? 'General'
+          : _categories[_selectedCategoryIndex];
+
+      final examId = await _examService.createExamWithQuestions(
+        title: '$category Assessment Draft',
+        category: category,
+        questions: selectedQuestions,
+      );
+
+      final stream = _examService.getExamStream(examId);
+      final newExam = await stream.first;
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Created exam draft with ${selectedQuestions.length} questions!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ExamConfigurationScreen(exam: newExam),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create exam: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isCreatingExam = false);
+    }
   }
 
   @override
@@ -58,11 +153,14 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
+    final selectedCategory = _selectedCategoryIndex == 0
+        ? null
+        : _categories[_selectedCategoryIndex];
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      key: _Scaffold,
+      key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -119,7 +217,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                     IconButton(
                       icon: Icon(Icons.menu, color: textColor),
                       onPressed: () {
-                        _Scaffold.currentState?.openDrawer();
+                        _scaffoldKey.currentState?.openDrawer();
                       },
                     ),
                   ],
@@ -129,355 +227,311 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              'Question Bank',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Manage and curate your repository of academic questions.',
-              style: TextStyle(color: subtitleColor, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
+      body: StreamBuilder<List<QuestionModel>>(
+        stream: _examService.getQuestionBankStream(category: selectedCategory),
+        builder: (context, snapshot) {
+          final allQuestions = snapshot.data ?? [];
 
-            // Top Action Buttons Row
-            Row(
+          final filteredQuestions = allQuestions.where((q) {
+            return q.questionText.toLowerCase().contains(_searchQuery) ||
+                q.category.toLowerCase().contains(_searchQuery) ||
+                q.difficulty.toLowerCase().contains(_searchQuery);
+          }).toList();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _handleCreateExam,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: textColor,
-                      side: BorderSide(color: borderColor, width: 1.5),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.cloud_upload_outlined,
-                          size: 18,
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF1E1B4B),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Create Exam',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: textColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _handleAddQuestion,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(
-                        0xFFFBBF24,
-                      ), // Amber CTA button
-                      foregroundColor: const Color(0xFF1E1B4B),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add, size: 18),
-                        SizedBox(width: 6),
-                        Text(
-                          'Add Question',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Search Bar & Filter Chips Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search questions...",
-                      hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                      prefixIcon: Icon(Icons.search, color: subtitleColor),
-                      filled: true,
-                      fillColor: isDarkMode
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF7C3AED),
-                          width: 1.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 38,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final isSelected = _selectedCategoryIndex == index;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(_categories[index]),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCategoryIndex = index;
-                              });
-                            },
-                            selectedColor: const Color(0xFF1E1B4B),
-                            backgroundColor: isDarkMode
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF1F5F9),
-                            labelStyle: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : (isDarkMode
-                                        ? Colors.white70
-                                        : const Color(0xFF1E1B4B)),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                              side: BorderSide(
-                                color: isSelected
-                                    ? Colors.transparent
-                                    : borderColor,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Question Card 1
-            _buildQuestionCard(
-              index: 0,
-              subject: 'Mathematics',
-              questionType: 'Multiple Choice',
-              difficulty: 'Hard',
-              questionText:
-                  'Solve for x in the equation: 2x^2 + 5x - 3 = 0. Provide the complete derivation steps.',
-              views: '142',
-              timeAgo: '2d ago',
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              isDarkMode: isDarkMode,
-            ),
-            const SizedBox(height: 16),
-
-            // Question Card 2
-            _buildQuestionCard(
-              index: 1,
-              subject: 'Science',
-              questionType: 'Short Answer',
-              difficulty: 'Easy',
-              questionText:
-                  'Explain the process of photosynthesis in green plants and its role in the global carbon cycle.',
-              views: '89',
-              timeAgo: '5d ago',
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              isDarkMode: isDarkMode,
-            ),
-            const SizedBox(height: 16),
-
-            // Question Card 3 (Selected state with highlighted border)
-            _buildQuestionCard(
-              index: 2,
-              subject: 'History',
-              questionType: 'Essay',
-              difficulty: 'Medium',
-              questionText:
-                  'Discuss the socio-economic impact of the Industrial Revolution on European society.',
-              views: '215',
-              timeAgo: '1w ago',
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              isDarkMode: isDarkMode,
-              isHighlighted: true,
-            ),
-            const SizedBox(height: 16),
-
-            // Question Card 4
-            _buildQuestionCard(
-              index: 3,
-              subject: 'Literature',
-              questionType: 'Multiple Choice',
-              difficulty: 'Medium',
-              questionText:
-                  "Which central theme is most prominently explored in George Orwell's '1984'?",
-              views: '304',
-              timeAgo: '2w ago',
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              isDarkMode: isDarkMode,
-            ),
-            const SizedBox(height: 24),
-
-            // Pagination Footer Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildPaginationButton(
-                  Icons.chevron_left,
-                  () {},
-                  containerColor,
-                  textColor,
-                  borderColor,
-                  isDarkMode,
-                ),
-                const SizedBox(width: 8),
-                _buildPaginationNumber(
-                  '1',
-                  true,
-                  containerColor,
-                  textColor,
-                  isDarkMode,
-                ),
-                const SizedBox(width: 6),
-                _buildPaginationNumber(
-                  '2',
-                  false,
-                  containerColor,
-                  textColor,
-                  isDarkMode,
-                ),
-                const SizedBox(width: 6),
-                _buildPaginationNumber(
-                  '3',
-                  false,
-                  containerColor,
-                  textColor,
-                  isDarkMode,
-                ),
-                const SizedBox(width: 6),
+                const SizedBox(height: 8),
                 Text(
-                  '...',
+                  'Question Bank',
                   style: TextStyle(
-                    color: subtitleColor,
+                    color: textColor,
+                    fontSize: 30,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 6),
-                _buildPaginationButton(
-                  Icons.chevron_right,
-                  () {},
-                  containerColor,
-                  textColor,
-                  borderColor,
-                  isDarkMode,
+                const SizedBox(height: 4),
+                Text(
+                  'Manage and curate your repository of academic questions.',
+                  style: TextStyle(color: subtitleColor, fontSize: 14),
                 ),
+                const SizedBox(height: 20),
+
+                // Top Action Buttons Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isCreatingExam
+                            ? null
+                            : () => _handleCreateExam(allQuestions),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: textColor,
+                          side: BorderSide(color: borderColor, width: 1.5),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: _isCreatingExam
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.cloud_upload_outlined,
+                                    size: 18,
+                                    color: isDarkMode
+                                        ? const Color(0xFFFBBF24)
+                                        : const Color(0xFF1E1B4B),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _selectedQuestionIds.isNotEmpty
+                                        ? 'Create (${_selectedQuestionIds.length})'
+                                        : 'Create Exam',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _handleAddQuestion,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFBBF24),
+                          foregroundColor: const Color(0xFF1E1B4B),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add, size: 18),
+                            SizedBox(width: 6),
+                            Text(
+                              'Add Question',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Search Bar & Filter Chips Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: borderColor),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.02,
+                        ),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: "Search questions...",
+                          hintStyle: TextStyle(
+                            color: subtitleColor,
+                            fontSize: 13,
+                          ),
+                          prefixIcon: Icon(Icons.search, color: subtitleColor),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: subtitleColor,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => _searchController.clear(),
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: isDarkMode
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF7C3AED),
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 38,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _categories.length,
+                          itemBuilder: (context, index) {
+                            final isSelected = _selectedCategoryIndex == index;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: ChoiceChip(
+                                label: Text(_categories[index]),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedCategoryIndex = index;
+                                  });
+                                },
+                                selectedColor: const Color(0xFF1E1B4B),
+                                backgroundColor: isDarkMode
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFF1F5F9),
+                                labelStyle: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : (isDarkMode
+                                            ? Colors.white70
+                                            : const Color(0xFF1E1B4B)),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(100),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? Colors.transparent
+                                        : borderColor,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Question Cards
+                if (snapshot.connectionState == ConnectionState.waiting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (filteredQuestions.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    child: Center(
+                      child: Text(
+                        allQuestions.isEmpty
+                            ? 'No questions in Question Bank yet. Tap "Add Question" to start!'
+                            : 'No questions match "$_searchQuery"',
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
+                      ),
+                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredQuestions.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final question = filteredQuestions[index];
+                      final isChecked = _selectedQuestionIds.contains(
+                        question.id,
+                      );
+
+                      return _buildQuestionCard(
+                        question: question,
+                        isChecked: isChecked,
+                        timeAgo: _formatTimeAgo(question.createdAt),
+                        containerColor: containerColor,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        onCheckChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _selectedQuestionIds.add(question.id);
+                            } else {
+                              _selectedQuestionIds.remove(question.id);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                const SizedBox(height: 30),
               ],
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildQuestionCard({
-    required int index,
-    required String subject,
-    required String questionType,
-    required String difficulty,
-    required String questionText,
-    required String views,
+    required QuestionModel question,
+    required bool isChecked,
     required String timeAgo,
     required Color containerColor,
     required Color textColor,
     required Color subtitleColor,
     required Color borderColor,
     required bool isDarkMode,
-    bool isHighlighted = false,
+    required ValueChanged<bool?> onCheckChanged,
   }) {
-    final isChecked = _checkedStatus[index];
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: containerColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isHighlighted || isChecked
-              ? const Color(0xFF7C3AED)
-              : borderColor,
-          width: isHighlighted || isChecked ? 1.5 : 1.0,
+          color: isChecked ? const Color(0xFF7C3AED) : borderColor,
+          width: isChecked ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
@@ -493,12 +547,12 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Subject & Type Badges Row
+              // Badges
               Wrap(
                 spacing: 6,
                 children: [
                   _buildBadge(
-                    subject.toUpperCase(),
+                    question.category.toUpperCase(),
                     isDarkMode
                         ? const Color(0xFF312E81)
                         : const Color(0xFFDBEAFE),
@@ -507,14 +561,14 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                         : const Color(0xFF1D4ED8),
                   ),
                   _buildBadge(
-                    questionType.toUpperCase(),
+                    question.type.toUpperCase(),
                     isDarkMode
                         ? const Color(0xFF1E293B)
                         : const Color(0xFFF1F5F9),
                     subtitleColor,
                   ),
                   _buildBadge(
-                    difficulty.toUpperCase(),
+                    question.difficulty.toUpperCase(),
                     isDarkMode
                         ? const Color(0xFF451A03)
                         : const Color(0xFFFEF3C7),
@@ -522,7 +576,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                   ),
                 ],
               ),
-              // Checkbox Toggle
+              // Checkbox
               SizedBox(
                 width: 24,
                 height: 24,
@@ -532,18 +586,14 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  onChanged: (val) {
-                    setState(() {
-                      _checkedStatus[index] = val ?? false;
-                    });
-                  },
+                  onChanged: onCheckChanged,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
           Text(
-            questionText,
+            question.questionText,
             style: TextStyle(
               color: textColor,
               fontSize: 16,
@@ -556,7 +606,10 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
             children: [
               Icon(Icons.visibility_outlined, size: 15, color: subtitleColor),
               const SizedBox(width: 4),
-              Text(views, style: TextStyle(color: subtitleColor, fontSize: 12)),
+              Text(
+                '${question.views}',
+                style: TextStyle(color: subtitleColor, fontSize: 12),
+              ),
               const SizedBox(width: 16),
               Icon(Icons.access_time, size: 15, color: subtitleColor),
               const SizedBox(width: 4),
@@ -584,60 +637,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           color: textColor,
           fontSize: 10,
           fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaginationButton(
-    IconData icon,
-    VoidCallback onPressed,
-    Color containerColor,
-    Color textColor,
-    Color borderColor,
-    bool isDarkMode,
-  ) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: containerColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor),
-      ),
-      child: IconButton(
-        icon: Icon(icon, size: 16, color: textColor),
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  Widget _buildPaginationNumber(
-    String number,
-    bool isActive,
-    Color containerColor,
-    Color textColor,
-    bool isDarkMode,
-  ) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF1E1B4B) : containerColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isActive ? Colors.transparent : Colors.grey.shade300,
-        ),
-      ),
-      child: Center(
-        child: Text(
-          number,
-          style: TextStyle(
-            color: isActive ? const Color(0xFFFBBF24) : textColor,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-          ),
         ),
       ),
     );
