@@ -1,4 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/screen/allExamScreen.dart';
 import 'package:prep_mate/features/User/screen/examDetail.dart';
 import 'package:prep_mate/features/User/screen/settingScreen.dart';
@@ -12,23 +15,46 @@ class Userhomescreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<Userhomescreen> {
+  final ExamService _examService = ExamService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+
   void _handleViewAll(BuildContext context) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => AllExamsScreen()));
+    ).push(MaterialPageRoute(builder: (context) => const AllExamsScreen()));
   }
 
-  void _handleViewDetails(BuildContext context, String examTitle) {
+  void _handleViewDetails(BuildContext context, ExamModel exam) {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage()));
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage(exam: exam)));
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'science':
+      case 'physics':
+      case 'chemistry':
+      case 'biology':
+        return Icons.science_outlined;
+      case 'mathematics':
+      case 'math':
+        return Icons.calculate_outlined;
+      case 'history':
+        return Icons.history_edu_outlined;
+      case 'computer science':
+        return Icons.computer_outlined;
+      case 'literature':
+        return Icons.auto_stories_outlined;
+      default:
+        return Icons.assignment_outlined;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    // Dynamic colors based on active theme mode
     final backgroundColor = isDarkMode
         ? const Color(0xFF0F0E17)
         : Colors.grey[100]!;
@@ -40,16 +66,11 @@ class _HomeScreenState extends State<Userhomescreen> {
         ? const Color(0xFF94A3B8)
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
-    final badgeBg = isDarkMode
-        ? const Color(0xFF2E2A72)
-        : const Color(0xFFDBEAFE);
-    final badgeText = isDarkMode
-        ? const Color(0xFF93C5FD)
-        : const Color(0xFF1D4ED8);
+
+    final displayName = _currentUser?.displayName ?? 'Alex';
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -80,7 +101,8 @@ class _HomeScreenState extends State<Userhomescreen> {
                     padding: const EdgeInsets.all(8.0),
                     child: CircleAvatar(
                       backgroundImage: NetworkImage(
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+                        _currentUser?.photoURL ??
+                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
                       ),
                     ),
                   ),
@@ -104,7 +126,7 @@ class _HomeScreenState extends State<Userhomescreen> {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => Settingscreen(),
+                            builder: (context) => const Settingscreen(),
                           ),
                         );
                       },
@@ -124,7 +146,7 @@ class _HomeScreenState extends State<Userhomescreen> {
             const SizedBox(height: 8),
             // Header Greeting
             Text(
-              'Hi, Alex!',
+              'Hi, $displayName!',
               style: TextStyle(
                 color: textColor,
                 fontSize: 32,
@@ -138,129 +160,154 @@ class _HomeScreenState extends State<Userhomescreen> {
             ),
             const SizedBox(height: 20),
 
-            // Overall Progress Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'OVERALL PROGRESS',
-                        style: TextStyle(
-                          color: subtitleColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '85%',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF312E81)
-                          : const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                      Icons.show_chart,
-                      color: isDarkMode
-                          ? const Color(0xFF93C5FD)
-                          : const Color(0xFF2563EB),
-                      size: 28,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // Study Streak Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+            // Realtime Dynamic Overall Progress & Study Streak
+            StreamBuilder<Map<String, int>>(
+              stream: _examService.getUserPerformanceMetricsStream(
+                _currentUser?.uid ?? '',
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Study Streak',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+              builder: (context, metricSnapshot) {
+                final metrics =
+                    metricSnapshot.data ??
+                    {'overallProgress': 0, 'studyStreak': 0};
+
+                final progress = metrics['overallProgress'] ?? 0;
+                final streak = metrics['studyStreak'] ?? 0;
+
+                return Column(
+                  children: [
+                    // Overall Progress Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: containerColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: borderColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'OVERALL PROGRESS',
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '$progress%',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? const Color(0xFF312E81)
+                                  : const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.show_chart,
+                              color: isDarkMode
+                                  ? const Color(0xFF93C5FD)
+                                  : const Color(0xFF2563EB),
+                              size: 28,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      const Text(
-                        '12',
-                        style: TextStyle(
-                          color: Color(0xFFF59E0B),
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(height: 16),
+
+                    // Study Streak Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: containerColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: borderColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Days',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Study Streak',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '$streak',
+                                style: const TextStyle(
+                                  color: Color(0xFFF59E0B),
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                streak == 1 ? 'Day' : 'Days',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            streak > 0
+                                ? 'Keep it up! Consistency is key.'
+                                : 'Complete your first assessment today to start a streak!',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Keep it up! Consistency is key.',
-                    style: TextStyle(color: subtitleColor, fontSize: 13),
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 24),
-
             // Available Exams Section Title
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -301,52 +348,106 @@ class _HomeScreenState extends State<Userhomescreen> {
             ),
             const SizedBox(height: 12),
 
-            // Exam Card 1: Organic Chemistry using separate ExamCard widget
-            ExamCard(
-              badgeText: 'SCIENCE',
-              badgeColor: badgeBg,
-              badgeTextColor: badgeText,
-              title: 'Organic Chemistry Finals',
-              time: '60 mins',
-              mcqs: '50 MCQs',
-              icon: Icons.science_outlined,
-              isDarkMode: isDarkMode,
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              onViewDetails: () =>
-                  _handleViewDetails(context, 'Organic Chemistry Finals'),
-            ),
-            const SizedBox(height: 16),
+            // Live Stream of Published Exams from Firebase
+            StreamBuilder<List<ExamModel>>(
+              stream: _examService.getPublishedExamsStream(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
 
-            // Exam Card 2: Advanced Mathematics using separate ExamCard widget
-            ExamCard(
-              badgeText: 'MATH',
-              badgeColor: isDarkMode
-                  ? const Color(0xFF451A03)
-                  : const Color(0xFFFEF3C7),
-              badgeTextColor: isDarkMode
-                  ? const Color(0xFFFCD34D)
-                  : const Color(0xFFB45309),
-              title: 'Advanced Mathematics',
-              time: '90 mins',
-              mcqs: '75 MCQs',
-              icon: Icons.calculate_outlined,
-              isDarkMode: isDarkMode,
-              containerColor: containerColor,
-              textColor: textColor,
-              subtitleColor: subtitleColor,
-              borderColor: borderColor,
-              onViewDetails: () =>
-                  _handleViewDetails(context, 'Advanced Mathematics'),
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20.0),
+                      child: Text(
+                        'Unable to load exams: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  );
+                }
+
+                final exams = snapshot.data ?? [];
+
+                if (exams.isEmpty) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'No published exams available yet.\nPlease check back later!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
+                      ),
+                    ),
+                  );
+                }
+
+                // Show top 3 published exams on the home dashboard
+                final displayExams = exams.take(3).toList();
+
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: displayExams.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final exam = displayExams[index];
+                    final isScience =
+                        exam.category.toLowerCase().contains('sci') ||
+                        exam.category.toLowerCase().contains('bio') ||
+                        exam.category.toLowerCase().contains('chem');
+
+                    final badgeBg = isScience
+                        ? (isDarkMode
+                              ? const Color(0xFF2E2A72)
+                              : const Color(0xFFDBEAFE))
+                        : (isDarkMode
+                              ? const Color(0xFF451A03)
+                              : const Color(0xFFFEF3C7));
+
+                    final badgeText = isScience
+                        ? (isDarkMode
+                              ? const Color(0xFF93C5FD)
+                              : const Color(0xFF1D4ED8))
+                        : (isDarkMode
+                              ? const Color(0xFFFCD34D)
+                              : const Color(0xFFB45309));
+
+                    return ExamCard(
+                      badgeText: exam.category.toUpperCase(),
+                      badgeColor: badgeBg,
+                      badgeTextColor: badgeText,
+                      title: exam.title,
+                      time: '${exam.durationMinutes} mins',
+                      mcqs: '${exam.questions.length} MCQs',
+                      icon: _getCategoryIcon(exam.category),
+                      isDarkMode: isDarkMode,
+                      containerColor: containerColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      borderColor: borderColor,
+                      onViewDetails: () => _handleViewDetails(context, exam),
+                    );
+                  },
+                );
+              },
             ),
             const SizedBox(height: 30),
           ],
         ),
       ),
-
-      // Capsule-shaped Floating Bottom Navigation Bar
     );
   }
 }
