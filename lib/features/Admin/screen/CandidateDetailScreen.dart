@@ -1,38 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
+
 
 class CandidateDetailScreen extends StatefulWidget {
-  const CandidateDetailScreen({super.key});
+  final String examId;
+  final String submissionId;
+  final StudentSubmissionModel? initialData;
+
+  const CandidateDetailScreen({
+    super.key,
+    required this.examId,
+    required this.submissionId,
+    this.initialData,
+  });
 
   @override
   State<CandidateDetailScreen> createState() => _CandidateDetailScreenState();
 }
 
 class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
-  Color? get textColor => null;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ExamService _examService = ExamService();
 
   void _handleBack() {
     Navigator.pop(context);
   }
 
+  String _getInitials(String name) {
+    if (name.trim().isEmpty) return 'ST';
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts[0][0].toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final GlobalKey<ScaffoldState> _scaffold = GlobalKey<ScaffoldState>();
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      key: _scaffold,
+      key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
@@ -89,7 +108,7 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
                     IconButton(
                       icon: Icon(Icons.menu, color: textColor),
                       onPressed: () {
-                        _scaffold.currentState?.openDrawer();
+                        _scaffoldKey.currentState?.openDrawer();
                       },
                     ),
                   ],
@@ -99,343 +118,417 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Back to Candidates link
-            InkWell(
-              onTap: _handleBack,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.arrow_back,
-                    size: 16,
-                    color: isDarkMode
-                        ? const Color(0xFFFBBF24)
-                        : const Color(0xFF1E1B4B),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Back to Candidates',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
+      body: StreamBuilder<StudentSubmissionModel>(
+        stream: _examService.getCandidateDetailStream(
+          examId: widget.examId,
+          submissionId: widget.submissionId,
+        ),
+        initialData: widget.initialData,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40.0),
+                child: CircularProgressIndicator(),
               ),
-            ),
-            const SizedBox(height: 20),
+            );
+          }
 
-            // Top Profile Card
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+          if (snapshot.hasError && !snapshot.hasData) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Error loading candidate details: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            );
+          }
+
+          final candidate = snapshot.data;
+          if (candidate == null) {
+            return Center(
+              child: Text(
+                'Candidate record not found.',
+                style: TextStyle(color: subtitleColor),
+              ),
+            );
+          }
+
+          final isPassed = candidate.isPassed;
+          final scorePercentage = candidate.scorePercentage.toInt();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Back to Candidates link
+                InkWell(
+                  onTap: _handleBack,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.arrow_back,
+                        size: 16,
+                        color: isDarkMode
+                            ? const Color(0xFFFBBF24)
+                            : const Color(0xFF1E1B4B),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Back to Candidates',
+                        style: TextStyle(
+                          color: isDarkMode
+                              ? const Color(0xFFFBBF24)
+                              : const Color(0xFF1E1B4B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Top Profile Card
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderColor),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Avatar with Online Badge
-                      Stack(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const CircleAvatar(
-                            radius: 36,
-                            backgroundImage: NetworkImage(
-                              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              width: 14,
-                              height: 14,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: containerColor,
-                                  width: 2,
+                          // Avatar with Online Badge
+                          Stack(
+                            children: [
+                              candidate.studentImageUrl != null &&
+                                      candidate.studentImageUrl!.isNotEmpty
+                                  ? CircleAvatar(
+                                      radius: 36,
+                                      backgroundImage: NetworkImage(
+                                        candidate.studentImageUrl!,
+                                      ),
+                                    )
+                                  : CircleAvatar(
+                                      radius: 36,
+                                      backgroundColor: isPassed
+                                          ? const Color(0xFFDBEAFE)
+                                          : const Color(0xFFFEF2F2),
+                                      child: Text(
+                                        _getInitials(candidate.studentName),
+                                        style: TextStyle(
+                                          color: isPassed
+                                              ? const Color(0xFF1D4ED8)
+                                              : const Color(0xFFDC2626),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 22,
+                                        ),
+                                      ),
+                                    ),
+                              if (candidate.isOnline)
+                                Positioned(
+                                  bottom: 2,
+                                  right: 2,
+                                  child: Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF10B981),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: containerColor,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ID Badge
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode
+                                        ? const Color(0xFF1E293B)
+                                        : const Color(0xFFE0E7FF),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    'ID: ${candidate.studentId}',
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? const Color(0xFF93C5FD)
+                                          : const Color(0xFF3730A3),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  candidate.studentName,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.assignment_outlined,
+                                      size: 14,
+                                      color: subtitleColor,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        candidate.examTitle,
+                                        style: TextStyle(
+                                          color: subtitleColor,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ID Badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDarkMode
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFE0E7FF),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'ID: EXM-2026-9812',
+                      const SizedBox(height: 24),
+                      Divider(color: borderColor, height: 1),
+                      const SizedBox(height: 20),
+
+                      // Overall Score Section
+                      Text(
+                        'OVERALL SCORE',
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '$scorePercentage',
                                 style: TextStyle(
-                                  color: isDarkMode
-                                      ? const Color(0xFF93C5FD)
-                                      : const Color(0xFF3730A3),
-                                  fontSize: 11,
+                                  color: textColor,
+                                  fontSize: 48,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Jane Doe',
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                              Text(
+                                '%',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
                             ),
-                            const SizedBox(height: 4),
-                            Row(
+                            decoration: BoxDecoration(
+                              color: isPassed
+                                  ? (isDarkMode
+                                      ? const Color(0xFF064E3B)
+                                      : const Color(0xFFD1FAE5))
+                                  : (isDarkMode
+                                      ? const Color(0xFF451A03)
+                                      : const Color(0xFFFEF2F2)),
+                              borderRadius: BorderRadius.circular(100),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  Icons.assignment_outlined,
-                                  size: 14,
-                                  color: subtitleColor,
+                                  isPassed
+                                      ? Icons.check_circle
+                                      : Icons.cancel_outlined,
+                                  color: isPassed
+                                      ? const Color(0xFF059669)
+                                      : const Color(0xFFDC2626),
+                                  size: 16,
                                 ),
                                 const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'Advanced Calculus - Mock A',
-                                    style: TextStyle(
-                                      color: subtitleColor,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                Text(
+                                  isPassed ? 'Passed' : 'Failed',
+                                  style: TextStyle(
+                                    color: isPassed
+                                        ? const Color(0xFF059669)
+                                        : const Color(0xFFDC2626),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  Divider(color: borderColor, height: 1),
-                  const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 24),
 
-                  // Overall Score Section
-                  Text(
-                    'OVERALL SCORE',
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                    ),
+                // Performance Summary Section Card
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: borderColor),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
                         children: [
-                          Text(
-                            '92',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFFBBF24),
+                              shape: BoxShape.circle,
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
-                            '%',
+                            'Performance Summary',
                             style: TextStyle(
                               color: textColor,
-                              fontSize: 28,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? const Color(0xFF064E3B)
-                              : const Color(0xFFD1FAE5),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.check_circle,
-                              color: Color(0xFF059669),
-                              size: 16,
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'Passed',
-                              style: TextStyle(
-                                color: Color(0xFF059669),
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                      const SizedBox(height: 20),
+
+                      // Total Marks Row
+                      _buildSummaryRow(
+                        icon: Icons.functions,
+                        iconBg: isDarkMode
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFDBEAFE),
+                        iconColor: const Color(0xFF1D4ED8),
+                        title: 'Total Marks',
+                        value:
+                            '${candidate.marksObtained.toInt()} / ${candidate.totalMarks.toInt()}',
+                        valueColor: textColor,
+                        containerColor: containerColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Correct Answers Row
+                      _buildSummaryRow(
+                        icon: Icons.check,
+                        iconBg: isDarkMode
+                            ? const Color(0xFF064E3B)
+                            : const Color(0xFFD1FAE5),
+                        iconColor: const Color(0xFF059669),
+                        title: 'Correct Answers',
+                        value: '${candidate.correctAnswers}',
+                        valueColor: const Color(0xFF059669),
+                        containerColor: containerColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Incorrect Answers Row
+                      _buildSummaryRow(
+                        icon: Icons.close,
+                        iconBg: isDarkMode
+                            ? const Color(0xFF451A03)
+                            : const Color(0xFFFEF2F2),
+                        iconColor: const Color(0xFFDC2626),
+                        title: 'Incorrect Answers',
+                        value: '${candidate.incorrectAnswers}',
+                        valueColor: const Color(0xFFDC2626),
+                        containerColor: containerColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Unattempted Row
+                      _buildSummaryRow(
+                        icon: Icons.remove,
+                        iconBg: isDarkMode
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFE2E8F0),
+                        iconColor: subtitleColor,
+                        title: 'Unattempted',
+                        value: '${candidate.unattemptedAnswers}',
+                        valueColor: textColor,
+                        containerColor: containerColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 30),
+              ],
             ),
-            const SizedBox(height: 24),
-
-            // Performance Summary Section Card
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFBBF24),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Performance Summary',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Total Marks Row
-                  _buildSummaryRow(
-                    icon: Icons.functions,
-                    iconBg: isDarkMode
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFDBEAFE),
-                    iconColor: const Color(0xFF1D4ED8),
-                    title: 'Total Marks',
-                    value: '92 / 100',
-                    valueColor: textColor,
-                    containerColor: containerColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Correct Answers Row
-                  _buildSummaryRow(
-                    icon: Icons.check,
-                    iconBg: isDarkMode
-                        ? const Color(0xFF064E3B)
-                        : const Color(0xFFD1FAE5),
-                    iconColor: const Color(0xFF059669),
-                    title: 'Correct Answers',
-                    value: '46',
-                    valueColor: const Color(0xFF059669),
-                    containerColor: containerColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Incorrect Answers Row
-                  _buildSummaryRow(
-                    icon: Icons.close,
-                    iconBg: isDarkMode
-                        ? const Color(0xFF451A03)
-                        : const Color(0xFFFEF2F2),
-                    iconColor: const Color(0xFFDC2626),
-                    title: 'Incorrect Answers',
-                    value: '3',
-                    valueColor: const Color(0xFFDC2626),
-                    containerColor: containerColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Unattempted Row
-                  _buildSummaryRow(
-                    icon: Icons.remove,
-                    iconBg: isDarkMode
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFE2E8F0),
-                    iconColor: subtitleColor,
-                    title: 'Unattempted',
-                    value: '1',
-                    valueColor: textColor,
-                    containerColor: containerColor,
-                    subtitleColor: subtitleColor,
-                    borderColor: borderColor,
-                    isDarkMode: isDarkMode,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -452,6 +545,8 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
     required Color borderColor,
     required bool isDarkMode,
   }) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
