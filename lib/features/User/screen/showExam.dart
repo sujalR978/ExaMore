@@ -7,7 +7,6 @@ import 'package:prep_mate/features/User/screen/examDetail.dart';
 import 'package:prep_mate/features/User/screen/settingScreen.dart';
 import 'package:prep_mate/features/User/widget/showExams.dart';
 
-
 class Showexam extends StatefulWidget {
   const Showexam({super.key});
 
@@ -31,9 +30,17 @@ class _ShowexamState extends State<Showexam> {
     'Computer Science',
   ];
 
+  // Cached streams to prevent re-creation and avoid rebuild flickers
+  late final Stream<List<Map<String, dynamic>>> _savedExamsStream;
+  late Stream<List<ExamModel>> _publishedExamsStream;
+
   @override
   void initState() {
     super.initState();
+    final uid = _currentUser?.uid ?? '';
+    _savedExamsStream = _examService.getSavedExamsStream(uid);
+    _publishedExamsStream = _examService.getPublishedExamsStream();
+
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
@@ -47,23 +54,31 @@ class _ShowexamState extends State<Showexam> {
     super.dispose();
   }
 
+  void _onCategorySelected(int index) {
+    setState(() {
+      _selectedCategoryIndex = index;
+      final selectedCategory = index == 0 ? null : _categories[index];
+      // Only re-query published exams stream when category chip actually changes
+      _publishedExamsStream = _examService.getPublishedExamsStream(
+        category: selectedCategory,
+      );
+    });
+  }
+
   void _handleViewAll() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const AllExamsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const AllExamsScreen()));
   }
 
   void _handleStartExam(ExamModel exam) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ExamdetailPage(exam: exam),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage(exam: exam)));
   }
 
-  Future<void> _handleBookmarkToggle(ExamModel exam) async {
-    final userId = _currentUser?.uid;
-    if (userId == null) {
+  Future<void> _handleBookmarkToggle(ExamModel exam, String userId) async {
+    if (userId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please log in to save exams.')),
       );
@@ -71,12 +86,25 @@ class _ShowexamState extends State<Showexam> {
     }
 
     try {
-      await _examService.toggleSaveExam(userId: userId, exam: exam);
-    } catch (e) {
+      final isSaved = await _examService.toggleSaveExam(
+        userId: userId,
+        exam: exam,
+      );
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update bookmark: $e')),
+        SnackBar(
+          content: Text(
+            isSaved ? 'Exam saved to bookmarks!' : 'Removed from bookmarks.',
+          ),
+          duration: const Duration(seconds: 1),
+        ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update bookmark: $e')));
     }
   }
 
@@ -107,13 +135,10 @@ class _ShowexamState extends State<Showexam> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
-
-    final selectedCategory = _selectedCategoryIndex == 0
-        ? null
-        : _categories[_selectedCategoryIndex];
 
     final userId = _currentUser?.uid ?? '';
 
@@ -216,8 +241,11 @@ class _ShowexamState extends State<Showexam> {
                       prefixIcon: Icon(Icons.search, color: subtitleColor),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: Icon(Icons.clear,
-                                  color: subtitleColor, size: 18),
+                              icon: Icon(
+                                Icons.clear,
+                                color: subtitleColor,
+                                size: 18,
+                              ),
                               onPressed: () => _searchController.clear(),
                             )
                           : null,
@@ -254,8 +282,7 @@ class _ShowexamState extends State<Showexam> {
                   child: IconButton(
                     icon: Icon(Icons.tune, color: textColor, size: 20),
                     onPressed: () {
-                      // Reset category chips
-                      setState(() => _selectedCategoryIndex = 0);
+                      _onCategorySelected(0);
                     },
                   ),
                 ),
@@ -277,9 +304,7 @@ class _ShowexamState extends State<Showexam> {
                       label: Text(_categories[index]),
                       selected: isSelected,
                       onSelected: (selected) {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                        });
+                        _onCategorySelected(index);
                       },
                       selectedColor: const Color(0xFF1E1B4B),
                       backgroundColor: containerColor,
@@ -287,8 +312,8 @@ class _ShowexamState extends State<Showexam> {
                         color: isSelected
                             ? Colors.white
                             : (isDarkMode
-                                ? Colors.white70
-                                : const Color(0xFF1E1B4B)),
+                                  ? Colors.white70
+                                  : const Color(0xFF1E1B4B)),
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -333,20 +358,20 @@ class _ShowexamState extends State<Showexam> {
             ),
             const SizedBox(height: 12),
 
-            // Stream of Published Exams combined with user saved bookmarks
+            // Synchronized Streams: Saved IDs + Published Exams
             StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _examService.getSavedExamsStream(userId),
+              stream: _savedExamsStream,
               builder: (context, savedSnapshot) {
                 final savedIds = (savedSnapshot.data ?? [])
                     .map((item) => (item['exam'] as ExamModel).id)
                     .toSet();
 
                 return StreamBuilder<List<ExamModel>>(
-                  stream: _examService.getPublishedExamsStream(
-                    category: selectedCategory,
-                  ),
+                  stream: _publishedExamsStream,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
+                    // Only show progress indicator on initial load when data has not arrived
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
                       return const Center(
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: 40.0),
@@ -390,8 +415,10 @@ class _ShowexamState extends State<Showexam> {
                                 ? 'No exams found matching "$_searchQuery"'
                                 : 'No published assessments available under this category.',
                             textAlign: TextAlign.center,
-                            style:
-                                TextStyle(color: subtitleColor, fontSize: 14),
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                       );
@@ -406,26 +433,25 @@ class _ShowexamState extends State<Showexam> {
                         final exam = filteredExams[index];
                         final isBookmarked = savedIds.contains(exam.id);
 
-                        final isMath = exam.category
-                            .toLowerCase()
-                            .contains('math') ||
+                        final isMath =
+                            exam.category.toLowerCase().contains('math') ||
                             exam.category.toLowerCase().contains('calc');
 
                         final badgeBg = isMath
                             ? (isDarkMode
-                                ? const Color(0xFF312E81)
-                                : const Color(0xFFDBEAFE))
+                                  ? const Color(0xFF312E81)
+                                  : const Color(0xFFDBEAFE))
                             : (isDarkMode
-                                ? const Color(0xFF2E2A72)
-                                : const Color(0xFFDBEAFE));
+                                  ? const Color(0xFF2E2A72)
+                                  : const Color(0xFFDBEAFE));
 
                         final badgeText = isMath
                             ? (isDarkMode
-                                ? const Color(0xFF93C5FD)
-                                : const Color(0xFF1D4ED8))
+                                  ? const Color(0xFF93C5FD)
+                                  : const Color(0xFF1D4ED8))
                             : (isDarkMode
-                                ? const Color(0xFF93C5FD)
-                                : const Color(0xFF1D4ED8));
+                                  ? const Color(0xFF93C5FD)
+                                  : const Color(0xFF1D4ED8));
 
                         return ExamCardWidget(
                           badgeText: exam.category.toUpperCase(),
@@ -438,7 +464,9 @@ class _ShowexamState extends State<Showexam> {
                           mcqs: '${exam.questions.length} MCQs',
                           icon: _getCategoryIcon(exam.category),
                           isBookmarked: isBookmarked,
-                          buttonText: index % 2 == 0 ? 'Start Exam' : 'View Details',
+                          buttonText: index % 2 == 0
+                              ? 'Start Exam'
+                              : 'View Details',
                           buttonBgColor: index % 2 == 0
                               ? const Color(0xFFFBBF24)
                               : const Color(0xFF5B21B6),
@@ -446,7 +474,8 @@ class _ShowexamState extends State<Showexam> {
                               ? const Color(0xFF1E1B4B)
                               : Colors.white,
                           onButtonPressed: () => _handleStartExam(exam),
-                          onBookmarkToggle: () => _handleBookmarkToggle(exam),
+                          onBookmarkToggle: () =>
+                              _handleBookmarkToggle(exam, userId),
                         );
                       },
                     );
