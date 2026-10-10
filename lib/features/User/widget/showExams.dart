@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-// ---------------------------------------------------------------------------
-// 1. Separate Stateful Widget for the Exam Card
-// ---------------------------------------------------------------------------
-class ExamCardWidget extends StatefulWidget {
+class ExamCardWidget extends StatelessWidget {
   final String badgeText;
   final Color badgeColor;
   final Color badgeTextColor;
@@ -17,6 +14,7 @@ class ExamCardWidget extends StatefulWidget {
   final Color buttonBgColor;
   final Color buttonTextColor;
   final VoidCallback onButtonPressed;
+  final VoidCallback? onBookmarkToggle; // Added parameter
 
   const ExamCardWidget({
     super.key,
@@ -28,37 +26,18 @@ class ExamCardWidget extends StatefulWidget {
     required this.time,
     required this.mcqs,
     required this.icon,
-    required this.isBookmarked,
+    this.isBookmarked = false,
     required this.buttonText,
     required this.buttonBgColor,
     required this.buttonTextColor,
-    required this.onButtonPressed, required Future<dynamic> Function() onBookmarkToggle,
+    required this.onButtonPressed,
+    this.onBookmarkToggle, // Added to constructor
   });
-
-  @override
-  State<ExamCardWidget> createState() => _ExamCardWidgetState();
-}
-
-class _ExamCardWidgetState extends State<ExamCardWidget> {
-  late bool _bookmarked;
-
-  @override
-  void initState() {
-    super.initState();
-    _bookmarked = widget.isBookmarked;
-  }
-
-  void _toggleBookmark() {
-    setState(() {
-      _bookmarked = !_bookmarked;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
     final subtitleColor = isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
@@ -87,13 +66,13 @@ class _ExamCardWidgetState extends State<ExamCardWidget> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: widget.badgeColor,
+                  color: badgeColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  widget.badgeText,
+                  badgeText,
                   style: TextStyle(
-                    color: widget.badgeTextColor,
+                    color: badgeTextColor,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -101,78 +80,62 @@ class _ExamCardWidgetState extends State<ExamCardWidget> {
               ),
               IconButton(
                 icon: Icon(
-                  _bookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: _bookmarked ? const Color(0xFFF59E0B) : subtitleColor,
+                  isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  color: isBookmarked ? const Color(0xFFFBBF24) : subtitleColor,
+                  size: 22,
                 ),
-                onPressed: _toggleBookmark,
+                onPressed: onBookmarkToggle,
                 constraints: const BoxConstraints(),
                 padding: EdgeInsets.zero,
+                splashRadius: 20,
               ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
-            widget.title,
+            title,
             style: TextStyle(
               color: textColor,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
-            widget.description,
-            style: TextStyle(
-              color: subtitleColor,
-              fontSize: 13,
-              height: 1.4,
-            ),
+            description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: subtitleColor, fontSize: 13, height: 1.4),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               Icon(Icons.access_time, size: 16, color: subtitleColor),
               const SizedBox(width: 4),
-              Text(
-                widget.time,
-                style: TextStyle(color: subtitleColor, fontSize: 13),
-              ),
-              const SizedBox(width: 16),
+              Text(time, style: TextStyle(color: subtitleColor, fontSize: 12)),
+              const SizedBox(width: 14),
               Icon(Icons.list_alt, size: 16, color: subtitleColor),
               const SizedBox(width: 4),
-              Text(
-                widget.mcqs,
-                style: TextStyle(color: subtitleColor, fontSize: 13),
-              ),
+              Text(mcqs, style: TextStyle(color: subtitleColor, fontSize: 12)),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            height: 48,
+            height: 46,
             child: ElevatedButton(
-              onPressed: widget.onButtonPressed,
+              onPressed: onButtonPressed,
               style: ElevatedButton.styleFrom(
-                backgroundColor: widget.buttonBgColor,
-                foregroundColor: widget.buttonTextColor,
+                backgroundColor: buttonBgColor,
+                foregroundColor: buttonTextColor,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    widget.buttonText,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.arrow_forward, size: 18),
-                ],
+              child: Text(
+                buttonText,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
           ),
