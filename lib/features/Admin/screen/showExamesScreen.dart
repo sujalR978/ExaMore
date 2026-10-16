@@ -304,7 +304,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
             ),
             const SizedBox(height: 24),
 
-            // Live Stream of Exams
+            // Live Exams show
             StreamBuilder<List<ExamModel>>(
               stream: _examService.getExamsStream(category: selectedCategory),
               builder: (context, snapshot) {
