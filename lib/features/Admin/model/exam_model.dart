@@ -21,9 +21,9 @@ class QuestionModel {
   final double marks;
   final List<QuestionOption> options;
   final String correctOptionId;
-  final String type; // 'Multiple Choice', 'Short Answer', 'Essay'
-  final String category; // 'Mathematics', 'Science', etc.
-  final String difficulty; // 'Easy', 'Medium', 'Hard'
+  final String type; 
+  final String category; 
+  final String difficulty; 
   final int views;
   final int estimatedTimeMinutes;
   final DateTime createdAt;
@@ -78,13 +78,13 @@ class QuestionModel {
 }
 class ExamModel {
   final String id;
-  final String examCode; // e.g., 'EXM-2024-089'
+  final String examCode; //'EXM-2024-089'
   final String title;
   final String category;
   final int durationMinutes;
   final double totalMarks;
   final double negativeMarking;
-  final double passingScorePercentage; // e.g., 65%
+  final double passingScorePercentage; // 65%
   final bool shuffleQuestions;
   final bool showResultsImmediately;
   final String status; // 'Draft' or 'Published'
