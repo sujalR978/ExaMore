@@ -108,7 +108,7 @@ class _SupportOverviewScreenState extends State<SupportOverviewScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-     drawer: AdminMenuDrawer(),
+      drawer: AdminMenuDrawer(),
       // Capsule-shaped Top Bar
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
