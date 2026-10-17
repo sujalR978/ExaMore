@@ -4,7 +4,6 @@ import 'package:prep_mate/features/Admin/screen/CandidateDetailScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
-
 class RecentResultsAndUsersScreen extends StatefulWidget {
   const RecentResultsAndUsersScreen({super.key});
 
@@ -68,8 +67,9 @@ class _RecentResultsAndUsersScreenState
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     return Scaffold(
@@ -165,9 +165,9 @@ class _RecentResultsAndUsersScreenState
           // Local Search Filter
           final filteredResults = allResults.where((item) {
             final submission = item['submission'] as StudentSubmissionModel;
-            return submission.studentName
-                    .toLowerCase()
-                    .contains(_searchQuery) ||
+            return submission.studentName.toLowerCase().contains(
+                  _searchQuery,
+                ) ||
                 submission.examTitle.toLowerCase().contains(_searchQuery) ||
                 submission.studentId.toLowerCase().contains(_searchQuery);
           }).toList();
@@ -202,10 +202,7 @@ class _RecentResultsAndUsersScreenState
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: "Search students or exams...",
-                    hintStyle: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 13,
-                    ),
+                    hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
                     prefixIcon: Icon(Icons.search, color: subtitleColor),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
@@ -248,10 +245,7 @@ class _RecentResultsAndUsersScreenState
                         allResults.isEmpty
                             ? 'No student results submitted yet.'
                             : 'No student results found matching "$_searchQuery"',
-                        style: TextStyle(
-                          color: subtitleColor,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                     ),
                   )
@@ -415,11 +409,11 @@ class _RecentResultsAndUsersScreenState
                     decoration: BoxDecoration(
                       color: isPassed
                           ? (isDarkMode
-                              ? const Color(0xFF064E3B)
-                              : const Color(0xFFD1FAE5))
+                                ? const Color(0xFF064E3B)
+                                : const Color(0xFFD1FAE5))
                           : (isDarkMode
-                              ? const Color(0xFF451A03)
-                              : const Color(0xFFFEF2F2)),
+                                ? const Color(0xFF451A03)
+                                : const Color(0xFFFEF2F2)),
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Text(
@@ -427,8 +421,8 @@ class _RecentResultsAndUsersScreenState
                       style: TextStyle(
                         color: isPassed
                             ? (isDarkMode
-                                ? const Color(0xFF34D399)
-                                : const Color(0xFF065F46))
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFF065F46))
                             : const Color(0xFFDC2626),
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
