@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
-
 class EditActiveExamScreen extends StatefulWidget {
   final ExamModel exam;
 
