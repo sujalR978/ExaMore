@@ -43,6 +43,9 @@ dependencies:
   image_picker: ^1.2.3
   url_launcher: ^6.3.2
   intl: ^0.20.3
+  file_picker: ^13.1.0
+  flutter_json: ^0.1.0
+  csv: ^8.0.0
 
 
 
