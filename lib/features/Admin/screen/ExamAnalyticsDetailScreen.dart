@@ -3,7 +3,6 @@ import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
-
 class ExamAnalyticsDetailScreen extends StatefulWidget {
   final ExamModel? exam;
 
@@ -25,7 +24,8 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _exam = widget.exam ??
+    _exam =
+        widget.exam ??
         ExamModel(
           id: 'demo_id',
           examCode: 'EXM-8924A',
@@ -67,8 +67,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     return Scaffold(
@@ -158,9 +159,11 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           // Compute analytics metrics dynamically
           final totalSubmissions = submissions.length;
           final averageScore = totalSubmissions > 0
-              ? (submissions.map((s) => s.scorePercentage).reduce((a, b) => a + b) /
-                      totalSubmissions)
-                  .toStringAsFixed(0)
+              ? (submissions
+                            .map((s) => s.scorePercentage)
+                            .reduce((a, b) => a + b) /
+                        totalSubmissions)
+                    .toStringAsFixed(0)
               : '0';
 
           final passedCount = submissions.where((s) {
@@ -174,9 +177,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
 
           final topScore = totalSubmissions > 0
               ? submissions
-                  .map((s) => s.scorePercentage)
-                  .reduce((a, b) => a > b ? a : b)
-                  .toStringAsFixed(0)
+                    .map((s) => s.scorePercentage)
+                    .reduce((a, b) => a > b ? a : b)
+                    .toStringAsFixed(0)
               : '0';
 
           final filteredSubmissions = submissions.where((student) {
@@ -248,11 +251,11 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                       decoration: BoxDecoration(
                         color: _exam.status.toLowerCase() == 'published'
                             ? (isDarkMode
-                                ? const Color(0xFF064E3B)
-                                : const Color(0xFFD1FAE5))
+                                  ? const Color(0xFF064E3B)
+                                  : const Color(0xFFD1FAE5))
                             : (isDarkMode
-                                ? const Color(0xFF451A03)
-                                : const Color(0xFFFEF3C7)),
+                                  ? const Color(0xFF451A03)
+                                  : const Color(0xFFFEF3C7)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -260,8 +263,8 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                         style: TextStyle(
                           color: _exam.status.toLowerCase() == 'published'
                               ? (isDarkMode
-                                  ? const Color(0xFF34D399)
-                                  : const Color(0xFF065F46))
+                                    ? const Color(0xFF34D399)
+                                    : const Color(0xFF065F46))
                               : const Color(0xFFB45309),
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -338,7 +341,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.02,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -376,8 +381,11 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                 ),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? IconButton(
-                                        icon: Icon(Icons.clear,
-                                            color: subtitleColor, size: 18),
+                                        icon: Icon(
+                                          Icons.clear,
+                                          color: subtitleColor,
+                                          size: 18,
+                                        ),
                                         onPressed: () =>
                                             _searchController.clear(),
                                       )
@@ -401,8 +409,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                     width: 1.5,
                                   ),
                                 ),
-                                contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 12),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                               ),
                             ),
                           ],
@@ -479,7 +488,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                   ? 'No student submissions yet'
                                   : 'No students found matching "$_searchQuery"',
                               style: TextStyle(
-                                  color: subtitleColor, fontSize: 13),
+                                color: subtitleColor,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         )
@@ -492,7 +503,8 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                               Divider(height: 1, color: borderColor),
                           itemBuilder: (context, index) {
                             final student = filteredSubmissions[index];
-                            final isFailed = !student.isPassed &&
+                            final isFailed =
+                                !student.isPassed &&
                                 student.scorePercentage <
                                     _exam.passingScorePercentage;
 
@@ -504,9 +516,10 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                               decoration: BoxDecoration(
                                 color: isFailed
                                     ? (isDarkMode
-                                        ? const Color(0xFF451A03)
-                                            .withOpacity(0.3)
-                                        : const Color(0xFFFEF2F2))
+                                          ? const Color(
+                                              0xFF451A03,
+                                            ).withOpacity(0.3)
+                                          : const Color(0xFFFEF2F2))
                                     : Colors.transparent,
                               ),
                               child: Row(
@@ -517,7 +530,8 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                     child: Row(
                                       children: [
                                         student.studentImageUrl != null &&
-                                                student.studentImageUrl!
+                                                student
+                                                    .studentImageUrl!
                                                     .isNotEmpty
                                             ? CircleAvatar(
                                                 radius: 18,
@@ -532,13 +546,16 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                                     : const Color(0xFFDBEAFE),
                                                 child: Text(
                                                   _getInitials(
-                                                      student.studentName),
+                                                    student.studentName,
+                                                  ),
                                                   style: TextStyle(
                                                     color: isFailed
                                                         ? const Color(
-                                                            0xFFDC2626)
+                                                            0xFFDC2626,
+                                                          )
                                                         : const Color(
-                                                            0xFF1D4ED8),
+                                                            0xFF1D4ED8,
+                                                          ),
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 12,
                                                   ),
@@ -608,8 +625,10 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                           children: [
                             Text(
                               'Showing ${filteredSubmissions.length} of ${submissions.length} results',
-                              style:
-                                  TextStyle(color: subtitleColor, fontSize: 12),
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
