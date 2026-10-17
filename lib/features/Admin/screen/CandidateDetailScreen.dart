@@ -3,7 +3,6 @@ import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
-
 class CandidateDetailScreen extends StatefulWidget {
   final String examId;
   final String submissionId;
@@ -44,8 +43,9 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     return Scaffold(
@@ -203,7 +203,9 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.02,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -373,11 +375,11 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
                             decoration: BoxDecoration(
                               color: isPassed
                                   ? (isDarkMode
-                                      ? const Color(0xFF064E3B)
-                                      : const Color(0xFFD1FAE5))
+                                        ? const Color(0xFF064E3B)
+                                        : const Color(0xFFD1FAE5))
                                   : (isDarkMode
-                                      ? const Color(0xFF451A03)
-                                      : const Color(0xFFFEF2F2)),
+                                        ? const Color(0xFF451A03)
+                                        : const Color(0xFFFEF2F2)),
                               borderRadius: BorderRadius.circular(100),
                             ),
                             child: Row(
@@ -422,7 +424,9 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.02,
+                        ),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
