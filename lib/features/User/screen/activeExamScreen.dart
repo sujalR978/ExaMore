@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
+import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 import 'package:prep_mate/features/User/screen/examResultScreen.dart';
-
+import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
 
 class ActiveExamScreen extends StatefulWidget {
   final ExamModel exam;
@@ -84,7 +85,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final studentId = _currentUser?.uid ??
+      final studentId =
+          _currentUser?.uid ??
           'STU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
       final studentName = _currentUser?.displayName ?? 'Student User';
       final studentPhoto = _currentUser?.photoURL;
@@ -102,10 +104,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => ExamResultScreen(
-            exam: widget.exam,
-            submission: submission,
-          ),
+          builder: (context) =>
+              ExamResultScreen(exam: widget.exam, submission: submission),
         ),
       );
     } catch (e) {
@@ -151,12 +151,15 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
+              onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => MainNavigator()),
+              ),
               child: Text(
                 'Cancel',
                 style: TextStyle(
-                  color:
-                      isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600],
+                  color: isDarkMode
+                      ? const Color(0xFF94A3B8)
+                      : Colors.grey[600],
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -198,8 +201,9 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     if (_questions.isEmpty) {
@@ -269,8 +273,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                           color: _remainingSeconds < 300
                               ? Colors.red.withOpacity(0.2)
                               : (isDarkMode
-                                  ? const Color(0xFF312E81)
-                                  : const Color(0xFFDBEAFE)),
+                                    ? const Color(0xFF312E81)
+                                    : const Color(0xFFDBEAFE)),
                           borderRadius: BorderRadius.circular(100),
                         ),
                         child: Row(
@@ -289,8 +293,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                                 color: _remainingSeconds < 300
                                     ? Colors.red
                                     : (isDarkMode
-                                        ? const Color(0xFF93C5FD)
-                                        : const Color(0xFF1D4ED8)),
+                                          ? const Color(0xFF93C5FD)
+                                          : const Color(0xFF1D4ED8)),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -370,8 +374,9 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                       border: Border.all(color: borderColor),
                       boxShadow: [
                         BoxShadow(
-                          color:
-                              Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                          color: Colors.black.withOpacity(
+                            isDarkMode ? 0.2 : 0.02,
+                          ),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),
@@ -470,8 +475,11 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.arrow_back,
-                                    size: 18, color: textColor),
+                                Icon(
+                                  Icons.arrow_back,
+                                  size: 18,
+                                  color: textColor,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Previous',
@@ -494,10 +502,10 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
                                 _currentIndex == _questions.length - 1
-                                    ? const Color(0xFF10B981)
-                                    : (isDarkMode
-                                        ? const Color(0xFF312E81)
-                                        : const Color(0xFF1E1B4B)),
+                                ? const Color(0xFF10B981)
+                                : (isDarkMode
+                                      ? const Color(0xFF312E81)
+                                      : const Color(0xFF1E1B4B)),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -594,8 +602,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
           border: Border.all(
             color: isSelected
                 ? (isDarkMode
-                    ? const Color(0xFFFBBF24)
-                    : const Color(0xFF1E1B4B))
+                      ? const Color(0xFFFBBF24)
+                      : const Color(0xFF1E1B4B))
                 : borderColor,
             width: isSelected ? 1.5 : 1.0,
           ),
@@ -610,17 +618,17 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                 border: Border.all(
                   color: isSelected
                       ? (isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B))
+                            ? const Color(0xFFFBBF24)
+                            : const Color(0xFF1E1B4B))
                       : (isDarkMode
-                          ? const Color(0xFF94A3B8)
-                          : Colors.grey.shade400),
+                            ? const Color(0xFF94A3B8)
+                            : Colors.grey.shade400),
                   width: 1.5,
                 ),
                 color: isSelected
                     ? (isDarkMode
-                        ? const Color(0xFF312E81)
-                        : const Color(0xFF1E1B4B))
+                          ? const Color(0xFF312E81)
+                          : const Color(0xFF1E1B4B))
                     : Colors.transparent,
               ),
               child: Center(
@@ -630,8 +638,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                     color: isSelected
                         ? Colors.white
                         : (isDarkMode
-                            ? const Color(0xFF94A3B8)
-                            : Colors.grey.shade600),
+                              ? const Color(0xFF94A3B8)
+                              : Colors.grey.shade600),
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),

@@ -7,11 +7,42 @@ class ExamService {
   final CollectionReference _examsCollection = FirebaseFirestore.instance
       .collection('exams');
 
+  // Maximum allowed attempts per student per exam
+  static const int maxExamAttempts = 2;
+
   // Generate clean IDs like EXM-2026-089
   String _generateExamCode() {
     final randomDigits = (100 + Random().nextInt(900)).toString();
     final year = DateTime.now().year;
     return 'EXM-$year-$randomDigits';
+  }
+
+  // Check how many attempts a student has remaining
+  Future<int> getRemainingAttempts({
+    required String examId,
+    required String studentId,
+  }) async {
+    final existingAttempts = await _examsCollection
+        .doc(examId)
+        .collection('submissions')
+        .where('userId', isEqualTo: studentId)
+        .get();
+
+    final attemptsUsed = existingAttempts.docs.length;
+    final remaining = maxExamAttempts - attemptsUsed;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  // Quick check whether student is eligible to start or submit an attempt
+  Future<bool> canAttemptExam({
+    required String examId,
+    required String studentId,
+  }) async {
+    final remaining = await getRemainingAttempts(
+      examId: examId,
+      studentId: studentId,
+    );
+    return remaining > 0;
   }
 
   // Create new exam draft
@@ -86,7 +117,6 @@ class ExamService {
               .map((doc) => StudentSubmissionModel.fromFirestore(doc))
               .toList();
 
-          // Sort by score or date in memory
           list.sort((a, b) => b.scorePercentage.compareTo(a.scorePercentage));
           return list;
         });
@@ -111,13 +141,11 @@ class ExamService {
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs.map((doc) {
-            // Parent document represents the exam
             final examId = doc.reference.parent.parent?.id ?? '';
             final model = StudentSubmissionModel.fromFirestore(doc);
             return {'examId': examId, 'submission': model};
           }).toList();
 
-          // Sort in memory (newest first) to avoid requiring a Firestore composite index
           list.sort((a, b) {
             final aTime =
                 (a['submission'] as StudentSubmissionModel).submittedAt;
@@ -195,12 +223,11 @@ class ExamService {
     return await createExamDraft(exam);
   }
 
-  // Get true live counts directly from your Firestore collections
+  // Get true live counts directly from Firestore collections
   Stream<Map<String, int>> getDashboardMetricsStream() {
     final firestore = FirebaseFirestore.instance;
 
     return firestore.collection('exams').snapshots().asyncMap((examSnap) async {
-      // 1. Published/Active Exams
       final activeExamsCount = examSnap.docs
           .where(
             (doc) =>
@@ -209,7 +236,6 @@ class ExamService {
           )
           .length;
 
-      // 2. Exact user count from Firestore
       int studentCount = 0;
       try {
         final usersSnap = await firestore.collection('users').get();
@@ -218,7 +244,6 @@ class ExamService {
         studentCount = 0;
       }
 
-      // 3. Question Bank items count
       int bankCount = 0;
       try {
         final bankSnap = await firestore.collection('question_bank').get();
@@ -246,7 +271,6 @@ class ExamService {
   }
 
   Stream<List<ExamModel>> getPublishedExamsStream({String? category}) {
-    // Query only with where() — remove orderBy() from the Firestore query
     Query query = _examsCollection.where('status', isEqualTo: 'Published');
 
     if (category != null &&
@@ -261,13 +285,12 @@ class ExamService {
           .map((doc) => ExamModel.fromFirestore(doc))
           .toList();
 
-      // Sort in memory by createdAt descending
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });
   }
 
-  // 2. Submit student exam answers & calculate score automatically
+  // Submit student exam answers & enforce 2-attempt limit
   Future<StudentSubmissionModel> submitExamAttempt({
     required String examId,
     required ExamModel exam,
@@ -276,6 +299,26 @@ class ExamService {
     String? studentImageUrl,
     required Map<String, String> selectedAnswers,
   }) async {
+    final examDocRef = _examsCollection.doc(examId);
+    final submissionsRef = examDocRef.collection('submissions');
+
+    // 1. Verify prior attempts count for this user
+    final existingAttemptsQuery = await submissionsRef
+        .where('userId', isEqualTo: studentId)
+        .get();
+
+    final int attemptsMade = existingAttemptsQuery.docs.length;
+
+    if (attemptsMade >= maxExamAttempts) {
+      throw Exception(
+        'Maximum attempts reached. You can only attempt this exam a maximum of $maxExamAttempts times.',
+      );
+    }
+
+    // Attempt index being taken (1 or 2)
+    final int currentAttemptNumber = attemptsMade + 1;
+
+    // 2. Score calculation
     int correctCount = 0;
     int incorrectCount = 0;
     int unattemptedCount = 0;
@@ -303,15 +346,13 @@ class ExamService {
 
     final isPassed = scorePercentage >= exam.passingScorePercentage;
 
-    final examDocRef = _examsCollection.doc(examId);
-
-    // 1. Generate a unique submission document ID for each attempt
-    final submissionDocRef = examDocRef.collection('submissions').doc();
+    // 3. Write submission document
+    final submissionDocRef = submissionsRef.doc();
 
     final submission = StudentSubmissionModel(
-      id: submissionDocRef.id, // Unique attempt ID
+      id: submissionDocRef.id,
       studentName: studentName,
-      studentId: studentId, // Student's user ID
+      studentId: studentId,
       studentImageUrl: studentImageUrl,
       examTitle: exam.title,
       scorePercentage: scorePercentage,
@@ -325,11 +366,11 @@ class ExamService {
       submittedAt: DateTime.now(),
     );
 
-    // 2. Save each attempt as its own document
     await submissionDocRef.set({
       'id': submissionDocRef.id,
-      'userId': studentId, // Added to query by user across attempts
+      'userId': studentId,
       'studentId': studentId,
+      'attemptNumber': currentAttemptNumber,
       'studentName': submission.studentName,
       'studentImageUrl': submission.studentImageUrl,
       'examTitle': submission.examTitle,
@@ -345,15 +386,12 @@ class ExamService {
       'selectedAnswers': selectedAnswers,
     });
 
-    // Increment total submissions count
     await examDocRef.update({'submissionsCount': FieldValue.increment(1)});
 
     return submission;
   }
 
-  // Toggle bookmark/save exam for a student
   // Toggle bookmark / saved exam
-  // Toggle bookmark / save exam
   Future<bool> toggleSaveExam({
     required String userId,
     required ExamModel exam,
@@ -372,15 +410,14 @@ class ExamService {
     final snapshot = await docRef.get();
     if (snapshot.exists) {
       await docRef.delete();
-      return false; // Removed
+      return false;
     } else {
-      // Explicitly write the exam data and ensure the ID and timestamps are valid
       final examData = exam.toMap();
       examData['id'] = exam.id;
       examData['savedAt'] = FieldValue.serverTimestamp();
 
       await docRef.set(examData);
-      return true; // Saved
+      return true;
     }
   }
 
@@ -401,14 +438,11 @@ class ExamService {
           for (var doc in snapshot.docs) {
             try {
               final data = doc.data();
-
-              // 1. Safe extraction of saved timestamp
               final dynamic rawSavedAt = data['savedAt'] ?? data['createdAt'];
               final DateTime savedAt = rawSavedAt is Timestamp
                   ? rawSavedAt.toDate()
                   : DateTime.now();
 
-              // 2. Safe parsing of ExamModel with doc.id fallback
               final ExamModel exam = ExamModel(
                 id: doc.id,
                 examCode: data['examCode'] ?? '',
@@ -438,7 +472,6 @@ class ExamService {
             }
           }
 
-          // In-memory sort (newest first)
           list.sort((a, b) {
             final aDate = a['savedAt'] as DateTime;
             final bDate = b['savedAt'] as DateTime;
@@ -450,7 +483,6 @@ class ExamService {
   }
 
   // Stream all attempts/submissions made by a specific student across all exams
-  // Stream all attempts/submissions made by a specific student across all exams
   Stream<List<Map<String, dynamic>>> getUserExamAttemptsStream(String userId) {
     return FirebaseFirestore.instance
         .collectionGroup('submissions')
@@ -461,7 +493,6 @@ class ExamService {
           for (var doc in snapshot.docs) {
             final data = doc.data();
 
-            // Match by the student's ID inside the document
             final matchesUser =
                 data['userId'] == userId ||
                 data['studentId'] == userId ||
@@ -474,7 +505,6 @@ class ExamService {
             }
           }
 
-          // Sort newest submission first
           list.sort((a, b) {
             final aDate =
                 (a['submission'] as StudentSubmissionModel).submittedAt;
@@ -494,7 +524,6 @@ class ExamService {
         return {'overallProgress': 0, 'studyStreak': 0};
       }
 
-      // 1. Calculate Average Score (Overall Progress)
       double totalScorePercentage = 0.0;
       final Set<String> uniqueDays = {};
 
@@ -502,7 +531,6 @@ class ExamService {
         final submission = item['submission'] as StudentSubmissionModel;
         totalScorePercentage += submission.scorePercentage;
 
-        // Group by calendar date (yyyy-MM-dd)
         final d = submission.submittedAt;
         final dateKey =
             '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -511,11 +539,9 @@ class ExamService {
 
       final avgProgress = (totalScorePercentage / attemptsList.length).round();
 
-      // 2. Calculate Consecutive Active Days (Study Streak)
       int streak = 0;
       DateTime checkDate = DateTime.now();
 
-      // Check if user did an exam today; if not, check if they did one yesterday to keep streak active
       String todayKey =
           '${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}';
       if (!uniqueDays.contains(todayKey)) {
@@ -540,16 +566,13 @@ class ExamService {
   // Stream all submissions across all exams for Admin Results Screen
   Stream<List<StudentSubmissionModel>> getAllSubmissionsStream() {
     return FirebaseFirestore.instance
-        .collectionGroup(
-          'submissions',
-        ) // Removed .orderBy('submittedAt', descending: true)
+        .collectionGroup('submissions')
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs
               .map((doc) => StudentSubmissionModel.fromFirestore(doc))
               .toList();
 
-          // Sort newest first in Dart memory
           list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
           return list;
         });
