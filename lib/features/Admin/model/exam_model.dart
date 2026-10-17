@@ -21,9 +21,9 @@ class QuestionModel {
   final double marks;
   final List<QuestionOption> options;
   final String correctOptionId;
-  final String type; 
-  final String category; 
-  final String difficulty; 
+  final String type;
+  final String category;
+  final String difficulty;
   final int views;
   final int estimatedTimeMinutes;
   final DateTime createdAt;
@@ -76,6 +76,7 @@ class QuestionModel {
     );
   }
 }
+
 class ExamModel {
   final String id;
   final String examCode; //'EXM-2024-089'
@@ -205,8 +206,8 @@ class ExamModel {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
-  
 }
+
 class StudentSubmissionModel {
   final String id;
   final String studentName;
@@ -256,8 +257,44 @@ class StudentSubmissionModel {
       unattemptedAnswers: (data['unattemptedAnswers'] as num?)?.toInt() ?? 0,
       isPassed: data['isPassed'] ?? false,
       isOnline: data['isOnline'] ?? false,
-      submittedAt: (data['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      submittedAt:
+          (data['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
-  
+}
+
+class BulkUploadService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  Future<void> uploadQuestionsBatch(List<QuestionModel> questions) async {
+    if (questions.isEmpty) return;
+
+    final WriteBatch batch = _firestore.batch();
+    final CollectionReference bankCollection = _firestore.collection(
+      'question_bank',
+    );
+
+    for (final question in questions) {
+      final docRef = bankCollection.doc(); // Generate automatic unique ID
+
+      final Map<String, dynamic> data = {
+        'id': docRef.id,
+        'questionText': question.questionText,
+        'marks': question.marks,
+        'options': question.options,
+        'correctOptionId': question.correctOptionId,
+        'type': question.type,
+        'category': question.category,
+        'difficulty': question.difficulty,
+        'views': 0,
+        'estimatedTimeMinutes': question.estimatedTimeMinutes,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      batch.set(docRef, data);
+    }
+
+    // Single atomic commit
+    await batch.commit();
+  }
 }
