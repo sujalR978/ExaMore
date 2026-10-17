@@ -3,12 +3,11 @@ import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/ReviewAndPublishScreen.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
-
 class AddMultipleChoiceQuestionScreen extends StatefulWidget {
   final ExamModel exam;
   final QuestionModel? editingQuestion;
   final int? questionIndex;
-  final bool isForQuestionBank; 
+  final bool isForQuestionBank;
 
   const AddMultipleChoiceQuestionScreen({
     super.key,
@@ -142,7 +141,9 @@ class _AddMultipleChoiceQuestionScreenState
           options: question.options,
           correctOptionId: question.correctOptionId,
           type: question.type,
-          category: _currentExam.category.isEmpty ? 'General' : _currentExam.category,
+          category: _currentExam.category.isEmpty
+              ? 'General'
+              : _currentExam.category,
           difficulty: 'Medium',
           views: 0,
           estimatedTimeMinutes: question.estimatedTimeMinutes,
