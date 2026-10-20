@@ -6,9 +6,9 @@ import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
 class ReviewAndPublishScreen extends StatefulWidget {
-  final ExamModel? exam; // 1. Changed to nullable
+  final ExamModel? exam;
 
-  const ReviewAndPublishScreen({super.key, this.exam}); // 2. Removed 'required'
+  const ReviewAndPublishScreen({super.key, this.exam});
 
   @override
   State<ReviewAndPublishScreen> createState() => _ReviewAndPublishScreenState();
@@ -20,13 +20,14 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
   late ExamModel _currentExam;
   late bool _shuffleQuestions;
   late bool _showResultsImmediately;
+  late double _passingScorePercentage;
+
   bool _isSavingDraft = false;
   bool _isPublishing = false;
 
   @override
   void initState() {
     super.initState();
-    // 3. Fallback to a default exam instance if null is provided
     _currentExam =
         widget.exam ??
         ExamModel(
@@ -36,21 +37,125 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
           category: 'General',
           durationMinutes: 90,
           totalMarks: 100,
-          passingScorePercentage: 65,
+          passingScorePercentage: 50,
           questions: [],
         );
 
     _shuffleQuestions = _currentExam.shuffleQuestions;
     _showResultsImmediately = _currentExam.showResultsImmediately;
+    _passingScorePercentage = _currentExam.passingScorePercentage;
   }
 
   ExamModel _prepareUpdatedExam({String? newStatus}) {
     return _currentExam.copyWith(
       shuffleQuestions: _shuffleQuestions,
       showResultsImmediately: _showResultsImmediately,
+      passingScorePercentage: _passingScorePercentage,
       status: newStatus ?? _currentExam.status,
       updatedAt: DateTime.now(),
     );
+  }
+
+  // Opens an inline dialog to manually adjust the passing percentage
+  Future<void> _handleEditPassingPercentage() async {
+    final controller = TextEditingController(
+      text: _passingScorePercentage.toInt().toString(),
+    );
+    final formKey = GlobalKey<FormState>();
+
+    final updatedValue = await showDialog<double>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Edit Passing Percentage',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Specify the minimum percentage score required to pass this exam.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: controller,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    suffixText: '%',
+                    prefixIcon: const Icon(Icons.percent, size: 18),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a percentage';
+                    }
+                    final num = double.tryParse(value.trim());
+                    if (num == null) {
+                      return 'Enter a valid number';
+                    }
+                    if (num < 0 || num > 100) {
+                      return 'Value must be between 0 and 100';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFBBF24),
+                foregroundColor: const Color(0xFF1E1B4B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  final parsed = double.tryParse(controller.text.trim());
+                  Navigator.pop(ctx, parsed);
+                }
+              },
+              child: const Text(
+                'Save',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (updatedValue != null && mounted) {
+      setState(() {
+        _passingScorePercentage = updatedValue;
+        _currentExam = _currentExam.copyWith(
+          passingScorePercentage: updatedValue,
+        );
+      });
+    }
   }
 
   Future<void> _handleSaveDraft() async {
@@ -67,6 +172,10 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
           backgroundColor: Colors.green,
         ),
       );
+
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const Showexamesscreen()));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -77,10 +186,6 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       );
     } finally {
       if (mounted) setState(() => _isSavingDraft = false);
-
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => Showexamesscreen()));
     }
   }
 
@@ -108,7 +213,6 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
         ),
       );
 
-      // Navigate back to Admin Dashboard and clear stack
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
         (route) => false,
@@ -163,13 +267,15 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
     await _examService.updateExam(updatedExam);
   }
 
-  // Refresh exam in case child screens modified it
   Future<void> _refreshExamData() async {
     final stream = _examService.getExamStream(_currentExam.id);
     final latestExam = await stream.first;
     if (mounted) {
       setState(() {
         _currentExam = latestExam;
+        _passingScorePercentage = latestExam.passingScorePercentage;
+        _shuffleQuestions = latestExam.shuffleQuestions;
+        _showResultsImmediately = latestExam.showResultsImmediately;
       });
     }
   }
@@ -202,7 +308,9 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                 borderRadius: BorderRadius.circular(100),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
+                    color: Colors.black.withValues(
+                      alpha: isDarkMode ? 0.2 : 0.05,
+                    ),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -268,7 +376,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Back to drafts link
+            // Back to questions navigation link
             InkWell(
               onTap: () => Navigator.pop(context),
               child: Row(
@@ -312,7 +420,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Top Action Buttons Row (Save Draft & Publish Exam)
+            // Top Action Buttons Row
             Row(
               children: [
                 Expanded(
@@ -474,8 +582,8 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                       border: Border.all(color: borderColor),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(
-                            isDarkMode ? 0.2 : 0.02,
+                          color: Colors.black.withValues(
+                            alpha: isDarkMode ? 0.2 : 0.02,
                           ),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
@@ -641,7 +749,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
               ),
             const SizedBox(height: 16),
 
-            // Dashed Add Questions from Bank Button
+            // Dashed Add Questions Button
             GestureDetector(
               onTap: _handleAddMoreQuestions,
               child: Container(
@@ -692,7 +800,9 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                 border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                    color: Colors.black.withValues(
+                      alpha: isDarkMode ? 0.2 : 0.02,
+                    ),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -826,39 +936,64 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                   Divider(color: borderColor, height: 1),
                   const SizedBox(height: 16),
 
-                  // Passing Score Row
+                  // Passing Score Row with Manual Edit Button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Passing Score',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? const Color(0xFF1E293B)
-                              : const Color(0xFFE0E7FF),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${_currentExam.passingScorePercentage.toInt()}%',
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFF93C5FD)
-                                : const Color(0xFF3730A3),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Passing Score',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Score required to pass exam',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFE0E7FF),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${_passingScorePercentage.toInt()}%',
+                              style: TextStyle(
+                                color: isDarkMode
+                                    ? const Color(0xFF93C5FD)
+                                    : const Color(0xFF3730A3),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            color: const Color(0xFFFBBF24),
+                            tooltip: 'Change Passing Score',
+                            onPressed: _handleEditPassingPercentage,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -885,7 +1020,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                             _shuffleQuestions = val;
                           });
                         },
-                        activeColor: const Color(0xFFFBBF24),
+                        activeThumbColor: const Color(0xFFFBBF24),
                         activeTrackColor: const Color(0xFF1E1B4B),
                       ),
                     ],
@@ -913,7 +1048,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                             _showResultsImmediately = val;
                           });
                         },
-                        activeColor: const Color(0xFFFBBF24),
+                        activeThumbColor: const Color(0xFFFBBF24),
                         activeTrackColor: const Color(0xFF1E1B4B),
                       ),
                     ],
