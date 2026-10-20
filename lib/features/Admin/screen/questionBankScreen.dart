@@ -96,7 +96,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           'id': docRef.id,
           'questionText': q.questionText,
           'marks': q.marks,
-          'options': q.options,
+          'options': q.options.map((o) => o.toMap()).toList(), // ✅ Proper serialization
           'correctOptionId': q.correctOptionId,
           'type': q.type,
           'category': q.category,
