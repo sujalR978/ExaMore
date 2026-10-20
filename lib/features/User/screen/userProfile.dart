@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
@@ -10,22 +12,43 @@ import 'package:prep_mate/features/User/screen/savedExamScreen.dart';
 import 'package:prep_mate/features/User/screen/settingScreen.dart';
 import 'package:prep_mate/features/User/screen/supportCenterScreen.dart';
 
+// Definition of an achievement badge
+class BadgeItem {
+  final String id;
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color bgLight;
+  final Color iconLight;
+  final bool isUnlocked;
+
+  BadgeItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.bgLight,
+    required this.iconLight,
+    required this.isUnlocked,
+  });
+}
+
 class Userprofile extends StatefulWidget {
   const Userprofile({super.key});
 
   @override
-  State<Userprofile> createState() => _profileState();
+  State<Userprofile> createState() => _UserProfileState();
 }
 
-class _profileState extends State<Userprofile> {
-  bool _isLoggingOut = false; // Track logout loading state
+class _UserProfileState extends State<Userprofile> {
+  bool _isLoggingOut = false;
+  final ExamService _examService = ExamService();
 
   // Fetch current user details from Firestore
   Future<Map<String, dynamic>?> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
 
-    // Check if user is the admin fallback
     if (user.email == 'admin@gmail.com') {
       return {
         'name': 'Admin User',
@@ -44,7 +67,137 @@ class _profileState extends State<Userprofile> {
     return doc.data();
   }
 
-  // Refreshes the profile page when returning from sub-screens
+  // Evaluate user submissions to compute earned and locked badges
+  List<BadgeItem> _calculateBadges(List<Map<String, dynamic>> attempts) {
+    int totalAttempts = attempts.length;
+    double maxScore = 0.0;
+    bool hasSubmittedMorning = false;
+    bool hasSubmittedNight = false;
+    bool hasFlawlessExam = false;
+    final Set<String> uniqueDays = {};
+
+    for (var item in attempts) {
+      final submission = item['submission'] as StudentSubmissionModel;
+
+      if (submission.scorePercentage > maxScore) {
+        maxScore = submission.scorePercentage;
+      }
+
+      final hour = submission.submittedAt.hour;
+      if (hour >= 5 && hour < 12) {
+        hasSubmittedMorning = true;
+      }
+      if (hour >= 21 || hour < 4) {
+        hasSubmittedNight = true;
+      }
+
+      if (submission.incorrectAnswers == 0 &&
+          submission.unattemptedAnswers == 0 &&
+          submission.correctAnswers > 0) {
+        hasFlawlessExam = true;
+      }
+
+      final d = submission.submittedAt;
+      uniqueDays.add(
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
+      );
+    }
+
+    // Calculate streak
+    int streak = 0;
+    DateTime checkDate = DateTime.now();
+    String todayKey =
+        '${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}';
+    if (!uniqueDays.contains(todayKey)) {
+      checkDate = checkDate.subtract(const Duration(days: 1));
+    }
+    while (true) {
+      final key =
+          '${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}';
+      if (uniqueDays.contains(key)) {
+        streak++;
+        checkDate = checkDate.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+
+    return [
+      BadgeItem(
+        id: 'first_step',
+        title: 'First Step',
+        description: 'Completed your first exam attempt.',
+        icon: Icons.flag_outlined,
+        bgLight: const Color(0xFFDBEAFE),
+        iconLight: const Color(0xFF1D4ED8),
+        isUnlocked: totalAttempts >= 1,
+      ),
+      BadgeItem(
+        id: 'top_scorer',
+        title: 'Top Scorer',
+        description: 'Achieved 90% or higher on an assessment.',
+        icon: Icons.emoji_events,
+        bgLight: const Color(0xFFFEF3C7),
+        iconLight: const Color(0xFFB45309),
+        isUnlocked: maxScore >= 90.0,
+      ),
+      BadgeItem(
+        id: 'consistent_learner',
+        title: 'Consistent',
+        description: 'Completed at least 3 exam assessments.',
+        icon: Icons.auto_stories,
+        bgLight: const Color(0xFFDCFCE7),
+        iconLight: const Color(0xFF15803D),
+        isUnlocked: totalAttempts >= 3,
+      ),
+      BadgeItem(
+        id: 'master_mind',
+        title: 'Master Mind',
+        description: 'Scored a perfect 100% on any exam.',
+        icon: Icons.psychology_outlined,
+        bgLight: const Color(0xFFF3E8FF),
+        iconLight: const Color(0xFF7E22CE),
+        isUnlocked: maxScore >= 100.0,
+      ),
+      BadgeItem(
+        id: 'early_bird',
+        title: 'Early Bird',
+        description: 'Submitted an exam before 12:00 PM.',
+        icon: Icons.alarm,
+        bgLight: const Color(0xFFD1FAE5),
+        iconLight: const Color(0xFF065F46),
+        isUnlocked: hasSubmittedMorning,
+      ),
+      BadgeItem(
+        id: 'night_owl',
+        title: 'Night Owl',
+        description: 'Studied and submitted an exam after 9:00 PM.',
+        icon: Icons.nights_stay_outlined,
+        bgLight: const Color(0xFFE0E7FF),
+        iconLight: const Color(0xFF4338CA),
+        isUnlocked: hasSubmittedNight,
+      ),
+      BadgeItem(
+        id: 'streak_master',
+        title: 'Streak 3D',
+        description: 'Maintained an active 3-day study streak.',
+        icon: Icons.local_fire_department_outlined,
+        bgLight: const Color(0xFFFFEDD5),
+        iconLight: const Color(0xFFC2410C),
+        isUnlocked: streak >= 3,
+      ),
+      BadgeItem(
+        id: 'perfectionist',
+        title: 'Perfectionist',
+        description: 'Answered every single question without mistakes.',
+        icon: Icons.verified_outlined,
+        bgLight: const Color(0xFFCCFBF1),
+        iconLight: const Color(0xFF0F766E),
+        isUnlocked: hasFlawlessExam,
+      ),
+    ];
+  }
+
   void _refreshProfile() {
     setState(() {});
   }
@@ -56,7 +209,7 @@ class _profileState extends State<Userprofile> {
           builder: (context) => const PersonalInformationScreen(),
         ),
       );
-      _refreshProfile(); // Refresh UI with updated Firestore data
+      _refreshProfile();
     } else if (title == 'Saved Exams') {
       await Navigator.of(
         context,
@@ -76,12 +229,10 @@ class _profileState extends State<Userprofile> {
   }
 
   void _handleLogout() async {
-    setState(() {
-      _isLoggingOut = true;
-    });
+    setState(() => _isLoggingOut = true);
 
     try {
-      AuthService authService = AuthService();
+      final AuthService authService = AuthService();
       await authService.signOut();
 
       if (!mounted) return;
@@ -91,34 +242,206 @@ class _profileState extends State<Userprofile> {
         (route) => false,
       );
     } catch (e) {
-      print("LOGOUT ERROR: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
-        setState(() {
-          _isLoggingOut = false;
-        });
+        setState(() => _isLoggingOut = false);
       }
     }
   }
 
-  // Helper to load either NetworkImage or FileImage dynamically
   ImageProvider _getProfileImage(String photoUrl) {
     if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
     } else {
-      // It's a local file path saved from the image picker
       final file = File(photoUrl);
       if (file.existsSync()) {
         return FileImage(file);
       } else {
-        // Fallback if file path is invalid
         return const NetworkImage(
           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
         );
       }
     }
+  }
+
+  // Modal to show all available badges and their progress
+  void _showAllBadgesModal(List<BadgeItem> badges) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final isDarkMode = theme.brightness == Brightness.dark;
+        final containerColor = theme.colorScheme.surface;
+        final textColor = theme.colorScheme.onSurface;
+        final subtitleColor = isDarkMode
+            ? const Color(0xFF94A3B8)
+            : Colors.grey[600]!;
+
+        final unlockedCount = badges.where((b) => b.isUnlocked).length;
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
+          builder: (_, controller) {
+            return Container(
+              decoration: BoxDecoration(
+                color: containerColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Achievement Badges',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$unlockedCount of ${badges.length} Unlocked',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: textColor),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: controller,
+                      itemCount: badges.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, idx) {
+                        final b = badges[idx];
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDarkMode
+                                ? (b.isUnlocked
+                                      ? const Color(0xFF1E293B)
+                                      : const Color(0xFF0F172A))
+                                : (b.isUnlocked
+                                      ? const Color(0xFFF8FAFC)
+                                      : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: b.isUnlocked
+                                  ? (isDarkMode
+                                        ? Colors.white24
+                                        : Colors.grey.shade300)
+                                  : (isDarkMode
+                                        ? Colors.white10
+                                        : Colors.grey.shade200),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: b.isUnlocked
+                                      ? (isDarkMode
+                                            ? const Color(0xFF334155)
+                                            : b.bgLight)
+                                      : (isDarkMode
+                                            ? Colors.white10
+                                            : Colors.grey.shade300),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  b.icon,
+                                  color: b.isUnlocked
+                                      ? (isDarkMode
+                                            ? const Color(0xFFFBBF24)
+                                            : b.iconLight)
+                                      : Colors.grey,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Text(
+                                          b.title,
+                                          style: TextStyle(
+                                            color: b.isUnlocked
+                                                ? textColor
+                                                : subtitleColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        if (b.isUnlocked)
+                                          const Icon(
+                                            Icons.check_circle,
+                                            color: Colors.green,
+                                            size: 16,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      b.description,
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 12,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -132,6 +455,9 @@ class _profileState extends State<Userprofile> {
         ? const Color(0xFF94A3B8)
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final String currentUserId = user?.uid ?? '';
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: _fetchUserData(),
@@ -154,7 +480,6 @@ class _profileState extends State<Userprofile> {
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
-          // Capsule-shaped Top Bar
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(75),
             child: SafeArea(
@@ -169,8 +494,8 @@ class _profileState extends State<Userprofile> {
                     borderRadius: BorderRadius.circular(100),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(
-                          isDarkMode ? 0.2 : 0.05,
+                        color: Colors.black.withValues(
+                          alpha: isDarkMode ? 0.2 : 0.05,
                         ),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
@@ -224,7 +549,7 @@ class _profileState extends State<Userprofile> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // User Header Profile Card
+                // User Profile Header Card
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -233,8 +558,8 @@ class _profileState extends State<Userprofile> {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(
-                          isDarkMode ? 0.2 : 0.02,
+                        color: Colors.black.withValues(
+                          alpha: isDarkMode ? 0.2 : 0.02,
                         ),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
@@ -301,88 +626,120 @@ class _profileState extends State<Userprofile> {
                 ),
                 const SizedBox(height: 20),
 
-                // Badges Section Card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: containerColor,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                // Dynamic Badges Card Stream
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _examService.getUserExamAttemptsStream(currentUserId),
+                  builder: (context, attemptSnap) {
+                    final attempts = attemptSnap.data ?? [];
+                    final allBadges = _calculateBadges(attempts);
+
+                    final topScorer = allBadges[1];
+                    final earlyBird = allBadges[4];
+                    final streakMaster = allBadges[6];
+
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: containerColor,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.emoji_events,
-                            color: Color(0xFFF59E0B),
-                            size: 22,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.emoji_events,
+                                    color: Color(0xFFF59E0B),
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Badges',
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${allBadges.where((b) => b.isUnlocked).length} Unlocked',
+                                style: const TextStyle(
+                                  color: Color(0xFF10B981),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Badges',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildBadgeItem(
+                                  topScorer.icon,
+                                  topScorer.bgLight,
+                                  topScorer.iconLight,
+                                  topScorer.title,
+                                  topScorer.isUnlocked,
+                                  isDarkMode,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildBadgeItem(
+                                  earlyBird.icon,
+                                  earlyBird.bgLight,
+                                  earlyBird.iconLight,
+                                  earlyBird.title,
+                                  earlyBird.isUnlocked,
+                                  isDarkMode,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildBadgeItem(
+                                  streakMaster.icon,
+                                  streakMaster.bgLight,
+                                  streakMaster.iconLight,
+                                  streakMaster.title,
+                                  streakMaster.isUnlocked,
+                                  isDarkMode,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _showAllBadgesModal(allBadges),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: _buildDashedBadge(
+                                    'View All',
+                                    borderColor,
+                                    textColor,
+                                    isDarkMode,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildBadgeItem(
-                              Icons.emoji_events,
-                              const Color(0xFFFEF3C7),
-                              const Color(0xFFB45309),
-                              'Top Scorer',
-                              isDarkMode,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildBadgeItem(
-                              Icons.alarm,
-                              const Color(0xFFD1FAE5),
-                              const Color(0xFF065F46),
-                              'Early Bird',
-                              isDarkMode,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildBadgeItem(
-                              Icons.local_fire_department_outlined,
-                              const Color(0xFFEDE9FE),
-                              const Color(0xFF5B21B6),
-                              '7-Day Streak',
-                              isDarkMode,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildDashedBadge(
-                              'View All',
-                              borderColor,
-                              textColor,
-                              isDarkMode,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
 
-                // Menu Options List Card
+                // Menu Options Card
                 Container(
                   decoration: BoxDecoration(
                     color: containerColor,
@@ -427,7 +784,7 @@ class _profileState extends State<Userprofile> {
                 ),
                 const SizedBox(height: 24),
 
-                // Logout Button with Loading Indicator
+                // Logout Button
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -516,6 +873,7 @@ class _profileState extends State<Userprofile> {
     Color bgCol,
     Color iconCol,
     String title,
+    bool isUnlocked,
     bool isDarkMode,
   ) {
     return Container(
@@ -524,7 +882,9 @@ class _profileState extends State<Userprofile> {
         color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
+          color: isUnlocked
+              ? (isDarkMode ? Colors.white12 : Colors.grey.shade200)
+              : (isDarkMode ? Colors.white10 : Colors.grey.shade100),
         ),
       ),
       child: Column(
@@ -532,25 +892,46 @@ class _profileState extends State<Userprofile> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isDarkMode ? const Color(0xFF334155) : bgCol,
+              color: isUnlocked
+                  ? (isDarkMode ? const Color(0xFF334155) : bgCol)
+                  : (isDarkMode ? Colors.white10 : Colors.grey.shade200),
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
-              color: isDarkMode ? const Color(0xFFFBBF24) : iconCol,
+              color: isUnlocked
+                  ? (isDarkMode ? const Color(0xFFFBBF24) : iconCol)
+                  : Colors.grey,
               size: 22,
             ),
           ),
           const SizedBox(height: 10),
-          Text(
-            title,
-            style: TextStyle(
-              color: isDarkMode
-                  ? const Color(0xFFF8FAFC)
-                  : const Color(0xFF1E1B4B),
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isUnlocked
+                        ? (isDarkMode
+                              ? const Color(0xFFF8FAFC)
+                              : const Color(0xFF1E1B4B))
+                        : (isDarkMode ? Colors.white38 : Colors.grey.shade500),
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (isUnlocked) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.check_circle, color: Colors.green, size: 12),
+              ],
+            ],
           ),
         ],
       ),
@@ -564,18 +945,17 @@ class _profileState extends State<Userprofile> {
     bool isDarkMode,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDarkMode ? Colors.white30 : Colors.grey.shade400,
-          style: BorderStyle.solid,
         ),
       ),
       child: Column(
         children: [
-          Icon(Icons.add, color: textColor, size: 22),
+          Icon(Icons.dashboard_customize_outlined, color: textColor, size: 22),
           const SizedBox(height: 6),
           Text(
             title,
