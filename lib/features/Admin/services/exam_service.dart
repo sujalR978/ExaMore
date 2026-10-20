@@ -208,8 +208,12 @@ class ExamService {
     required String title,
     required String category,
     required List<QuestionModel> questions,
+    double passingScorePercentage = 50.0,
   }) async {
-    final totalMarks = questions.fold<double>(0.0, (sum, q) => sum + q.marks);
+    final totalMarks = questions.fold<double>(
+      0.0,
+      (total, q) => total + q.marks,
+    );
     final exam = ExamModel(
       id: '',
       examCode: '',
@@ -217,6 +221,7 @@ class ExamService {
       category: category,
       durationMinutes: questions.length * 2,
       totalMarks: totalMarks > 0 ? totalMarks : 100,
+      passingScorePercentage: passingScorePercentage,
       questions: questions,
       status: 'Draft',
     );
