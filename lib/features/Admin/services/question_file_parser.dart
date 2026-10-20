@@ -68,52 +68,60 @@ class QuestionFileParser {
   }
 
   static List<QuestionModel> _parseCsv(String rawCsv) {
-    final List<List<dynamic>> rows = _decodeCsvRows(rawCsv);
+    final List<List<String>> rows = _parseCsvString(rawCsv);
 
     if (rows.length <= 1) return [];
 
     final List<QuestionModel> parsed = [];
 
-    // Skip header row
+    // Skip the header row (index 0)
     for (int i = 1; i < rows.length; i++) {
-      final List<dynamic> row = rows[i];
+      final List<String> row = rows[i];
 
       // Skip blank rows
-      if (row.isEmpty || row.every((val) => val.toString().trim().isEmpty)) {
+      if (row.isEmpty || row.every((val) => val.trim().isEmpty)) {
         continue;
       }
 
-      final String questionText = row.isNotEmpty
-          ? row[0].toString().trim()
-          : '';
-      if (questionText.isEmpty) continue;
+      // If the row was wrapped in outer quotes and didn't split, handle it
+      List<String> columns = row;
+      if (columns.length == 1 && columns[0].contains(',')) {
+        columns = _parseCsvLine(columns[0]);
+      }
 
-      final String category =
-          row.length > 1 && row[1].toString().trim().isNotEmpty
-          ? row[1].toString().trim()
+      if (columns.length < 5) continue;
+
+      final String questionText = columns[0].trim();
+      final String category = columns.length > 1 && columns[1].trim().isNotEmpty
+          ? columns[1].trim()
           : 'General';
-
       final String difficulty =
-          row.length > 2 && row[2].toString().trim().isNotEmpty
-          ? row[2].toString().trim()
+          columns.length > 2 && columns[2].trim().isNotEmpty
+          ? columns[2].trim()
           : 'Medium';
-
-      final double marks = row.length > 3
-          ? (double.tryParse(row[3].toString().trim()) ?? 1.0)
+      final double marks = columns.length > 3
+          ? (double.tryParse(columns[3].trim()) ?? 1.0)
           : 1.0;
 
-      // Extract options (columns 4 through second to last)
-      final List<dynamic> rawOptions = [];
-      if (row.length >= 6) {
-        for (int j = 4; j < row.length - 1; j++) {
-          final opt = row[j].toString().trim();
-          if (opt.isNotEmpty) rawOptions.add(opt);
+      // Extract options (indices 4, 5, 6, 7 if available)
+      final List<String> rawOptions = [];
+      if (columns.length >= 9) {
+        for (int c = 4; c <= 7; c++) {
+          if (columns[c].trim().isNotEmpty) {
+            rawOptions.add(columns[c].trim());
+          }
+        }
+      } else {
+        // Fallback for variable-length rows
+        for (int c = 4; c < columns.length - 1; c++) {
+          if (columns[c].trim().isNotEmpty) {
+            rawOptions.add(columns[c].trim());
+          }
         }
       }
 
-      final int correctIndex = row.isNotEmpty
-          ? (int.tryParse(row.last.toString().trim()) ?? 0)
-          : 0;
+      // The last column is always the zero-based correct index
+      final int correctIndex = int.tryParse(columns.last.trim()) ?? 0;
 
       final List<QuestionOption> options = _normalizeOptions(rawOptions);
 
@@ -176,47 +184,46 @@ class QuestionFileParser {
     return options.first.id;
   }
 
-  /// Robust CSV parser supporting commas, semicolons, quotes, and escaped quotes
-  static List<List<dynamic>> _decodeCsvRows(String csv) {
-    final String delimiter =
-        csv.contains(';') && !csv.split('\n').first.contains(',') ? ';' : ',';
+  /// Parses an entire CSV string into rows and columns correctly handling quotes
+  static List<List<String>> _parseCsvString(String input) {
+    final List<List<String>> rows = [];
+    final lines = const LineSplitter().convert(input);
 
-    final List<List<dynamic>> rows = [];
-    List<dynamic> row = [];
-    final StringBuffer field = StringBuffer();
-    bool inQuotes = false;
+    for (var line in lines) {
+      if (line.trim().isEmpty) continue;
+      rows.add(_parseCsvLine(line));
+    }
+    return rows;
+  }
 
-    for (int i = 0; i < csv.length; i++) {
-      final String char = csv[i];
+  /// Splits a single line by delimiter while respecting double-quoted values
+  static List<String> _parseCsvLine(String line) {
+    final List<String> fields = [];
+    final StringBuffer currentField = StringBuffer();
+    bool insideQuotes = false;
+    final String delimiter = line.contains(';') && !line.contains(',')
+        ? ';'
+        : ',';
+
+    for (int i = 0; i < line.length; i++) {
+      final String char = line[i];
 
       if (char == '"') {
-        if (inQuotes && i + 1 < csv.length && csv[i + 1] == '"') {
-          field.write('"');
+        // Escaped quote ("")
+        if (insideQuotes && i + 1 < line.length && line[i + 1] == '"') {
+          currentField.write('"');
           i++;
         } else {
-          inQuotes = !inQuotes;
+          insideQuotes = !insideQuotes;
         }
-      } else if (char == delimiter && !inQuotes) {
-        row.add(field.toString());
-        field.clear();
-      } else if ((char == '\n' || char == '\r') && !inQuotes) {
-        if (char == '\r' && i + 1 < csv.length && csv[i + 1] == '\n') {
-          i++;
-        }
-        row.add(field.toString());
-        field.clear();
-        rows.add(row);
-        row = [];
+      } else if (char == delimiter && !insideQuotes) {
+        fields.add(currentField.toString().trim());
+        currentField.clear();
       } else {
-        field.write(char);
+        currentField.write(char);
       }
     }
-
-    if (field.isNotEmpty || row.isNotEmpty) {
-      row.add(field.toString());
-      rows.add(row);
-    }
-
-    return rows;
+    fields.add(currentField.toString().trim());
+    return fields;
   }
 }
