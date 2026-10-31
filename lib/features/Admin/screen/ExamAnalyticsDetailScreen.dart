@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/screen/CandidateDetailScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
 class ExamAnalyticsDetailScreen extends StatefulWidget {
   final ExamModel? exam;
+  final String? examId;
 
-  const ExamAnalyticsDetailScreen({super.key, this.exam});
+  const ExamAnalyticsDetailScreen({super.key, this.exam, this.examId});
 
   @override
   State<ExamAnalyticsDetailScreen> createState() =>
@@ -18,30 +21,20 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ExamService _examService = ExamService();
 
-  late ExamModel _exam;
   String _searchQuery = '';
+  ExamModel? _selectedExam;
 
   @override
   void initState() {
     super.initState();
-    _exam =
-        widget.exam ??
-        ExamModel(
-          id: 'demo_id',
-          examCode: 'EXM-8924A',
-          title: 'Finals 2024 – Advanced Physics',
-          category: 'Physics',
-          durationMinutes: 120,
-          totalMarks: 100,
-          passingScorePercentage: 50.0,
-          enrolledCount: 145,
-          status: 'Published',
-        );
+    _selectedExam = widget.exam;
 
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase().trim();
-      });
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase().trim();
+        });
+      }
     });
   }
 
@@ -67,448 +60,648 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+    // Listen to all exams in Firestore so we can resolve any missing ID automatically
+    return StreamBuilder<List<ExamModel>>(
+      stream: _examService.getExamsStream(),
+      builder: (context, examsSnapshot) {
+        final availableExams = examsSnapshot.data ?? [];
+
+        // 1. Resolve active exam with multiple fallbacks
+        ExamModel? activeExam = _selectedExam;
+
+        if (activeExam == null || activeExam.id.trim().isEmpty) {
+          final targetId = widget.examId ?? widget.exam?.id ?? '';
+          final targetCode = widget.exam?.examCode ?? '';
+          final targetTitle = widget.exam?.title ?? '';
+
+          if (availableExams.isNotEmpty) {
+            try {
+              activeExam = availableExams.firstWhere(
+                (e) =>
+                    (targetId.isNotEmpty && e.id == targetId) ||
+                    (targetCode.isNotEmpty && e.examCode == targetCode) ||
+                    (targetTitle.isNotEmpty && e.title == targetTitle),
+              );
+            } catch (_) {
+              activeExam = availableExams.first;
+            }
+          }
+        } else {
+          // Keep activeExam synced with the latest Firestore data
+          final match = availableExams.where((e) => e.id == activeExam!.id);
+          if (match.isNotEmpty) {
+            activeExam = match.first;
+          }
+        }
+
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          key: _scaffoldKey,
+          drawer: const AdminMenuDrawer(),
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(75),
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDarkMode ? 0.2 : 0.05,
+                        ),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.menu_book,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(100),
+                    child: AppBar(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      scrolledUnderElevation: 0,
+                      leading: IconButton(
+                        icon: Icon(
+                          Icons.menu,
                           color: isDarkMode
                               ? const Color(0xFFFBBF24)
                               : const Color(0xFF1E1B4B),
-                          size: 22,
                         ),
-                      ],
-                    ),
-                  ),
-                  title: Text(
-                    'Examora',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  centerTitle: false,
-                  actions: const [
-                    Padding(
-                      padding: EdgeInsets.only(right: 12.0),
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Color(0xFFFBBF24),
-                        child: Text(
-                          'AP',
-                          style: TextStyle(
-                            color: Color(0xFF1E1B4B),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
+                        onPressed: () =>
+                            _scaffoldKey.currentState?.openDrawer(),
+                      ),
+                      title: Text(
+                        'Examora Analytics',
+                        style: TextStyle(
+                          color: isDarkMode
+                              ? const Color(0xFFFBBF24)
+                              : const Color(0xFF1E1B4B),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
                         ),
                       ),
+                      centerTitle: true,
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
-      body: StreamBuilder<List<StudentSubmissionModel>>(
-        stream: _examService.getExamSubmissionsStream(_exam.id),
-        builder: (context, snapshot) {
-          final submissions = snapshot.data ?? [];
-
-          // Compute analytics metrics dynamically
-          final totalSubmissions = submissions.length;
-          final averageScore = totalSubmissions > 0
-              ? (submissions
-                            .map((s) => s.scorePercentage)
-                            .reduce((a, b) => a + b) /
-                        totalSubmissions)
-                    .toStringAsFixed(0)
-              : '0';
-
-          final passedCount = submissions.where((s) {
-            return s.isPassed ||
-                s.scorePercentage >= _exam.passingScorePercentage;
-          }).length;
-
-          final passRate = totalSubmissions > 0
-              ? ((passedCount / totalSubmissions) * 100).toStringAsFixed(0)
-              : '0';
-
-          final topScore = totalSubmissions > 0
-              ? submissions
-                    .map((s) => s.scorePercentage)
-                    .reduce((a, b) => a > b ? a : b)
-                    .toStringAsFixed(0)
-              : '0';
-
-          final filteredSubmissions = submissions.where((student) {
-            return student.studentName.toLowerCase().contains(_searchQuery) ||
-                student.studentId.toLowerCase().contains(_searchQuery);
-          }).toList();
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Back to Modules link
-                InkWell(
-                  onTap: () => Navigator.pop(context),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.arrow_back,
-                        size: 16,
-                        color: isDarkMode
-                            ? const Color(0xFFFBBF24)
-                            : const Color(0xFF1E1B4B),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Back to Modules',
-                        style: TextStyle(
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF1E1B4B),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+          body: examsSnapshot.connectionState == ConnectionState.waiting &&
+                  availableExams.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : (activeExam == null || activeExam.id.isEmpty)
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.analytics_outlined,
+                              size: 60,
+                              color: subtitleColor,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No Published Exams Found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Create and publish an exam to view student analytics.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: subtitleColor,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    )
+                  : _buildAnalyticsContent(
+                      context: context,
+                      currentExam: activeExam,
+                      availableExams: availableExams,
+                      containerColor: containerColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      borderColor: borderColor,
+                      isDarkMode: isDarkMode,
+                    ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAnalyticsContent({
+    required BuildContext context,
+    required ExamModel currentExam,
+    required List<ExamModel> availableExams,
+    required Color containerColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color borderColor,
+    required bool isDarkMode,
+  }) {
+    return StreamBuilder<List<StudentSubmissionModel>>(
+      stream: _examService.getExamSubmissionsStream(currentExam.id),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                'Error loading submissions: ${snapshot.error}',
+                style: const TextStyle(color: Colors.redAccent),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        final submissions = snapshot.data ?? [];
+
+        final totalSubmissions = submissions.length;
+        final averageScore = totalSubmissions > 0
+            ? (submissions
+                          .map((s) => s.scorePercentage)
+                          .reduce((a, b) => a + b) /
+                      totalSubmissions)
+                  .toStringAsFixed(0)
+            : '0';
+
+        final passedCount = submissions.where((s) {
+          return s.isPassed ||
+              s.scorePercentage >= currentExam.passingScorePercentage;
+        }).length;
+
+        final passRate = totalSubmissions > 0
+            ? ((passedCount / totalSubmissions) * 100).toStringAsFixed(0)
+            : '0';
+
+        final topScore = totalSubmissions > 0
+            ? submissions
+                  .map((s) => s.scorePercentage)
+                  .reduce((a, b) => a > b ? a : b)
+                  .toStringAsFixed(0)
+            : '0';
+
+        final filteredSubmissions = submissions.where((student) {
+          final query = _searchQuery.toLowerCase();
+          return student.studentName.toLowerCase().contains(query) ||
+              student.studentId.toLowerCase().contains(query);
+        }).toList();
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Dropdown switcher if multiple exams exist
+              if (availableExams.length > 1) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: currentExam.id,
+                      icon: Icon(Icons.swap_horiz, color: subtitleColor),
+                      dropdownColor: containerColor,
+                      items: availableExams.map((e) {
+                        return DropdownMenuItem<String>(
+                          value: e.id,
+                          child: Text(
+                            e.title.isEmpty ? 'Untitled Exam' : e.title,
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (newId) {
+                        if (newId != null) {
+                          setState(() {
+                            _selectedExam = availableExams.firstWhere(
+                              (e) => e.id == newId,
+                            );
+                          });
+                        }
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
+              ],
 
-                // Exam Title & Status Header
-                Text(
-                  _exam.title,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Row(
+              // Back to Exams Link
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    Icon(
+                      Icons.arrow_back,
+                      size: 16,
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF1E1B4B),
+                    ),
+                    const SizedBox(width: 6),
                     Text(
-                      '# ${_exam.examCode.isNotEmpty ? _exam.examCode : _exam.id.substring(0, 6)}',
+                      'Back to Exams',
                       style: TextStyle(
-                        color: subtitleColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _exam.status.toLowerCase() == 'published'
-                            ? (isDarkMode
-                                  ? const Color(0xFF064E3B)
-                                  : const Color(0xFFD1FAE5))
-                            : (isDarkMode
-                                  ? const Color(0xFF451A03)
-                                  : const Color(0xFFFEF3C7)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _exam.status,
-                        style: TextStyle(
-                          color: _exam.status.toLowerCase() == 'published'
-                              ? (isDarkMode
-                                    ? const Color(0xFF34D399)
-                                    : const Color(0xFF065F46))
-                              : const Color(0xFFB45309),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        color: isDarkMode
+                            ? const Color(0xFFFBBF24)
+                            : const Color(0xFF1E1B4B),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 16),
 
-                // 2x2 Metric Cards Grid
-                GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 1.25,
-                  children: [
-                    _buildMetricCard(
-                      title: 'AVERAGE SCORE',
-                      value: '$averageScore%',
-                      icon: Icons.assessment_outlined,
-                      iconColor: const Color(0xFFD97706),
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                    ),
-                    _buildMetricCard(
-                      title: 'PASS RATE',
-                      value: '$passRate%',
-                      icon: Icons.check_circle_outline,
-                      iconColor: const Color(0xFF059669),
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                    ),
-                    _buildMetricCard(
-                      title: 'TOP SCORE',
-                      value: '$topScore%',
-                      icon: Icons.emoji_events_outlined,
-                      iconColor: const Color(0xFFD97706),
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                    ),
-                    _buildMetricCard(
-                      title: 'SUBMISSIONS',
-                      value:
-                          '$totalSubmissions/${_exam.enrolledCount > 0 ? _exam.enrolledCount : totalSubmissions}',
-                      icon: Icons.people_outline,
-                      iconColor: const Color(0xFF1D4ED8),
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                    ),
-                  ],
+              // Title and Badges
+              Text(
+                currentExam.title,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
                 ),
-                const SizedBox(height: 28),
-
-                // Student Results Container Box (Table layout)
-                Container(
-                  decoration: BoxDecoration(
-                    color: containerColor,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: borderColor),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(
-                          isDarkMode ? 0.2 : 0.02,
-                        ),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Text(
+                    '# ${currentExam.examCode.isNotEmpty ? currentExam.examCode : currentExam.id.substring(0, 6)}',
+                    style: TextStyle(
+                      color: subtitleColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title & Search
-                      Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Student Results',
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: "Search students...",
-                                hintStyle: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 13,
-                                ),
-                                prefixIcon: Icon(
-                                  Icons.search,
-                                  color: subtitleColor,
-                                ),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        icon: Icon(
-                                          Icons.clear,
-                                          color: subtitleColor,
-                                          size: 18,
-                                        ),
-                                        onPressed: () =>
-                                            _searchController.clear(),
-                                      )
-                                    : null,
-                                filled: true,
-                                fillColor: isDarkMode
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: borderColor),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: borderColor),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF7C3AED),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: currentExam.status.toLowerCase() == 'published'
+                          ? (isDarkMode
+                                ? const Color(0xFF064E3B)
+                                : const Color(0xFFD1FAE5))
+                          : (isDarkMode
+                                ? const Color(0xFF451A03)
+                                : const Color(0xFFFEF3C7)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      currentExam.status,
+                      style: TextStyle(
+                        color: currentExam.status.toLowerCase() == 'published'
+                            ? (isDarkMode
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFF065F46))
+                            : const Color(0xFFB45309),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Pass Mark: ${currentExam.passingScorePercentage.toInt()}%',
+                      style: TextStyle(
+                        color: isDarkMode
+                            ? const Color(0xFF93C5FD)
+                            : const Color(0xFF1D4ED8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
 
-                      // Table Header Row
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? const Color(0xFF1E293B).withOpacity(0.5)
-                              : const Color(0xFFF8FAFC),
-                          border: Border(
-                            top: BorderSide(color: borderColor),
-                            bottom: BorderSide(color: borderColor),
+              // Metric Cards Grid
+              GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 1.25,
+                children: [
+                  _buildMetricCard(
+                    title: 'AVERAGE SCORE',
+                    value: '$averageScore%',
+                    icon: Icons.assessment_outlined,
+                    iconColor: const Color(0xFFD97706),
+                    containerColor: containerColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    borderColor: borderColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  _buildMetricCard(
+                    title: 'PASS RATE',
+                    value: '$passRate%',
+                    icon: Icons.check_circle_outline,
+                    iconColor: const Color(0xFF059669),
+                    containerColor: containerColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    borderColor: borderColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  _buildMetricCard(
+                    title: 'TOP SCORE',
+                    value: '$topScore%',
+                    icon: Icons.emoji_events_outlined,
+                    iconColor: const Color(0xFFD97706),
+                    containerColor: containerColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    borderColor: borderColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                  _buildMetricCard(
+                    title: 'TOTAL ATTEMPTS',
+                    value: '$totalSubmissions',
+                    icon: Icons.people_outline,
+                    iconColor: const Color(0xFF1D4ED8),
+                    containerColor: containerColor,
+                    textColor: textColor,
+                    subtitleColor: subtitleColor,
+                    borderColor: borderColor,
+                    isDarkMode: isDarkMode,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // Student Results Container
+              Container(
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: isDarkMode ? 0.2 : 0.02,
+                      ),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Submissions',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF10B981)
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 3,
+                                      backgroundColor: Color(0xFF10B981),
+                                    ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Live Sync',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 5,
-                              child: Text(
-                                'STUDENT',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                'ID',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  'SCORE',
-                                  style: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Student Rows
-                      if (filteredSubmissions.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 30.0),
-                          child: Center(
-                            child: Text(
-                              submissions.isEmpty
-                                  ? 'No student submissions yet'
-                                  : 'No students found matching "$_searchQuery"',
-                              style: TextStyle(
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: _searchController,
+                            decoration: InputDecoration(
+                              hintText: "Search by student name or ID...",
+                              hintStyle: TextStyle(
                                 color: subtitleColor,
                                 fontSize: 13,
                               ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: subtitleColor,
+                              ),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(
+                                        Icons.clear,
+                                        color: subtitleColor,
+                                        size: 18,
+                                      ),
+                                      onPressed: () =>
+                                          _searchController.clear(),
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: isDarkMode
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: borderColor),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: borderColor),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF7C3AED),
+                                  width: 1.5,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
                             ),
                           ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filteredSubmissions.length,
-                          separatorBuilder: (context, index) =>
-                              Divider(height: 1, color: borderColor),
-                          itemBuilder: (context, index) {
-                            final student = filteredSubmissions[index];
-                            final isFailed =
-                                !student.isPassed &&
-                                student.scorePercentage <
-                                    _exam.passingScorePercentage;
+                        ],
+                      ),
+                    ),
 
-                            return Container(
+                    // Table Header
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                            : const Color(0xFFF8FAFC),
+                        border: Border(
+                          top: BorderSide(color: borderColor),
+                          bottom: BorderSide(color: borderColor),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 5,
+                            child: Text(
+                              'STUDENT',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'ID',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                'SCORE',
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Rows
+                    if (filteredSubmissions.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 36.0),
+                        child: Center(
+                          child: Text(
+                            submissions.isEmpty
+                                ? 'No student submissions recorded yet.'
+                                : 'No matching results found for "$_searchQuery"',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: filteredSubmissions.length,
+                        separatorBuilder: (context, index) =>
+                            Divider(height: 1, color: borderColor),
+                        itemBuilder: (context, index) {
+                          final student = filteredSubmissions[index];
+                          final isFailed = !student.isPassed &&
+                              student.scorePercentage <
+                                  currentExam.passingScorePercentage;
+
+                          return InkWell(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => CandidateDetailScreen(
+                                    examId: currentExam.id,
+                                    submissionId: student.id,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 14,
@@ -516,15 +709,14 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                               decoration: BoxDecoration(
                                 color: isFailed
                                     ? (isDarkMode
-                                          ? const Color(
-                                              0xFF451A03,
-                                            ).withOpacity(0.3)
+                                          ? const Color(0xFF451A03)
+                                              .withValues(alpha: 0.3)
                                           : const Color(0xFFFEF2F2))
                                     : Colors.transparent,
                               ),
                               child: Row(
                                 children: [
-                                  // Student Name & Avatar
+                                  // Student Avatar & Name
                                   Expanded(
                                     flex: 5,
                                     child: Row(
@@ -542,7 +734,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                             : CircleAvatar(
                                                 radius: 18,
                                                 backgroundColor: isFailed
-                                                    ? const Color(0xFFFEF2F2)
+                                                    ? const Color(0xFFFEE2E2)
                                                     : const Color(0xFFDBEAFE),
                                                 child: Text(
                                                   _getInitials(
@@ -576,7 +768,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                       ],
                                     ),
                                   ),
-                                  // ID
+                                  // Student ID
                                   Expanded(
                                     flex: 3,
                                     child: Text(
@@ -607,41 +799,51 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                   ),
                                 ],
                               ),
+                            ),
                             );
+                          
                           },
                         ),
 
-                      // Results Count Summary Footer
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border(top: BorderSide(color: borderColor)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
+                    // Footer
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(top: BorderSide(color: borderColor)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Showing ${filteredSubmissions.length} of ${submissions.length} results',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (filteredSubmissions.isNotEmpty)
                             Text(
-                              'Showing ${filteredSubmissions.length} of ${submissions.length} results',
+                              'Tap student for answers',
                               style: TextStyle(
                                 color: subtitleColor,
-                                fontSize: 12,
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 30),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -664,7 +866,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+            color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.02),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
