@@ -16,14 +16,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
 
-  final List<String> _categories = [
-    'All',
-    'Science Major',
-    'Computer Science',
-    'Medicine',
-    'Business Admin',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -153,7 +145,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   void _confirmDeleteUser(String uid, String studentName) {
-    final BuildContext parentContext = context; // Save the screen's context
+    final BuildContext parentContext = context;
 
     showDialog(
       context: parentContext,
@@ -171,20 +163,16 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              // 1. Close the confirm dialog using its own dialogContext
               Navigator.pop(dialogContext);
 
               try {
-                // 2. Perform delete
                 await FirebaseFirestore.instance
                     .collection('users')
                     .doc(uid)
                     .delete();
 
-                // 3. Ensure the screen is still active before using its context
                 if (!mounted) return;
 
-                // 4. Show success dialog using the parentContext
                 showDialog(
                   context: parentContext,
                   builder: (context) => AlertDialog(
@@ -226,6 +214,42 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     );
   }
 
+  /// Normalizes major strings by removing filler words like "major", "department", etc.
+  String _normalizeMajor(String raw) {
+    return raw
+        .toLowerCase()
+        .replaceAll('major', '')
+        .replaceAll('department', '')
+        .replaceAll('&', '')
+        .trim();
+  }
+
+  /// Accurate check that prevents "Computer Science" from matching general "Science"
+  bool _checkCategoryMatch(String majorInDb, String selectedCategory) {
+    if (selectedCategory.toLowerCase() == 'all') return true;
+
+    final normDb = _normalizeMajor(majorInDb);
+    final normCat = _normalizeMajor(selectedCategory);
+
+    // Exact normalized match (e.g. "science" == "science")
+    if (normDb == normCat) return true;
+
+    // Explicit differentiation: do not let "science" grab "computer science"
+    if (normCat == 'science') {
+      return normDb == 'science' ||
+          normDb == 'pure science' ||
+          normDb == 'general science';
+    }
+
+    if (normCat == 'computer science') {
+      return normDb.contains('computer') ||
+          normDb.contains('cs') ||
+          normDb.contains('software');
+    }
+
+    return normDb.contains(normCat) || normCat.contains(normDb);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -256,7 +280,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                 borderRadius: BorderRadius.circular(100),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
+                    color: Colors.black.withValues(
+                      alpha: isDarkMode ? 0.2 : 0.05,
+                    ),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -289,214 +315,222 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Search by name, email, major...",
-                hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                prefixIcon: Icon(Icons.search, color: subtitleColor),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: subtitleColor, size: 18),
-                        onPressed: () => _searchController.clear(),
-                      )
-                    : null,
-                filled: true,
-                fillColor: containerColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'Error loading students: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF7C3AED),
-                    width: 1.5,
+              ),
+            );
+          }
+
+          final allDocs = snapshot.data?.docs ?? [];
+
+          // Dynamically read exact majors that exist in the database
+          final Set<String> dynamicCategories = {'All'};
+          for (final doc in allDocs) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            final major =
+                data['major']?.toString() ??
+                data['department']?.toString() ??
+                '';
+            if (major.trim().isNotEmpty) {
+              dynamicCategories.add(major.trim());
+            }
+          }
+
+          if (dynamicCategories.length == 1) {
+            dynamicCategories.addAll([
+              'Science Major',
+              'Computer Science',
+              'Medicine',
+              'Business Admin',
+            ]);
+          }
+
+          final categoriesList = dynamicCategories.toList();
+          if (_selectedCategoryIndex >= categoriesList.length) {
+            _selectedCategoryIndex = 0;
+          }
+
+          final selectedCatName = categoriesList[_selectedCategoryIndex];
+
+          // Filter documents
+          final filteredDocs = allDocs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            final name = (data['name'] ?? '').toString().toLowerCase();
+            final email = (data['email'] ?? '').toString().toLowerCase();
+            final major = (data['major'] ?? data['department'] ?? '')
+                .toString();
+            final docId = doc.id.toLowerCase();
+
+            final matchesSearch =
+                _searchQuery.isEmpty ||
+                name.contains(_searchQuery) ||
+                email.contains(_searchQuery) ||
+                major.toLowerCase().contains(_searchQuery) ||
+                docId.contains(_searchQuery);
+
+            final matchesCategory = _checkCategoryMatch(major, selectedCatName);
+
+            return matchesSearch && matchesCategory;
+          }).toList();
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+
+                // Search Bar
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: "Search by name, email, major...",
+                    hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
+                    prefixIcon: Icon(Icons.search, color: subtitleColor),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear,
+                              color: subtitleColor,
+                              size: 18,
+                            ),
+                            onPressed: () => _searchController.clear(),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: containerColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16.0),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF7C3AED),
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-            // Category Filter Chips
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final isSelected = _selectedCategoryIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(_categories[index]),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                        });
-                      },
-                      selectedColor: const Color(0xFFFBBF24),
-                      backgroundColor: containerColor,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? const Color(0xFF1E1B4B)
-                            : (isDarkMode
-                                  ? Colors.white70
-                                  : const Color(0xFF1E1B4B)),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: BorderSide(
-                          color: isSelected ? Colors.transparent : borderColor,
+                // Category Chips
+                SizedBox(
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categoriesList.length,
+                    itemBuilder: (context, index) {
+                      final isSelected = _selectedCategoryIndex == index;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(categoriesList[index]),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedCategoryIndex = index;
+                            });
+                          },
+                          selectedColor: const Color(0xFFFBBF24),
+                          backgroundColor: containerColor,
+                          labelStyle: TextStyle(
+                            color: isSelected
+                                ? const Color(0xFF1E1B4B)
+                                : (isDarkMode
+                                      ? Colors.white70
+                                      : const Color(0xFF1E1B4B)),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(100),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? Colors.transparent
+                                  : borderColor,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
 
-            // Realtime Firestore Stream
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(
-                      child: Text(
-                        'Error loading students: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.red, fontSize: 14),
-                      ),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(
-                      child: Text(
-                        'No students found in the database.',
-                        style: TextStyle(color: subtitleColor, fontSize: 14),
-                      ),
-                    ),
-                  );
-                }
-
-                final docs = snapshot.data!.docs;
-
-                // Safe and flexible matching logic
-                final filteredDocs = docs.where((doc) {
-                  final data = doc.data() as Map<String, dynamic>? ?? {};
-
-                  final name = (data['name'] ?? '').toString().toLowerCase();
-                  final email = (data['email'] ?? '').toString().toLowerCase();
-                  final major = (data['major'] ?? data['department'] ?? '')
-                      .toString()
-                      .toLowerCase();
-                  final docId = doc.id.toLowerCase();
-
-                  // Match search query against name, email, major, or UID
-                  final matchesSearch =
-                      _searchQuery.isEmpty ||
-                      name.contains(_searchQuery) ||
-                      email.contains(_searchQuery) ||
-                      major.contains(_searchQuery) ||
-                      docId.contains(_searchQuery);
-
-                  // Category check (Index 0 is 'All')
-                  if (_selectedCategoryIndex == 0) {
-                    return matchesSearch;
-                  }
-
-                  final selectedCat = _categories[_selectedCategoryIndex]
-                      .toLowerCase();
-                  final matchesCategory = major.contains(selectedCat);
-
-                  return matchesSearch && matchesCategory;
-                }).toList();
-
-                if (filteredDocs.isEmpty) {
-                  return Padding(
+                // Student Cards List
+                if (filteredDocs.isEmpty)
+                  Padding(
                     padding: const EdgeInsets.symmetric(vertical: 40.0),
                     child: Center(
                       child: Text(
                         _searchQuery.isNotEmpty
                             ? 'No students matching "$_searchQuery"'
-                            : 'No students found in category "${_categories[_selectedCategoryIndex]}"',
+                            : 'No students found in category "$selectedCatName"',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                     ),
-                  );
-                }
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredDocs.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final doc = filteredDocs[index];
+                      final data = doc.data() as Map<String, dynamic>? ?? {};
+                      final String uid = doc.id;
+                      final String name =
+                          data['name']?.toString() ?? 'Unnamed Student';
+                      final String major =
+                          data['major']?.toString() ??
+                          data['department']?.toString() ??
+                          'General';
+                      final String academicLevel =
+                          data['academicLevel']?.toString() ?? 'Year 3';
+                      final String photoUrl =
+                          data['photoUrl']?.toString() ?? '';
 
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredDocs.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final doc = filteredDocs[index];
-                    final data = doc.data() as Map<String, dynamic>? ?? {};
-                    final String uid = doc.id;
-                    final String name =
-                        data['name']?.toString() ?? 'Unnamed Student';
-                    final String major =
-                        data['major']?.toString() ??
-                        data['department']?.toString() ??
-                        'General';
-                    final String academicLevel =
-                        data['academicLevel']?.toString() ?? 'Year 3';
-                    final String photoUrl = data['photoUrl']?.toString() ?? '';
-
-                    return _buildStudentCard(
-                      uid: uid,
-                      name: name,
-                      department: '$major • $academicLevel',
-                      photoUrl: photoUrl,
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      onTap: () => _showStudentInfo(data),
-                      onDelete: () => _confirmDeleteUser(uid, name),
-                    );
-                  },
-                );
-              },
+                      return _buildStudentCard(
+                        uid: uid,
+                        name: name,
+                        department: '$major • $academicLevel',
+                        photoUrl: photoUrl,
+                        containerColor: containerColor,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () => _showStudentInfo(data),
+                        onDelete: () => _confirmDeleteUser(uid, name),
+                      );
+                    },
+                  ),
+                const SizedBox(height: 30),
+              ],
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -525,7 +559,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           border: Border.all(color: borderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+              color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.02),
               blurRadius: 8,
               offset: const Offset(0, 3),
             ),
