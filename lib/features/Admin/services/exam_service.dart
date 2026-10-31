@@ -82,16 +82,37 @@ class ExamService {
     });
   }
 
+  // // Stream active & draft exams (with optional category filter)
+  // Stream<List<ExamModel>> getExamsStream({String? category}) {
+  //   Query query = _examsCollection.orderBy('createdAt', descending: true);
+
+  //   if (category != null && category.isNotEmpty && category != 'All') {
+  //     query = query.where('category', isEqualTo: category);
+  //   }
+
+  //   return query.snapshots().map((snapshot) {
+  //     return snapshot.docs.map((doc) => ExamModel.fromFirestore(doc)).toList();
+  //   });
+  // }
   // Stream active & draft exams (with optional category filter)
   Stream<List<ExamModel>> getExamsStream({String? category}) {
-    Query query = _examsCollection.orderBy('createdAt', descending: true);
+    Query query = _examsCollection;
 
-    if (category != null && category.isNotEmpty && category != 'All') {
+    if (category != null &&
+        category.isNotEmpty &&
+        category != 'All' &&
+        category != 'All Subjects') {
       query = query.where('category', isEqualTo: category);
     }
 
     return query.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => ExamModel.fromFirestore(doc)).toList();
+      final list = snapshot.docs
+          .map((doc) => ExamModel.fromFirestore(doc))
+          .toList();
+
+      // Sort in memory by latest createdAt first without requiring a Firestore Composite Index
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
     });
   }
 
@@ -107,20 +128,20 @@ class ExamService {
     await _examsCollection.doc(examId).delete();
   }
 
-  Stream<List<StudentSubmissionModel>> getExamSubmissionsStream(String examId) {
-    return _examsCollection
-        .doc(examId)
-        .collection('submissions')
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => StudentSubmissionModel.fromFirestore(doc))
-              .toList();
+  // Stream<List<StudentSubmissionModel>> getExamSubmissionsStream(String examId) {
+  //   return _examsCollection
+  //       .doc(examId)
+  //       .collection('submissions')
+  //       .snapshots()
+  //       .map((snapshot) {
+  //         final list = snapshot.docs
+  //             .map((doc) => StudentSubmissionModel.fromFirestore(doc))
+  //             .toList();
 
-          list.sort((a, b) => b.scorePercentage.compareTo(a.scorePercentage));
-          return list;
-        });
-  }
+  //         list.sort((a, b) => b.scorePercentage.compareTo(a.scorePercentage));
+  //         return list;
+  //       });
+  // }
 
   Stream<StudentSubmissionModel> getCandidateDetailStream({
     required String examId,
@@ -568,18 +589,17 @@ class ExamService {
     });
   }
 
-  // Stream all submissions across all exams for Admin Results Screen
-  Stream<List<StudentSubmissionModel>> getAllSubmissionsStream() {
-    return FirebaseFirestore.instance
-        .collectionGroup('submissions')
-        .snapshots()
-        .map((snapshot) {
-          final list = snapshot.docs
-              .map((doc) => StudentSubmissionModel.fromFirestore(doc))
-              .toList();
+  Stream<List<StudentSubmissionModel>> getExamSubmissionsStream(String examId) {
+    return _examsCollection.doc(examId).collection('submissions').snapshots().map((
+      snapshot,
+    ) {
+      final list = snapshot.docs
+          .map((doc) => StudentSubmissionModel.fromFirestore(doc))
+          .toList();
 
-          list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
-          return list;
-        });
+      // Sort by latest submission first so newly submitted exams appear immediately
+      list.sort((a, b) => b.submittedAt.compareTo(a.submittedAt));
+      return list;
+    });
   }
 }
