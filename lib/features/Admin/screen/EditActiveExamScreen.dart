@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
+import 'package:prep_mate/features/Admin/screen/ExamAnalyticsDetailScreen.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 
 class EditActiveExamScreen extends StatefulWidget {
@@ -103,6 +104,18 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
     });
   }
 
+  void _navigateToAnalytics() {
+    // Navigate passing the exact active ExamModel instance with valid id
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ExamAnalyticsDetailScreen(
+          exam: widget.exam,
+          examId: widget.exam.id,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleSaveChanges() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -184,7 +197,9 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                 borderRadius: BorderRadius.circular(100),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
+                    color: Colors.black.withValues(
+                      alpha: isDarkMode ? 0.2 : 0.05,
+                    ),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -211,6 +226,17 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                     ),
                   ),
                   centerTitle: true,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.analytics_outlined,
+                        color: Color(0xFFFBBF24),
+                      ),
+                      tooltip: 'View Live Analytics',
+                      onPressed: _navigateToAnalytics,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                 ),
               ),
             ),
@@ -236,7 +262,76 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
               'Update configuration parameters, scheduling, and publication status.',
               style: TextStyle(color: subtitleColor, fontSize: 14, height: 1.4),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            // Quick Analytics Action Banner
+            InkWell(
+              onTap: _navigateToAnalytics,
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? const Color(0xFF1E293B)
+                      : const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDarkMode
+                        ? const Color(0xFF3B82F6).withValues(alpha: 0.3)
+                        : const Color(0xFFBFDBFE),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2563EB),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.insights_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Candidate Analytics & Results',
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Inspect student scores, pass rates, and individual submissions.',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: subtitleColor,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
 
             // Main Edit Card Container
             Container(
@@ -247,7 +342,9 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                 border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
+                    color: Colors.black.withValues(
+                      alpha: isDarkMode ? 0.2 : 0.02,
+                    ),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -292,8 +389,8 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                               _isPublished = val;
                             });
                           },
-                          activeColor: const Color(0xFFFBBF24),
                           activeTrackColor: const Color(0xFF1E1B4B),
+                          activeThumbColor: const Color(0xFFFBBF24),
                         ),
                       ],
                     ),
@@ -323,7 +420,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                     const SizedBox(height: 16),
 
                     // Exam ID Field
-                    _buildFieldLabel('Exam ID *', subtitleColor),
+                    _buildFieldLabel('Exam Code *', subtitleColor),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _idController,
@@ -332,13 +429,13 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: _inputDecoration(
-                        hint: 'e.g., EXM-2024-089',
+                        hint: 'e.g., EXM-2026-089',
                         subtitleColor: subtitleColor,
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
                       validator: (val) => val == null || val.trim().isEmpty
-                          ? 'Exam ID cannot be empty'
+                          ? 'Exam Code cannot be empty'
                           : null,
                     ),
                     const SizedBox(height: 16),
@@ -439,7 +536,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                     Divider(color: borderColor, height: 1),
                     const SizedBox(height: 20),
 
-                    // Bottom Buttons Row (Cancel & Save Changes)
+                    // Bottom Buttons Row
                     Row(
                       children: [
                         Expanded(
@@ -550,7 +647,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
       prefixIcon: prefixIcon,
       filled: true,
       fillColor: isDarkMode
-          ? const Color(0xFF1E293B).withOpacity(0.5)
+          ? const Color(0xFF1E293B).withValues(alpha: 0.5)
           : const Color(0xFFF8FAFC),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
