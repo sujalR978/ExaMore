@@ -8,11 +8,11 @@ import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/Auth/screens/login.dart';
 import 'package:prep_mate/features/Auth/services/auth_service.dart';
 import 'package:prep_mate/features/User/screen/presnoalInformation.dart';
+import 'package:prep_mate/features/User/screen/privacyPolicyScreen.dart';
 import 'package:prep_mate/features/User/screen/savedExamScreen.dart';
 import 'package:prep_mate/features/User/screen/settingScreen.dart';
 import 'package:prep_mate/features/User/screen/supportCenterScreen.dart';
 
-// Definition of an achievement badge
 class BadgeItem {
   final String id;
   final String title;
@@ -44,7 +44,6 @@ class _UserProfileState extends State<Userprofile> {
   bool _isLoggingOut = false;
   final ExamService _examService = ExamService();
 
-  // Fetch current user details from Firestore
   Future<Map<String, dynamic>?> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
@@ -67,8 +66,7 @@ class _UserProfileState extends State<Userprofile> {
     return doc.data();
   }
 
-  // Evaluate user submissions to compute earned and locked badges
-  List<BadgeItem> _calculateBadges(List<Map<String, dynamic>> attempts) {
+  List<BadgeItem> _calculateBadges(List<dynamic> attempts) {
     int totalAttempts = attempts.length;
     double maxScore = 0.0;
     bool hasSubmittedMorning = false;
@@ -103,7 +101,6 @@ class _UserProfileState extends State<Userprofile> {
       );
     }
 
-    // Calculate streak
     int streak = 0;
     DateTime checkDate = DateTime.now();
     String todayKey =
@@ -202,71 +199,6 @@ class _UserProfileState extends State<Userprofile> {
     setState(() {});
   }
 
-  void _handleMenuAction(String title) async {
-    if (title == 'Personal Information') {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => const PersonalInformationScreen(),
-        ),
-      );
-      _refreshProfile();
-    } else if (title == 'Saved Exams') {
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => const SavedExamsScreen()));
-      _refreshProfile();
-    } else if (title == 'Settings') {
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => const Settingscreen()));
-      _refreshProfile();
-    } else if (title == 'Help & Support') {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const SupportCenterScreen()),
-      );
-      _refreshProfile();
-    }
-  }
-
-  void _handleLogout() async {
-    setState(() => _isLoggingOut = true);
-
-    try {
-      final AuthService authService = AuthService();
-      await authService.signOut();
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const Login()),
-        (route) => false,
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
-        setState(() => _isLoggingOut = false);
-      }
-    }
-  }
-
-  ImageProvider _getProfileImage(String photoUrl) {
-    if (photoUrl.startsWith('http')) {
-      return NetworkImage(photoUrl);
-    } else {
-      final file = File(photoUrl);
-      if (file.existsSync()) {
-        return FileImage(file);
-      } else {
-        return const NetworkImage(
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-        );
-      }
-    }
-  }
-
-  // Modal to show all available badges and their progress
   void _showAllBadgesModal(List<BadgeItem> badges) {
     showModalBottomSheet(
       context: context,
@@ -277,9 +209,8 @@ class _UserProfileState extends State<Userprofile> {
         final isDarkMode = theme.brightness == Brightness.dark;
         final containerColor = theme.colorScheme.surface;
         final textColor = theme.colorScheme.onSurface;
-        final subtitleColor = isDarkMode
-            ? const Color(0xFF94A3B8)
-            : Colors.grey[600]!;
+        final subtitleColor =
+            isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
 
         final unlockedCount = badges.where((b) => b.isUnlocked).length;
 
@@ -444,6 +375,74 @@ class _UserProfileState extends State<Userprofile> {
     );
   }
 
+  void _handleMenuAction(String title) async {
+    if (title == 'Personal Information') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const PersonalInformationScreen(),
+        ),
+      );
+      _refreshProfile();
+    } else if (title == 'Saved Exams') {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const SavedExamsScreen()));
+      _refreshProfile();
+    } else if (title == 'Settings') {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const Settingscreen()));
+      _refreshProfile();
+    } else if (title == 'Help & Support') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const SupportCenterScreen()),
+      );
+      _refreshProfile();
+    } else if (title == 'Privacy Policy') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+      );
+    }
+  }
+
+  void _handleLogout() async {
+    setState(() => _isLoggingOut = true);
+
+    try {
+      final AuthService authService = AuthService();
+      await authService.signOut();
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const Login()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+        setState(() => _isLoggingOut = false);
+      }
+    }
+  }
+
+  ImageProvider _getProfileImage(String photoUrl) {
+    if (photoUrl.startsWith('http')) {
+      return NetworkImage(photoUrl);
+    } else {
+      final file = File(photoUrl);
+      if (file.existsSync()) {
+        return FileImage(file);
+      } else {
+        return const NetworkImage(
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -451,9 +450,8 @@ class _UserProfileState extends State<Userprofile> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     final user = FirebaseAuth.instance.currentUser;
@@ -549,7 +547,6 @@ class _UserProfileState extends State<Userprofile> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // User Profile Header Card
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -625,9 +622,7 @@ class _UserProfileState extends State<Userprofile> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Dynamic Badges Card Stream
-                StreamBuilder<List<Map<String, dynamic>>>(
+                StreamBuilder<List<dynamic>>(
                   stream: _examService.getUserExamAttemptsStream(currentUserId),
                   builder: (context, attemptSnap) {
                     final attempts = attemptSnap.data ?? [];
@@ -738,8 +733,6 @@ class _UserProfileState extends State<Userprofile> {
                   },
                 ),
                 const SizedBox(height: 20),
-
-                // Menu Options Card
                 Container(
                   decoration: BoxDecoration(
                     color: containerColor,
@@ -779,12 +772,18 @@ class _UserProfileState extends State<Userprofile> {
                         subtitleColor,
                         () => _handleMenuAction('Help & Support'),
                       ),
+                      Divider(height: 1, color: borderColor),
+                      _buildMenuRow(
+                        Icons.privacy_tip_outlined,
+                        'Privacy Policy',
+                        textColor,
+                        subtitleColor,
+                        () => _handleMenuAction('Privacy Policy'),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Logout Button
                 SizedBox(
                   width: double.infinity,
                   height: 52,
