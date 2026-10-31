@@ -123,28 +123,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: Stack(
-                        children: [
-                          Icon(Icons.notifications_outlined, color: textColor),
-                          Positioned(
-                            right: 2,
-                            top: 2,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      onPressed: () {},
-                    ),
-                  ],
+                 
                 ),
               ),
             ),
