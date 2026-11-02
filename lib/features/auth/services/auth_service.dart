@@ -31,10 +31,7 @@ class AuthService {
 
     try {
       await _firestore.collection('users').doc(uid).set(user.toMap());
-      print("FIRESTORE INSERT SUCCESS");
     } on FirebaseException catch (e) {
-      print("FIRESTORE ERROR CODE: ${e.code}");
-      print("FIRESTORE ERROR MESSAGE: ${e.message}");
       rethrow;
     }
   }
@@ -55,7 +52,6 @@ class AuthService {
           .authenticate();
 
       if (googleUser == null) {
-        print("Google Sign In aborted by user.");
         return;
       }
 
@@ -91,9 +87,7 @@ class AuthService {
           .doc(firebaseUser.uid)
           .set(user.toMap(), SetOptions(merge: true));
 
-      print("GOOGLE SIGN IN SUCCESS");
     } catch (e) {
-      print("GOOGLE SIGN IN ERROR: $e");
       rethrow;
     }
   }
@@ -108,7 +102,6 @@ class AuthService {
 
       // Check for Admin Credentials
       if (trimmedEmail == 'admin@gmail.com' && trimmedPassword == 'admin123') {
-        print("ADMIN LOGIN SUCCESS");
         return 'admin';
       }
 
@@ -117,11 +110,8 @@ class AuthService {
         password: trimmedPassword,
       );
 
-      print("FIREBASE LOGIN SUCCESS: ${userCredential.user?.email}");
       return 'user';
     } on FirebaseAuthException catch (e) {
-      print("FIREBASE LOGIN ERROR CODE: ${e.code}");
-      print("FIREBASE LOGIN ERROR MESSAGE: ${e.message}");
       rethrow;
     }
   }
@@ -134,9 +124,7 @@ Future<void> signOut() async {
     // 2. Sign out/disconnect from Google Sign-In session
     await GoogleSignIn.instance.signOut();
 
-    print("USER SIGNED OUT SUCCESSFULLY");
   } catch (e) {
-    print("SIGN OUT ERROR: $e");
     rethrow;
   }
 }

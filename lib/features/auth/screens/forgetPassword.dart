@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Auth/widgets/appBar.dart';
 import 'package:prep_mate/features/Auth/widgets/inputField.dart';
@@ -14,25 +15,72 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  bool _isLoading = false;
+  bool _emailSent = false;
 
-  bool _isEmailVerified = false;
+  Future<void> _handleResetPassword() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  void _handleSubmit(BuildContext context) {
-    if (!_isEmailVerified) {
-      if (_formKey.currentState!.validate()) {
-        setState(() {
-          _isEmailVerified = true;
-        });
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    final email = _emailController.text.trim();
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      setState(() {
+        _emailSent = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Password reset link sent to $email. Please check your inbox.',
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String message = 'Failed to send reset email';
+      if (e.code == 'user-not-found') {
+        message = 'No account found with this email address.';
+      } else if (e.code == 'invalid-email') {
+        message = 'The email address format is invalid.';
+      } else if (e.code == 'network-request-failed') {
+        message = 'Network error. Please check your internet connection.';
       }
-    } else {
-      if (_formKey.currentState!.validate()) {}
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Separate method for Back to Login button onPressed
   void _handleBackToLogin(BuildContext context) {
     Navigator.pop(context);
   }
@@ -40,8 +88,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   @override
   void dispose() {
     _emailController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -52,12 +98,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(75),
-        child: CustomAppbar(text: "Reset Password"),
+        child: const CustomAppbar(text: "Reset Password"),
       ),
-
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -67,11 +111,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
               borderRadius: BorderRadius.circular(24.0),
-
               border: Border.all(
                 color: isDark ? const Color(0xFF334155) : Colors.grey.shade200,
               ),
-
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: isDark ? 0.20 : 0.03),
@@ -80,7 +122,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               ],
             ),
-
             child: Form(
               key: _formKey,
               child: Column(
@@ -92,13 +133,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(16.0),
-
                       border: Border.all(
                         color: isDark
                             ? const Color(0xFF334155)
                             : Colors.grey.shade200,
                       ),
-
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(
@@ -109,98 +148,63 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         ),
                       ],
                     ),
-
                     child: Center(
                       child: Icon(
-                        Icons.lock_reset_outlined,
+                        _emailSent
+                            ? Icons.mark_email_read_outlined
+                            : Icons.lock_reset_outlined,
                         size: 45,
-                        color: isDark
-                            ? const Color(0xFFA78BFA)
-                            : const Color(0xFF1E1B4B),
+                        color: _emailSent
+                            ? const Color(0xFF10B981)
+                            : (isDark
+                                  ? const Color(0xFFA78BFA)
+                                  : const Color(0xFF1E1B4B)),
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 32),
-
-                  const Maintitle(text: 'Forgot your\npassword?'),
-
+                  Maintitle(
+                    text: _emailSent
+                        ? 'Check your\nemail'
+                        : 'Forgot your\npassword?',
+                  ),
                   const SizedBox(height: 16),
-
                   Subtitle(
-                    text: _isEmailVerified
-                        ? 'Email verified! Please enter your new password below.'
-                        : 'Enter your email address below to verify your account.',
+                    text: _emailSent
+                        ? 'We have sent a password reset link to ${_emailController.text.trim()}. Click the link to set your new password.'
+                        : 'Enter your registered email address and we will send you a link to reset your password.',
                   ),
-
                   const SizedBox(height: 28),
-
-                  // Email Input Field
-                  Inputfield(
-                    controller: _emailController,
-                    hintText: "student@university.edu",
-                    icon: Icons.email,
-                    isPassword: false,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return "Email is required";
-                      }
-
-                      final emailRegex = RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      );
-
-                      if (!emailRegex.hasMatch(value.trim())) {
-                        return "Enter a valid email";
-                      }
-
-                      return null;
-                    },
-                  ),
-
-                  // Conditional New Password & Confirm Password Fields
-                  if (_isEmailVerified) ...[
-                    const SizedBox(height: 16),
-
+                  if (!_emailSent) ...[
                     Inputfield(
-                      controller: _newPasswordController,
-                      hintText: "New Password",
-                      icon: Icons.lock_outline,
-                      isPassword: true,
+                      controller: _emailController,
+                      hintText: "student@university.edu",
+                      icon: Icons.email,
+                      isPassword: false,
                       validator: (value) {
-                        if (value == null || value.length < 6) {
-                          return "Password must be at least 6 characters";
+                        if (value == null || value.trim().isEmpty) {
+                          return "Email is required";
                         }
-
+                        final emailRegex = RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        );
+                        if (!emailRegex.hasMatch(value.trim())) {
+                          return "Enter a valid email";
+                        }
                         return null;
                       },
                     ),
-
-                    const SizedBox(height: 16),
-
-                    Inputfield(
-                      controller: _confirmPasswordController,
-                      hintText: "Confirm New Password",
-                      icon: Icons.lock_outline,
-                      isPassword: true,
-                      validator: (value) {
-                        if (value != _newPasswordController.text) {
-                          return "Passwords do not match";
-                        }
-
-                        return null;
-                      },
-                    ),
+                    const SizedBox(height: 32),
                   ],
-
-                  const SizedBox(height: 32),
-
-                  // Submit / Action Button
                   SizedBox(
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () => _handleSubmit(context),
+                      onPressed: _isLoading
+                          ? null
+                          : (_emailSent
+                                ? () => _handleBackToLogin(context)
+                                : _handleResetPassword),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFBBF24),
                         foregroundColor: const Color(0xFF1E1B4B),
@@ -209,61 +213,69 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           borderRadius: BorderRadius.circular(12.0),
                         ),
                       ),
-
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _isEmailVerified
-                                ? Icons.check_circle_outline
-                                : Icons.send_rounded,
-                            size: 20,
-                          ),
-
-                          const SizedBox(width: 8),
-
-                          Text(
-                            _isEmailVerified
-                                ? 'Update Password'
-                                : 'Verify Email',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF1E1B4B),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _emailSent
+                                      ? Icons.arrow_back
+                                      : Icons.send_rounded,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _emailSent
+                                      ? 'Back to Login'
+                                      : 'Send Reset Link',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
+                    ),
+                  ),
+                  if (!_emailSent) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: OutlinedButton(
+                        onPressed: () => _handleBackToLogin(context),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF7C3AED),
+                            width: 1.5,
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Back to Login Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton(
-                      onPressed: () => _handleBackToLogin(context),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: isDark ? Colors.white : Color(0xFF7C3AED),
-                          width: 1.5,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                          ),
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.0),
-                        ),
-                      ),
-
-                      child: Text(
-                        'Back to Login',
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Color(0xFF7C3AED),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        child: Text(
+                          'Back to Login',
+                          style: TextStyle(
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF7C3AED),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

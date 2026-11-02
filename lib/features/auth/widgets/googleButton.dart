@@ -49,7 +49,6 @@ class _GooglebuttonState extends State<Googlebutton> {
                   ),
                 );
               } catch (e) {
-                print("GOOGLE SIGN IN ERROR: $e");
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(

@@ -31,7 +31,6 @@ class _SupportOverviewScreenState extends State<SupportOverviewScreen> {
   }
 
   void _handleTicketTap(String ticketTitle) {
-    print('Tapped ticket: $ticketTitle');
   }
 
   @override

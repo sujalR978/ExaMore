@@ -1,5 +1,8 @@
+
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/CandidateDetailScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
@@ -60,8 +63,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     // Listen to all exams in Firestore so we can resolve any missing ID automatically
@@ -157,53 +161,51 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
               ),
             ),
           ),
-          body: examsSnapshot.connectionState == ConnectionState.waiting &&
+          body:
+              examsSnapshot.connectionState == ConnectionState.waiting &&
                   availableExams.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : (activeExam == null || activeExam.id.isEmpty)
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.analytics_outlined,
-                              size: 60,
-                              color: subtitleColor,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No Published Exams Found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Create and publish an exam to view student analytics.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: subtitleColor,
-                              ),
-                            ),
-                          ],
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: 60,
+                          color: subtitleColor,
                         ),
-                      ),
-                    )
-                  : _buildAnalyticsContent(
-                      context: context,
-                      currentExam: activeExam,
-                      availableExams: availableExams,
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
+                        const SizedBox(height: 16),
+                        Text(
+                          'No Published Exams Found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Create and publish an exam to view student analytics.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13, color: subtitleColor),
+                        ),
+                      ],
                     ),
+                  ),
+                )
+              : _buildAnalyticsContent(
+                  context: context,
+                  currentExam: activeExam,
+                  availableExams: availableExams,
+                  containerColor: containerColor,
+                  textColor: textColor,
+                  subtitleColor: subtitleColor,
+                  borderColor: borderColor,
+                  isDarkMode: isDarkMode,
+                ),
         );
       },
     );
@@ -524,8 +526,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981)
-                                      .withValues(alpha: 0.15),
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Row(
@@ -686,7 +689,8 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                             Divider(height: 1, color: borderColor),
                         itemBuilder: (context, index) {
                           final student = filteredSubmissions[index];
-                          final isFailed = !student.isPassed &&
+                          final isFailed =
+                              !student.isPassed &&
                               student.scorePercentage <
                                   currentExam.passingScorePercentage;
 
@@ -709,8 +713,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                               decoration: BoxDecoration(
                                 color: isFailed
                                     ? (isDarkMode
-                                          ? const Color(0xFF451A03)
-                                              .withValues(alpha: 0.3)
+                                          ? const Color(
+                                              0xFF451A03,
+                                            ).withValues(alpha: 0.3)
                                           : const Color(0xFFFEF2F2))
                                     : Colors.transparent,
                               ),
@@ -800,10 +805,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                 ],
                               ),
                             ),
-                            );
-                          
-                          },
-                        ),
+                          );
+                        },
+                      ),
 
                     // Footer
                     Container(

@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/ReviewAndPublishScreen.dart';

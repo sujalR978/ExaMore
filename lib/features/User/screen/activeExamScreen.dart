@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, file_names
+
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +7,7 @@ import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 import 'package:prep_mate/features/User/screen/examResultScreen.dart';
-import 'package:prep_mate/features/User/screen/userHomeScreen.dart';
+
 
 class ActiveExamScreen extends StatefulWidget {
   final ExamModel exam;

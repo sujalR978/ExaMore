@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, file_names
+
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';

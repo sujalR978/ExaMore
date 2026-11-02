@@ -64,7 +64,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         });
       }
     } catch (e) {
-      print("Error loading user data: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -158,7 +157,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         ),
       );
     } catch (e) {
-      print("Error updating profile: $e");
       setState(() => _isSaving = false);
       if (!mounted) return;
 
