@@ -2,16 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 
-
 class ReviewAnswersScreen extends StatefulWidget {
   final ExamModel? exam;
   final StudentSubmissionModel? submission;
 
-  const ReviewAnswersScreen({
-    super.key,
-    this.exam,
-    this.submission,
-  });
+  const ReviewAnswersScreen({super.key, this.exam, this.submission});
 
   @override
   State<ReviewAnswersScreen> createState() => _ReviewAnswersScreenState();
@@ -28,7 +23,8 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
   @override
   void initState() {
     super.initState();
-    _exam = widget.exam ??
+    _exam =
+        widget.exam ??
         ExamModel(
           id: '',
           examCode: 'EXM-2026',
@@ -39,7 +35,8 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
           questions: [],
         );
 
-    _submission = widget.submission ??
+    _submission =
+        widget.submission ??
         StudentSubmissionModel(
           id: '',
           studentName: 'Student',
@@ -85,10 +82,21 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
     }
   }
 
-  String _getOptionText(QuestionModel question, String optionId) {
-    final match = question.options.where((o) => o.id == optionId);
-    if (match.isNotEmpty) {
-      return '$optionId. ${match.first.text}';
+  // NEW: Helper to get just the letter (A, B, C, D)
+  String _getOptionLetter(QuestionModel question, String optionId) {
+    final index = question.options.indexWhere((o) => o.id == optionId);
+    if (index != -1) {
+      return String.fromCharCode(65 + index);
+    }
+    return '';
+  }
+
+  // NEW: Helper to get the letter AND the text (e.g. "A. Relational tables")
+  String _getOptionTextWithLetter(QuestionModel question, String optionId) {
+    final index = question.options.indexWhere((o) => o.id == optionId);
+    if (index != -1) {
+      final letter = String.fromCharCode(65 + index);
+      return '$letter. ${question.options[index].text}';
     }
     return optionId;
   }
@@ -100,8 +108,9 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     // Filter questions based on student selections
@@ -161,7 +170,7 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
+                    icon: Icon(Icons.arrow_back_rounded, color: textColor),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
@@ -210,8 +219,8 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                                 color: _filterMode == 'Incorrect'
                                     ? Colors.red
                                     : (isDarkMode
-                                        ? Colors.red.withOpacity(0.3)
-                                        : Colors.red.shade100),
+                                          ? Colors.red.withOpacity(0.3)
+                                          : Colors.red.shade100),
                                 width: _filterMode == 'Incorrect' ? 2 : 1,
                               ),
                             ),
@@ -320,12 +329,23 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                         final isSkipped = item['isSkipped'] as bool;
                         final studentChoice = item['studentChoice'] as String?;
 
-                        final yourAnswerDisplay = !isSkipped
-                            ? _getOptionText(q, studentChoice!)
-                            : 'Skipped / Unattempted';
+                        // Get mapped A/B/C/D Letters
+                        final studentLetter = studentChoice != null
+                            ? _getOptionLetter(q, studentChoice)
+                            : '';
+                        final correctLetter = _getOptionLetter(
+                          q,
+                          q.correctOptionId,
+                        );
 
-                        final correctAnswerDisplay =
-                            _getOptionText(q, q.correctOptionId);
+                        // Format Text with Letters
+                        final yourAnswerDisplay = !isSkipped
+                            ? _getOptionTextWithLetter(q, studentChoice!)
+                            : 'Skipped / Unattempted';
+                        final correctAnswerDisplay = _getOptionTextWithLetter(
+                          q,
+                          q.correctOptionId,
+                        );
 
                         return _buildReviewCard(
                           questionNum: 'Question $qNum',
@@ -341,11 +361,13 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                           explanationTitle: isCorrect
                               ? 'CORRECT ANSWER CONFIRMATION'
                               : 'EXPLANATION & CORRECTION',
+
+                          // Dynamic explanation fixing the raw opt_ id issue!
                           explanationText: isCorrect
-                              ? 'You selected option $studentChoice which accurately matches the answer key criteria.'
+                              ? 'You correctly selected Option $studentLetter, which matches the answer key criteria.'
                               : isSkipped
-                                  ? 'This question was left blank. The required answer is option ${q.correctOptionId}.'
-                                  : 'Option $studentChoice is incorrect. Option ${q.correctOptionId} is the verified answer for this question.',
+                              ? 'This question was left blank. The required answer is Option $correctLetter.'
+                              : 'Option $studentLetter is incorrect. Option $correctLetter is the verified answer for this question.',
                           containerColor: containerColor,
                           textColor: textColor,
                           subtitleColor: subtitleColor,
@@ -381,8 +403,8 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
     final statusColor = isCorrect
         ? const Color(0xFF10B981)
         : isSkipped
-            ? const Color(0xFF64748B)
-            : const Color(0xFFEF4444);
+        ? const Color(0xFF64748B)
+        : const Color(0xFFEF4444);
 
     return Container(
       decoration: BoxDecoration(
@@ -401,12 +423,7 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: statusColor,
-                width: 5,
-              ),
-            ),
+            border: Border(left: BorderSide(color: statusColor, width: 5)),
           ),
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -422,8 +439,8 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                         isCorrect
                             ? Icons.check_circle
                             : isSkipped
-                                ? Icons.remove_circle_outline
-                                : Icons.close,
+                            ? Icons.remove_circle_outline
+                            : Icons.cancel,
                         color: statusColor,
                         size: 18,
                       ),
@@ -463,6 +480,7 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+
               // Question Text
               Text(
                 questionText,
@@ -483,18 +501,18 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                   decoration: BoxDecoration(
                     color: isCorrect
                         ? (isDarkMode
-                            ? const Color(0xFF064E3B).withOpacity(0.2)
-                            : const Color(0xFFECFDF5))
+                              ? const Color(0xFF064E3B).withOpacity(0.2)
+                              : const Color(0xFFECFDF5))
                         : (isDarkMode
-                            ? const Color(0xFF451A03).withOpacity(0.3)
-                            : const Color(0xFFFEF2F2)),
+                              ? const Color(0xFF451A03).withOpacity(0.3)
+                              : const Color(0xFFFEF2F2)),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isCorrect
                           ? Colors.green.withOpacity(0.2)
                           : (isDarkMode
-                              ? Colors.red.withOpacity(0.2)
-                              : Colors.red.shade200),
+                                ? Colors.red.withOpacity(0.2)
+                                : Colors.red.shade200),
                     ),
                   ),
                   child: Column(

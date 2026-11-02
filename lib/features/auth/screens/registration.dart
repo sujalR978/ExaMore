@@ -20,7 +20,9 @@ class Registration extends StatefulWidget {
 
 class _RegistrationState extends State<Registration> {
   final _formKey = GlobalKey<FormState>();
-  bool _regis = false;
+
+  // FIXED TYPO: Changed _regis to _isRegistering for clarity
+  bool _isRegistering = false;
 
   final TextEditingController _name = TextEditingController();
   final TextEditingController _email = TextEditingController();
@@ -43,42 +45,112 @@ class _RegistrationState extends State<Registration> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  void _showSuccess(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
             const Icon(
-              Icons.check_circle_outline,
+              Icons.error_outline_rounded,
               color: Colors.white,
               size: 20,
             ),
             const SizedBox(width: 10),
-            Expanded(child: Text(message)),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
           ],
         ),
-        backgroundColor: const Color(0xFF10B981),
+        backgroundColor: Colors.redAccent.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
-  Future<void> _registor() async {
+  // FIX: Success Pop-up Dialog & Navigation routing
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevents closing by tapping outside
+      builder: (BuildContext dialogContext) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          backgroundColor: theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          contentPadding: const EdgeInsets.all(24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Color(0xFF10B981), // Emerald Green
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                "Account Created!",
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Your account has been created successfully. You can now log in to start your journey.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () {
+                    // FIX: Wipes the navigation stack so they don't stay on the registration screen
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (context) => const Login()),
+                      (Route<dynamic> route) => false,
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED), // Brand purple
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Continue to Login",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // FIXED TYPO: Changed _registor() to _register()
+  Future<void> _register() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -87,7 +159,7 @@ class _RegistrationState extends State<Registration> {
     FocusScope.of(context).unfocus();
 
     setState(() {
-      _regis = true;
+      _isRegistering = true;
     });
 
     final String inputEmail = _email.text.trim().toLowerCase();
@@ -95,7 +167,7 @@ class _RegistrationState extends State<Registration> {
     final String inputPassword = _password.text.trim();
 
     try {
-      // 1. Explicit duplicate check against Cloud Firestore 'users' collection
+      // FIX: Explicit duplicate check against Cloud Firestore 'users' collection
       final existingUserQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: inputEmail)
@@ -106,11 +178,11 @@ class _RegistrationState extends State<Registration> {
         _showError(
           'This email is already registered in our database. Please login instead.',
         );
-        setState(() => _regis = false);
+        setState(() => _isRegistering = false);
         return;
       }
 
-      // 2. Create user with Auth Service
+      // Create user with Auth Service
       final AuthService authService = AuthService();
       await authService.createUser(
         name: inputName,
@@ -120,14 +192,13 @@ class _RegistrationState extends State<Registration> {
 
       if (!mounted) return;
 
-      _showSuccess('Account created successfully! Please login.');
-
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (context) => const Login()));
+      // Trigger the success pop-up instead of getting stuck!
+      _showSuccessDialog();
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
-        _showError('An account already exists with this email address.');
+        _showError(
+          'An account already exists with this email address. Please login instead.',
+        );
       } else if (e.code == 'weak-password') {
         _showError(
           'The password provided is too weak. Please use at least 6 characters.',
@@ -144,7 +215,7 @@ class _RegistrationState extends State<Registration> {
     } finally {
       if (mounted) {
         setState(() {
-          _regis = false;
+          _isRegistering = false;
         });
       }
     }
@@ -163,17 +234,12 @@ class _RegistrationState extends State<Registration> {
         },
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.only(
-              top: 50,
-              bottom: 30,
-              left: 32,
-              right: 32,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 60),
             child: Column(
               children: [
                 Center(
                   child: Container(
-                    width: 358,
+                    width: double.infinity,
                     decoration: BoxDecoration(
                       boxShadow: [
                         BoxShadow(
@@ -194,7 +260,7 @@ class _RegistrationState extends State<Registration> {
                       ),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 32, bottom: 32),
+                      padding: const EdgeInsets.symmetric(vertical: 32),
                       child: Column(
                         children: [
                           Container(
@@ -234,19 +300,26 @@ class _RegistrationState extends State<Registration> {
                             text:
                                 "Start your journey toward better exam results.",
                           ),
+
                           Padding(
-                            padding: const EdgeInsets.only(top: 23, bottom: 23),
+                            padding: const EdgeInsets.only(
+                              top: 24,
+                              bottom: 24,
+                              left: 24,
+                              right: 24,
+                            ),
                             child: SizedBox(
-                              width: 292,
-                              height: 46,
+                              width: double.infinity,
+                              height: 48,
                               child: const Googlebutton(),
                             ),
                           ),
+
                           Padding(
                             padding: const EdgeInsets.only(
-                              bottom: 23,
-                              right: 32,
-                              left: 32,
+                              bottom: 24,
+                              right: 24,
+                              left: 24,
                             ),
                             child: Row(
                               children: [
@@ -281,13 +354,14 @@ class _RegistrationState extends State<Registration> {
                               ],
                             ),
                           ),
+
                           Form(
                             key: _formKey,
                             child: SizedBox(
                               width: double.infinity,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
+                                  horizontal: 24,
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +372,7 @@ class _RegistrationState extends State<Registration> {
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.only(
-                                        bottom: 15,
+                                        bottom: 16,
                                       ),
                                       child: Inputfield(
                                         controller: _name,
@@ -310,11 +384,9 @@ class _RegistrationState extends State<Registration> {
                                               value.trim().isEmpty) {
                                             return "Full name is required";
                                           }
-
                                           if (value.trim().length < 3) {
                                             return "Enter a valid name";
                                           }
-
                                           return null;
                                         },
                                       ),
@@ -325,7 +397,7 @@ class _RegistrationState extends State<Registration> {
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.only(
-                                        bottom: 15,
+                                        bottom: 16,
                                       ),
                                       child: Inputfield(
                                         controller: _email,
@@ -337,17 +409,14 @@ class _RegistrationState extends State<Registration> {
                                               value.trim().isEmpty) {
                                             return "Email is required";
                                           }
-
                                           final emailRegex = RegExp(
                                             r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                                           );
-
                                           if (!emailRegex.hasMatch(
                                             value.trim(),
                                           )) {
                                             return "Enter a valid email address";
                                           }
-
                                           return null;
                                         },
                                       ),
@@ -358,7 +427,7 @@ class _RegistrationState extends State<Registration> {
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.only(
-                                        bottom: 15,
+                                        bottom: 16,
                                       ),
                                       child: Inputfield(
                                         controller: _password,
@@ -369,11 +438,9 @@ class _RegistrationState extends State<Registration> {
                                           if (value == null || value.isEmpty) {
                                             return "Password is required";
                                           }
-
                                           if (value.length < 6) {
                                             return "Password must be at least 6 characters";
                                           }
-
                                           return null;
                                         },
                                       ),
@@ -386,7 +453,7 @@ class _RegistrationState extends State<Registration> {
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.only(
-                                        bottom: 20,
+                                        bottom: 24,
                                       ),
                                       child: Inputfield(
                                         controller: _cPassword,
@@ -397,11 +464,9 @@ class _RegistrationState extends State<Registration> {
                                           if (value == null || value.isEmpty) {
                                             return "Confirm Password is required";
                                           }
-
                                           if (value != _password.text) {
                                             return "Passwords do not match";
                                           }
-
                                           return null;
                                         },
                                       ),
@@ -410,18 +475,18 @@ class _RegistrationState extends State<Registration> {
                                       height: 52,
                                       width: double.infinity,
                                       child: Button(
-                                        text: _regis
+                                        text: _isRegistering
                                             ? "Creating Account..."
                                             : "Create Account",
                                         icon: Icons.arrow_forward,
                                         onPressed: () {
-                                          if (!_regis) {
-                                            _registor();
+                                          if (!_isRegistering) {
+                                            _register();
                                           }
                                         },
                                       ),
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 20),
                                     Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,

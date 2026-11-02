@@ -36,7 +36,10 @@ class AuthService {
     }
   }
 
-  Future<void> singInWithGoogle() async {
+  // ADDED: Optional callback to ask the UI for confirmation if it's a new user
+  Future<void> singInWithGoogle({
+    Future<bool> Function()? onConfirmRegistration,
+  }) async {
     try {
       await GoogleSignIn.instance.initialize(
         serverClientId:
@@ -52,7 +55,7 @@ class AuthService {
           .authenticate();
 
       if (googleUser == null) {
-        return;
+        throw Exception('sign_in_canceled');
       }
 
       final GoogleSignInAuthentication googleAuth =
@@ -71,6 +74,23 @@ class AuthService {
       );
       final User firebaseUser = userCredential.user!;
 
+      // CHECK IF NEW USER
+      final bool isNewUser =
+          userCredential.additionalUserInfo?.isNewUser ?? false;
+
+      if (isNewUser) {
+        // If a callback was provided, ask the UI for permission
+        if (onConfirmRegistration != null) {
+          bool proceed = await onConfirmRegistration();
+          if (!proceed) {
+            // User canceled! Delete the accidental Auth record and abort.
+            await firebaseUser.delete();
+            await GoogleSignIn.instance.signOut();
+            throw Exception('sign_in_canceled');
+          }
+        }
+      }
+
       UserModel user = UserModel(
         uid: firebaseUser.uid,
         name: firebaseUser.displayName ?? '',
@@ -86,7 +106,6 @@ class AuthService {
           .collection('users')
           .doc(firebaseUser.uid)
           .set(user.toMap(), SetOptions(merge: true));
-
     } catch (e) {
       rethrow;
     }
@@ -105,7 +124,7 @@ class AuthService {
         return 'admin';
       }
 
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+      await _auth.signInWithEmailAndPassword(
         email: trimmedEmail,
         password: trimmedPassword,
       );
@@ -116,16 +135,15 @@ class AuthService {
     }
   }
 
-Future<void> signOut() async {
-  try {
-    // 1. Sign out from Firebase
-    await _auth.signOut();
+  Future<void> signOut() async {
+    try {
+      // 1. Sign out from Firebase
+      await _auth.signOut();
 
-    // 2. Sign out/disconnect from Google Sign-In session
-    await GoogleSignIn.instance.signOut();
-
-  } catch (e) {
-    rethrow;
+      // 2. Sign out/disconnect from Google Sign-In session
+      await GoogleSignIn.instance.signOut();
+    } catch (e) {
+      rethrow;
+    }
   }
-}
 }

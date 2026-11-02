@@ -196,7 +196,7 @@ class _HomeScreenState extends State<Userhomescreen> {
               'Hi, $displayName!',
               style: TextStyle(
                 color: textColor,
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),

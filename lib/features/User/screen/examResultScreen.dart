@@ -5,16 +5,11 @@ import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 import 'package:prep_mate/features/User/screen/reviewAnswersScreen.dart';
 import 'package:prep_mate/features/User/widget/CircularProgressWithText.dart';
 
-
 class ExamResultScreen extends StatefulWidget {
   final ExamModel? exam;
   final StudentSubmissionModel? submission;
 
-  const ExamResultScreen({
-    super.key,
-    this.exam,
-    this.submission,
-  });
+  const ExamResultScreen({super.key, this.exam, this.submission});
 
   @override
   State<ExamResultScreen> createState() => _ExamResultScreenState();
@@ -29,7 +24,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   @override
   void initState() {
     super.initState();
-    _exam = widget.exam ??
+    _exam =
+        widget.exam ??
         ExamModel(
           id: 'sample_id',
           examCode: 'EXM-2026-001',
@@ -40,7 +36,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
           passingScorePercentage: 60,
         );
 
-    _submission = widget.submission ??
+    _submission =
+        widget.submission ??
         StudentSubmissionModel(
           id: 'sample_sub_id',
           studentName: 'Student User',
@@ -60,10 +57,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   void _handleReviewAnswers() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ReviewAnswersScreen(
-          exam: _exam,
-          submission: _submission,
-        ),
+        builder: (context) =>
+            ReviewAnswersScreen(exam: _exam, submission: _submission),
       ),
     );
   }
@@ -82,13 +77,13 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     final isPassed = _submission.isPassed;
-    final scoreRatio =
-        (_submission.scorePercentage / 100).clamp(0.0, 1.0);
+    final scoreRatio = (_submission.scorePercentage / 100).clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -118,20 +113,11 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(left: 12.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.school,
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF1E1B4B),
-                          size: 24,
-                        ),
-                      ],
-                    ),
+                  // FIX: Added Proper Back Navigation
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back_rounded, color: textColor),
+                    onPressed: _handleSave,
+                    tooltip: "Back to Dashboard",
                   ),
                   title: Text(
                     'Examora',
@@ -140,7 +126,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                           ? const Color(0xFFFBBF24)
                           : const Color(0xFFB45309),
                       fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                      fontSize: 20, // Reduced slightly
                     ),
                   ),
                   centerTitle: true,
@@ -151,16 +137,15 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
             Text(
               'Exam Result',
               style: TextStyle(
                 color: textColor,
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -169,14 +154,14 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               _exam.title,
               style: TextStyle(color: subtitleColor, fontSize: 14),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Score Overview Card
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20), // Reduced from 24
               decoration: BoxDecoration(
                 color: containerColor,
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
@@ -188,20 +173,19 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               ),
               child: Column(
                 children: [
-                  // PASS / FAIL Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
+                      horizontal: 12,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: isPassed
                           ? (isDarkMode
-                              ? const Color(0xFF064E3B)
-                              : const Color(0xFFD1FAE5))
+                                ? const Color(0xFF064E3B)
+                                : const Color(0xFFD1FAE5))
                           : (isDarkMode
-                              ? const Color(0xFF451A03)
-                              : const Color(0xFFFEF2F2)),
+                                ? const Color(0xFF451A03)
+                                : const Color(0xFFFEF2F2)),
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Text(
@@ -209,17 +193,16 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       style: TextStyle(
                         color: isPassed
                             ? (isDarkMode
-                                ? const Color(0xFF34D399)
-                                : const Color(0xFF065F46))
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFF065F46))
                             : const Color(0xFFDC2626),
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  // Score numbers
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -234,7 +217,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                         ),
                         style: TextStyle(
                           color: textColor,
-                          fontSize: 48,
+                          fontSize: 36, // Reduced from 48
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -242,7 +225,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                         '/${_submission.totalMarks.toInt()}',
                         style: TextStyle(
                           color: subtitleColor,
-                          fontSize: 22,
+                          fontSize: 18, // Reduced from 22
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -257,22 +240,22 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  // Visual Circular Progress
+                  const SizedBox(height: 20),
+                  // Visual Circular Progress - Reduced Size
                   CustomCircularProgress(
                     progress: scoreRatio,
                     text: '${_submission.scorePercentage.toInt()}%',
-                    width: 120,
-                    height: 120,
-                    circleSize: 160,
-                    strokeWidth: 14,
+                    width: 100, // Reduced from 120
+                    height: 100, // Reduced from 120
+                    circleSize: 120, // Reduced from 160
+                    strokeWidth: 10, // Reduced from 14
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Class Rank Banner (Live calculation from cohort submissions)
+            // Class Rank Banner
             StreamBuilder<List<StudentSubmissionModel>>(
               stream: _examService.getExamSubmissionsStream(_exam.id),
               builder: (context, snapshot) {
@@ -293,7 +276,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 if (rank == 3) suffix = 'rd';
 
                 return Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(16), // Reduced padding
                   decoration: BoxDecoration(
                     color: isDarkMode
                         ? const Color(0xFF1E1B4B)
@@ -318,20 +301,20 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                               Icon(
                                 Icons.military_tech,
                                 color: Color(0xFFFBBF24),
-                                size: 20,
+                                size: 18,
                               ),
                               SizedBox(width: 6),
                               Text(
                                 'Class Rank',
                                 style: TextStyle(
                                   color: Colors.white70,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.baseline,
                             textBaseline: TextBaseline.alphabetic,
@@ -340,28 +323,28 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                                 '$rank',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 36,
+                                  fontSize: 28,
                                   fontWeight: FontWeight.bold,
-                                ),
+                                ), // Reduced from 36
                               ),
                               Text(
                                 suffix,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 18,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             total > 1
                                 ? 'Ranked $rank out of $total submissions'
-                                : 'First evaluation recorded for this exam',
+                                : 'First evaluation recorded',
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 12,
+                              fontSize: 11,
                             ),
                           ),
                         ],
@@ -369,8 +352,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Icon(
                         Icons.emoji_events_outlined,
                         color: Colors.white.withOpacity(0.1),
-                        size: 70,
-                      ),
+                        size: 50,
+                      ), // Reduced from 70
                     ],
                   ),
                 );
@@ -393,7 +376,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     isDarkMode,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _buildStatCard(
                     Icons.cancel,
@@ -406,7 +389,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     isDarkMode,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _buildStatCard(
                     Icons.remove_circle,
@@ -421,11 +404,11 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Subject Breakdown Card
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: containerColor,
                 borderRadius: BorderRadius.circular(20),
@@ -438,11 +421,11 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     'Subject Breakdown',
                     style: TextStyle(
                       color: textColor,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildSubjectBar(
                     _exam.category,
                     '${_submission.scorePercentage.toInt()}%',
@@ -451,14 +434,15 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     subtitleColor,
                     isDarkMode,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _buildSubjectBar(
                     'Accuracy',
                     '${_submission.correctAnswers + _submission.incorrectAnswers > 0 ? ((_submission.correctAnswers / (_submission.correctAnswers + _submission.incorrectAnswers)) * 100).toInt() : 0}%',
-                    _submission.correctAnswers + _submission.incorrectAnswers > 0
+                    _submission.correctAnswers + _submission.incorrectAnswers >
+                            0
                         ? (_submission.correctAnswers /
-                            (_submission.correctAnswers +
-                                _submission.incorrectAnswers))
+                              (_submission.correctAnswers +
+                                  _submission.incorrectAnswers))
                         : 0.0,
                     textColor,
                     subtitleColor,
@@ -467,12 +451,12 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Review Answers CTA Button
+            // Buttons
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 48,
               child: ElevatedButton(
                 onPressed: _handleReviewAnswers,
                 style: ElevatedButton.styleFrom(
@@ -486,12 +470,12 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.menu_book, size: 20),
+                    Icon(Icons.menu_book, size: 18),
                     SizedBox(width: 8),
                     Text(
                       'Review Answers',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -502,27 +486,29 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
+              height: 48,
+              child: OutlinedButton(
                 onPressed: _handleSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFBBF24),
-                  foregroundColor: const Color(0xFF1E1B4B),
-                  elevation: 0,
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                    color: isDarkMode ? Colors.white30 : Colors.grey.shade400,
+                    width: 1.5,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.save, size: 20),
-                    SizedBox(width: 8),
+                    Icon(Icons.home_rounded, size: 18, color: textColor),
+                    const SizedBox(width: 8),
                     Text(
-                      'Save & Exit',
+                      'Back to Dashboard',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
+                        color: textColor,
                       ),
                     ),
                   ],
@@ -547,30 +533,33 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     bool isDarkMode,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: 4,
+      ), // Reduced padding
       decoration: BoxDecoration(
         color: containerColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor),
       ),
       child: Column(
         children: [
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(height: 8),
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
               color: textColor,
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 4),
+          ), // Reduced font
+          const SizedBox(height: 2),
           Text(
             label,
             style: TextStyle(
               color: isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600],
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,
             ),
@@ -598,7 +587,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               subject,
               style: TextStyle(
                 color: textColor,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -606,7 +595,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               percentageText,
               style: TextStyle(
                 color: textColor,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -617,7 +606,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
           borderRadius: BorderRadius.circular(10),
           child: LinearProgressIndicator(
             value: value.clamp(0.0, 1.0),
-            minHeight: 8,
+            minHeight: 6, // Thinner bar
             backgroundColor: isDarkMode
                 ? const Color(0xFF1E293B)
                 : const Color(0xFFE2E8F0),

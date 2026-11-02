@@ -33,9 +33,58 @@ class _LoginState extends State<Login> {
     super.dispose();
   }
 
+  // Helper method for User-Friendly Error Messages
+  void _showErrorSnackBar(String error) {
+    String friendlyMessage = "An unexpected error occurred. Please try again.";
+
+    // Translate common backend/Firebase error codes into friendly text
+    final errorString = error.toLowerCase();
+    if (errorString.contains("user-not-found") ||
+        errorString.contains("wrong-password") ||
+        errorString.contains("invalid-credential")) {
+      friendlyMessage = "Incorrect email or password. Please try again.";
+    } else if (errorString.contains("network-request-failed") ||
+        errorString.contains("network")) {
+      friendlyMessage = "No internet connection. Please check your network.";
+    } else if (errorString.contains("too-many-requests")) {
+      friendlyMessage = "Too many failed attempts. Please try again later.";
+    } else if (errorString.contains("invalid-email")) {
+      friendlyMessage = "The email address is badly formatted.";
+    } else {
+      // Fallback: Strip out technical prefixes like "Exception: [firebase_auth/..."
+      friendlyMessage = error
+          .replaceAll("Exception: ", "")
+          .replaceAll(RegExp(r'\[.*?\] '), '');
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                friendlyMessage,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.redAccent.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        elevation: 4,
+      ),
+    );
+  }
+
   // Login handler
   Future<void> login() async {
-    final AuthService _authService = AuthService();
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -45,36 +94,30 @@ class _LoginState extends State<Login> {
     });
 
     try {
-      await _authService.signInUser(
-        email: _email.text,
+      final AuthService _authService = AuthService();
+
+      // Removed the duplicate call to signInUser that was causing 2 login requests
+      String role = await _authService.signInUser(
+        email: _email.text
+            .trim(), // Trim added to prevent trailing spaces causing login failure
         password: _password.text,
       );
 
-      try {
-        String role = await _authService.signInUser(
-          email: _email.text,
-          password: _password.text,
-        );
+      if (!mounted) return;
 
-        if (role == 'admin') {
-          // Navigate to Admin Panel
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => AdminHomeScreen()),
-          );
-        } else {
-          // Navigate to Regular Student Dashboard
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => MainNavigator()),
-          );
-        }
-      } catch (e) {
-        // Handle login error (show Snackbar, etc.)
+      if (role == 'admin') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        );
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MainNavigator()),
+        );
       }
     } catch (e) {
-      // Show error message to the user (e.g., using a SnackBar)
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Login Failed: $e")));
+      if (mounted) {
+        _showErrorSnackBar(e.toString());
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -137,7 +180,7 @@ class _LoginState extends State<Login> {
                   ),
                   child: Column(
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         height: 46,
                         width: double.infinity,
                         child: Googlebutton(),

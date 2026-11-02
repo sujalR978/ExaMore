@@ -5,7 +5,6 @@ import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/screen/examResultScreen.dart';
 
-
 class ExamAttemptsHistoryScreen extends StatefulWidget {
   const ExamAttemptsHistoryScreen({super.key});
 
@@ -21,9 +20,14 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // Lazily create and cache the stream on its first use.
+  late final Stream<List> _attemptsStream = _examService
+      .getUserExamAttemptsStream(_currentUser?.uid ?? '');
+
   @override
   void initState() {
     super.initState();
+
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
@@ -52,10 +56,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ExamResultScreen(
-          exam: fullExam,
-          submission: submission,
-        ),
+        builder: (context) =>
+            ExamResultScreen(exam: fullExam, submission: submission),
       ),
     );
   }
@@ -71,11 +73,10 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
-
-    final userId = _currentUser?.uid ?? '';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -124,8 +125,9 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _examService.getUserExamAttemptsStream(userId),
+      body: StreamBuilder<List>(
+        // 3. ADDED: Pass the cached stream variable here instead of calling the function directly
+        stream: _attemptsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -151,7 +153,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
           final rawAttempts = snapshot.data ?? [];
 
           // Group submissions by exam title
-          final Map<String, List<Map<String, dynamic>>> groupedData = {};
+          final Map<String, List<dynamic>> groupedData = {};
 
           for (var item in rawAttempts) {
             final submission = item['submission'] as StudentSubmissionModel;
@@ -198,8 +200,11 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                     prefixIcon: Icon(Icons.search, color: subtitleColor),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.clear,
-                                color: subtitleColor, size: 18),
+                            icon: Icon(
+                              Icons.clear,
+                              color: subtitleColor,
+                              size: 18,
+                            ),
                             onPressed: () => _searchController.clear(),
                           )
                         : null,
@@ -275,7 +280,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
     required Color subtitleColor,
     required Color borderColor,
     required bool isDarkMode,
-    required List<Map<String, dynamic>> attempts,
+    required List<dynamic> attempts,
   }) {
     final totalAttempts = attempts.length;
 
@@ -363,10 +368,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
               final percentageText = '${submission.scorePercentage.toInt()}%';
 
               return InkWell(
-                onTap: () => _handleAttemptTap(
-                  examId: examId,
-                  submission: submission,
-                ),
+                onTap: () =>
+                    _handleAttemptTap(examId: examId, submission: submission),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -404,11 +407,11 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                 decoration: BoxDecoration(
                                   color: isPass
                                       ? (isDarkMode
-                                          ? const Color(0xFF064E3B)
-                                          : const Color(0xFFD1FAE5))
+                                            ? const Color(0xFF064E3B)
+                                            : const Color(0xFFD1FAE5))
                                       : (isDarkMode
-                                          ? const Color(0xFF451A03)
-                                          : const Color(0xFFFEF2F2)),
+                                            ? const Color(0xFF451A03)
+                                            : const Color(0xFFFEF2F2)),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -416,8 +419,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                   style: TextStyle(
                                     color: isPass
                                         ? (isDarkMode
-                                            ? const Color(0xFF34D399)
-                                            : const Color(0xFF065F46))
+                                              ? const Color(0xFF34D399)
+                                              : const Color(0xFF065F46))
                                         : const Color(0xFFDC2626),
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,

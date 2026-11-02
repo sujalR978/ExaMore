@@ -192,7 +192,7 @@ class _ShowexamState extends State<Showexam> {
                   centerTitle: true,
                   actions: [
                     IconButton(
-                      icon: Icon(Icons.settings_outlined, color: textColor),
+                      icon: Icon(Icons.notifications, color: textColor),
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -268,22 +268,6 @@ class _ShowexamState extends State<Showexam> {
                       ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  height: 50,
-                  width: 50,
-                  decoration: BoxDecoration(
-                    color: containerColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.tune, color: textColor, size: 20),
-                    onPressed: () {
-                      _onCategorySelected(0);
-                    },
                   ),
                 ),
               ],

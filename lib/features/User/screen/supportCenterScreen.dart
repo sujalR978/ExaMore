@@ -93,21 +93,23 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
     }
   }
 
-  // Open native email app
+  // FIX: Properly encode email components to prevent "+" signs instead of spaces
   Future<void> _handleEmailSupport() async {
-    final Uri emailLaunchUri = Uri(
-      scheme: 'mailto',
-      path: 'support@examora.com',
-      queryParameters: {
-        'subject': 'Support Request - Examora App',
-        'body': 'Hello Examora Support Team,\n\nI need help with:\n',
-      },
+    const String email = 'support@examora.com';
+    const String subject = 'Support Request - Examora App';
+    const String body = 'Hello Examora Support Team,\n\nI need help with:\n\n';
+
+    final String encodedSubject = Uri.encodeComponent(subject);
+    final String encodedBody = Uri.encodeComponent(body);
+
+    final Uri emailLaunchUri = Uri.parse(
+      'mailto:$email?subject=$encodedSubject&body=$encodedBody',
     );
 
     try {
       final bool launched = await launchUrl(
         emailLaunchUri,
-        mode: LaunchMode.externalApplication,
+        mode: LaunchMode.externalApplication, // Opens native mail app
       );
 
       if (!launched && mounted) {

@@ -8,7 +8,6 @@ import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
 import 'package:prep_mate/features/User/screen/examResultScreen.dart';
 
-
 class ActiveExamScreen extends StatefulWidget {
   final ExamModel exam;
 
@@ -154,7 +153,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => MainNavigator()),
+                MaterialPageRoute(builder: (context) => const MainNavigator()),
               ),
               child: Text(
                 'Cancel',
@@ -437,13 +436,21 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Dynamic Options
-                        ...currentQuestion.options.map((option) {
+                        // Dynamic Options (FIXED TO RENDER A, B, C, D)
+                        ...currentQuestion.options.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final option = entry.value;
                           final isSelected = selectedOptionId == option.id;
+
+                          // Generates A, B, C, D based on the index (0=A, 1=B, 2=C, 3=D)
+                          final String optionLetter = String.fromCharCode(
+                            65 + index,
+                          );
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12.0),
                             child: _buildOptionItem(
-                              optionId: option.id,
+                              optionLetter: optionLetter,
                               text: option.text,
                               isSelected: isSelected,
                               isDarkMode: isDarkMode,
@@ -582,7 +589,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
   }
 
   Widget _buildOptionItem({
-    required String optionId,
+    required String optionLetter,
     required String text,
     required bool isSelected,
     required bool isDarkMode,
@@ -635,7 +642,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
               ),
               child: Center(
                 child: Text(
-                  optionId,
+                  optionLetter,
                   style: TextStyle(
                     color: isSelected
                         ? Colors.white

@@ -52,8 +52,7 @@ class _UserProfileState extends State<Userprofile> {
       return {
         'name': 'Admin User',
         'email': 'admin@gmail.com',
-        'photoUrl':
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+        'photoUrl': 'assets/image/L_image.png',
         'academicLevel': 'System Administrator',
         'major': 'Computer Science',
       };
@@ -105,9 +104,11 @@ class _UserProfileState extends State<Userprofile> {
     DateTime checkDate = DateTime.now();
     String todayKey =
         '${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}';
+
     if (!uniqueDays.contains(todayKey)) {
       checkDate = checkDate.subtract(const Duration(days: 1));
     }
+
     while (true) {
       final key =
           '${checkDate.year}-${checkDate.month.toString().padLeft(2, '0')}-${checkDate.day.toString().padLeft(2, '0')}';
@@ -209,9 +210,9 @@ class _UserProfileState extends State<Userprofile> {
         final isDarkMode = theme.brightness == Brightness.dark;
         final containerColor = theme.colorScheme.surface;
         final textColor = theme.colorScheme.onSurface;
-        final subtitleColor =
-            isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
-
+        final subtitleColor = isDarkMode
+            ? const Color(0xFF94A3B8)
+            : Colors.grey[600]!;
         final unlockedCount = badges.where((b) => b.isUnlocked).length;
 
         return DraggableScrollableSheet(
@@ -428,17 +429,20 @@ class _UserProfileState extends State<Userprofile> {
     }
   }
 
+  // FIX: Properly handle Local Assets vs Internet Images!
   ImageProvider _getProfileImage(String photoUrl) {
-    if (photoUrl.startsWith('http')) {
+    if (photoUrl.isEmpty) {
+      return const AssetImage('assets/image/L_image.png');
+    } else if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
+    } else if (photoUrl.startsWith('assets/')) {
+      return AssetImage(photoUrl); // Successfully read internal assets!
     } else {
       final file = File(photoUrl);
       if (file.existsSync()) {
         return FileImage(file);
       } else {
-        return const NetworkImage(
-          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-        );
+        return const AssetImage('assets/image/L_image.png');
       }
     }
   }
@@ -450,8 +454,9 @@ class _UserProfileState extends State<Userprofile> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     final user = FirebaseAuth.instance.currentUser;
@@ -470,9 +475,12 @@ class _UserProfileState extends State<Userprofile> {
         final userData = snapshot.data;
         final String displayName = userData?['name'] ?? 'User';
         final String displayEmail = userData?['email'] ?? '';
-        final String photoUrl =
-            userData?['photoUrl'] ??
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200';
+
+        // Ensure default local photoUrl is assigned correctly
+        final String photoUrl = userData?['photoUrl']?.isNotEmpty == true
+            ? userData!['photoUrl']
+            : 'assets/image/L_image.png';
+
         final String academicLevel = userData?['academicLevel'] ?? 'Year 3';
         final String major = userData?['major'] ?? 'Science Major';
 
@@ -492,8 +500,8 @@ class _UserProfileState extends State<Userprofile> {
                     borderRadius: BorderRadius.circular(100),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDarkMode ? 0.2 : 0.05,
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.05,
                         ),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
@@ -555,8 +563,8 @@ class _UserProfileState extends State<Userprofile> {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDarkMode ? 0.2 : 0.02,
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.02,
                         ),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
