@@ -20,8 +20,6 @@ class Registration extends StatefulWidget {
 
 class _RegistrationState extends State<Registration> {
   final _formKey = GlobalKey<FormState>();
-
-  // FIXED TYPO: Changed _regis to _isRegistering for clarity
   bool _isRegistering = false;
 
   final TextEditingController _name = TextEditingController();
@@ -70,11 +68,10 @@ class _RegistrationState extends State<Registration> {
     );
   }
 
-  // FIX: Success Pop-up Dialog & Navigation routing
-  void _showSuccessDialog() {
+  void _showVerificationSentDialog(String targetEmail) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevents closing by tapping outside
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         final theme = Theme.of(context);
         return AlertDialog(
@@ -89,32 +86,32 @@ class _RegistrationState extends State<Registration> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: Color(0xFF10B981), // Emerald Green
+                  Icons.mark_email_read_rounded,
+                  color: Color(0xFF10B981),
                   size: 48,
                 ),
               ),
               const SizedBox(height: 20),
               Text(
-                "Account Created!",
+                "Verify Your Email",
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
-                "Your account has been created successfully. You can now log in to start your journey.",
+                "We sent a verification link to:\n$targetEmail\n\nPlease check your inbox and verify your email before logging in.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  height: 1.4,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
+                  height: 1.45,
                 ),
               ),
               const SizedBox(height: 24),
@@ -123,21 +120,20 @@ class _RegistrationState extends State<Registration> {
                 height: 48,
                 child: FilledButton(
                   onPressed: () {
-                    // FIX: Wipes the navigation stack so they don't stay on the registration screen
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (context) => const Login()),
                       (Route<dynamic> route) => false,
                     );
                   },
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED), // Brand purple
+                    backgroundColor: const Color(0xFF7C3AED),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Text(
-                    "Continue to Login",
+                    "Back to Login",
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
@@ -149,13 +145,11 @@ class _RegistrationState extends State<Registration> {
     );
   }
 
-  // FIXED TYPO: Changed _registor() to _register()
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
     setState(() {
@@ -167,7 +161,6 @@ class _RegistrationState extends State<Registration> {
     final String inputPassword = _password.text.trim();
 
     try {
-      // FIX: Explicit duplicate check against Cloud Firestore 'users' collection
       final existingUserQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: inputEmail)
@@ -182,7 +175,6 @@ class _RegistrationState extends State<Registration> {
         return;
       }
 
-      // Create user with Auth Service
       final AuthService authService = AuthService();
       await authService.createUser(
         name: inputName,
@@ -192,8 +184,7 @@ class _RegistrationState extends State<Registration> {
 
       if (!mounted) return;
 
-      // Trigger the success pop-up instead of getting stuck!
-      _showSuccessDialog();
+      _showVerificationSentDialog(inputEmail);
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
         _showError(
@@ -300,7 +291,6 @@ class _RegistrationState extends State<Registration> {
                             text:
                                 "Start your journey toward better exam results.",
                           ),
-
                           Padding(
                             padding: const EdgeInsets.only(
                               top: 24,
@@ -314,7 +304,6 @@ class _RegistrationState extends State<Registration> {
                               child: const Googlebutton(),
                             ),
                           ),
-
                           Padding(
                             padding: const EdgeInsets.only(
                               bottom: 24,
@@ -354,7 +343,6 @@ class _RegistrationState extends State<Registration> {
                               ],
                             ),
                           ),
-
                           Form(
                             key: _formKey,
                             child: SizedBox(

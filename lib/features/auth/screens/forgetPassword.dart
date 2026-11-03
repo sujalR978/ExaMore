@@ -19,8 +19,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   bool _isLoading = false;
   bool _emailSent = false;
 
-  // Reusable Premium Error UI (Consistent with Login & Registration)
   void _showErrorSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -57,7 +57,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final email = _emailController.text.trim().toLowerCase();
 
     try {
-      // 1. VALIDATION FIX: Check if the user exists in Firestore first
+      // 1. Verify existence in Firestore 'users' collection (with admin bypass check)
+      final bool isAdmin = email == 'admin@gmail.com';
+
       final userQuery = await FirebaseFirestore.instance
           .collection('users')
           .where('email', isEqualTo: email)
@@ -66,14 +68,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       if (!mounted) return;
 
-      if (userQuery.docs.isEmpty) {
-        // Stop the process and show the error!
+      if (userQuery.docs.isEmpty && !isAdmin) {
         setState(() => _isLoading = false);
         _showErrorSnackBar("No account found with this email address.");
         return;
       }
 
-      // 2. Proceed with sending the reset email
+      // 2. Dispatch password reset email via Firebase Authentication
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
 
       if (!mounted) return;
@@ -82,7 +83,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         _emailSent = true;
       });
 
-      // Show Success Premium SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(

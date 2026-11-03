@@ -1,6 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
-
 import 'package:prep_mate/features/Auth/screens/forgetPassword.dart';
 import 'package:prep_mate/features/Auth/screens/registration.dart';
 import 'package:prep_mate/features/Auth/services/auth_service.dart';
@@ -33,30 +33,9 @@ class _LoginState extends State<Login> {
     super.dispose();
   }
 
-  // Helper method for User-Friendly Error Messages
-  void _showErrorSnackBar(String error) {
-    String friendlyMessage = "An unexpected error occurred. Please try again.";
-
-    // Translate common backend/Firebase error codes into friendly text
-    final errorString = error.toLowerCase();
-    if (errorString.contains("user-not-found") ||
-        errorString.contains("wrong-password") ||
-        errorString.contains("invalid-credential")) {
-      friendlyMessage = "Incorrect email or password. Please try again.";
-    } else if (errorString.contains("network-request-failed") ||
-        errorString.contains("network")) {
-      friendlyMessage = "No internet connection. Please check your network.";
-    } else if (errorString.contains("too-many-requests")) {
-      friendlyMessage = "Too many failed attempts. Please try again later.";
-    } else if (errorString.contains("invalid-email")) {
-      friendlyMessage = "The email address is badly formatted.";
-    } else {
-      // Fallback: Strip out technical prefixes like "Exception: [firebase_auth/..."
-      friendlyMessage = error
-          .replaceAll("Exception: ", "")
-          .replaceAll(RegExp(r'\[.*?\] '), '');
-    }
-
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -65,7 +44,7 @@ class _LoginState extends State<Login> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                friendlyMessage,
+                message,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w500,
@@ -83,23 +62,22 @@ class _LoginState extends State<Login> {
     );
   }
 
-  // Login handler
   Future<void> login() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
+    FocusScope.of(context).unfocus();
 
     setState(() {
       _isLogin = true;
     });
 
     try {
-      final AuthService _authService = AuthService();
+      final AuthService authService = AuthService();
 
-      // Removed the duplicate call to signInUser that was causing 2 login requests
-      String role = await _authService.signInUser(
-        email: _email.text
-            .trim(), // Trim added to prevent trailing spaces causing login failure
+      String role = await authService.signInUser(
+        email: _email.text.trim(),
         password: _password.text,
       );
 
@@ -114,10 +92,38 @@ class _LoginState extends State<Login> {
           MaterialPageRoute(builder: (context) => const MainNavigator()),
         );
       }
-    } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar(e.toString());
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      if (e.code == 'user-not-found') {
+        _showErrorSnackBar("Email is not registered.");
+      } else if (e.code == 'wrong-password') {
+        _showErrorSnackBar("Incorrect password.");
+      } else if (e.code == 'invalid-email') {
+        _showErrorSnackBar("The email address is badly formatted.");
+      } else if (e.code == 'user-disabled') {
+        _showErrorSnackBar(
+          "This account has been disabled by an administrator.",
+        );
+      } else if (e.code == 'too-many-requests') {
+        _showErrorSnackBar("Too many failed attempts. Please try again later.");
+      } else if (e.code == 'network-request-failed') {
+        _showErrorSnackBar(
+          "No internet connection. Please check your network.",
+        );
+      } else {
+        _showErrorSnackBar(
+          e.message ?? "An unexpected authentication error occurred.",
+        );
       }
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar(
+        e
+            .toString()
+            .replaceAll("Exception: ", "")
+            .replaceAll(RegExp(r'\[.*?\] '), ''),
+      );
     } finally {
       if (mounted) {
         setState(() {

@@ -17,7 +17,13 @@ class AuthService {
       password: password,
     );
 
-    String uid = userCredential.user!.uid;
+    final User? firebaseUser = userCredential.user;
+    if (firebaseUser == null) return;
+
+    // 1. Send the email verification link
+    await firebaseUser.sendEmailVerification();
+
+    String uid = firebaseUser.uid;
     UserModel user = UserModel(
       uid: uid,
       name: name,
@@ -31,12 +37,14 @@ class AuthService {
 
     try {
       await _firestore.collection('users').doc(uid).set(user.toMap());
-    } on FirebaseException catch (e) {
+    } on FirebaseException {
       rethrow;
+    } finally {
+      // 2. Sign out immediately so unverified accounts cannot browse the app
+      await _auth.signOut();
     }
   }
 
-  // ADDED: Optional callback to ask the UI for confirmation if it's a new user
   Future<void> singInWithGoogle({
     Future<bool> Function()? onConfirmRegistration,
   }) async {
@@ -46,7 +54,6 @@ class AuthService {
             '706499653261-2rt59tfu887s12tdo0s7iea03emhke70.apps.googleusercontent.com',
       );
 
-      // Force sign out to clear stale tokens/reauth state
       try {
         await GoogleSignIn.instance.signOut();
       } catch (_) {}
@@ -74,16 +81,13 @@ class AuthService {
       );
       final User firebaseUser = userCredential.user!;
 
-      // CHECK IF NEW USER
       final bool isNewUser =
           userCredential.additionalUserInfo?.isNewUser ?? false;
 
       if (isNewUser) {
-        // If a callback was provided, ask the UI for permission
         if (onConfirmRegistration != null) {
           bool proceed = await onConfirmRegistration();
           if (!proceed) {
-            // User canceled! Delete the accidental Auth record and abort.
             await firebaseUser.delete();
             await GoogleSignIn.instance.signOut();
             throw Exception('sign_in_canceled');
@@ -115,32 +119,69 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    String trimmedEmail = email.trim().toLowerCase();
+    String trimmedPassword = password.trim();
+
+    // 1. Check for Admin Credentials
+    if (trimmedEmail == 'admin@gmail.com' && trimmedPassword == 'admin123') {
+      return 'admin';
+    }
+
+    // 2. Check if the user document exists in Firestore
+    final userQuery = await _firestore
+        .collection('users')
+        .where('email', isEqualTo: trimmedEmail)
+        .limit(1)
+        .get();
+
+    if (userQuery.docs.isEmpty && trimmedEmail != 'admin@gmail.com') {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Email is not registered.',
+      );
+    }
+
+    // 3. Attempt Firebase Authentication
     try {
-      String trimmedEmail = email.trim();
-      String trimmedPassword = password.trim();
-
-      // Check for Admin Credentials
-      if (trimmedEmail == 'admin@gmail.com' && trimmedPassword == 'admin123') {
-        return 'admin';
-      }
-
-      await _auth.signInWithEmailAndPassword(
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: trimmedEmail,
         password: trimmedPassword,
       );
 
+      final User? user = userCredential.user;
+
+      // 4. Enforce verification check: reload user to get latest status
+      if (user != null) {
+        await user.reload();
+        if (!user.emailVerified) {
+          await _auth.signOut();
+          throw FirebaseAuthException(
+            code: 'email-not-verified',
+            message:
+                'Please verify your email before logging in. Check your inbox for the link.',
+          );
+        }
+      }
+
       return 'user';
     } on FirebaseAuthException catch (e) {
+      // Preserve explicit error states
+      if (e.code == 'email-not-verified') {
+        rethrow;
+      }
+      if (e.code == 'invalid-credential' || e.code == 'wrong-password') {
+        throw FirebaseAuthException(
+          code: 'wrong-password',
+          message: 'Incorrect password.',
+        );
+      }
       rethrow;
     }
   }
 
   Future<void> signOut() async {
     try {
-      // 1. Sign out from Firebase
       await _auth.signOut();
-
-      // 2. Sign out/disconnect from Google Sign-In session
       await GoogleSignIn.instance.signOut();
     } catch (e) {
       rethrow;
