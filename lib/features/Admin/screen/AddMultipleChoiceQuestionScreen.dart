@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use, file_names
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/ReviewAndPublishScreen.dart';
@@ -27,6 +29,7 @@ class AddMultipleChoiceQuestionScreen extends StatefulWidget {
 class _AddMultipleChoiceQuestionScreenState
     extends State<AddMultipleChoiceQuestionScreen> {
   final ExamService _examService = ExamService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   late ExamModel _currentExam;
   late TextEditingController _questionController;
@@ -68,6 +71,28 @@ class _AddMultipleChoiceQuestionScreenState
         TextEditingController(),
       ];
       _selectedCorrectOption = 0;
+    }
+  }
+
+  /// Verifies whether the current user is an admin or super_admin
+  Future<bool> _checkAdminAccess() async {
+    if (_currentUser == null) return false;
+
+    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+      return true;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
+
+      if (!doc.exists) return false;
+      final role = (doc.data()?['role'] ?? '').toString().toLowerCase();
+      return role == 'admin' || role == 'super_admin';
+    } catch (_) {
+      return false;
     }
   }
 
@@ -134,7 +159,22 @@ class _AddMultipleChoiceQuestionScreenState
     setState(() => _isLoading = true);
 
     try {
-      // If adding directly into Question Bank collection
+      // 1. Role Authorization Check
+      final hasAccess = await _checkAdminAccess();
+      if (!hasAccess) {
+        if (!mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Access Denied: Only Admins or Super Admins can modify exams.',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return false;
+      }
+
+      // 2. Question Bank Workflow
       if (widget.isForQuestionBank) {
         final bankQuestion = QuestionModel(
           id: question.id,
@@ -156,7 +196,7 @@ class _AddMultipleChoiceQuestionScreenState
         return true;
       }
 
-      // Normal Exam workflow
+      // 3. Exam Workflow
       List<QuestionModel> updatedQuestions = List.from(_currentExam.questions);
 
       if (_isEditingQuestion && widget.questionIndex != null) {
@@ -165,13 +205,29 @@ class _AddMultipleChoiceQuestionScreenState
         updatedQuestions.add(question);
       }
 
+      // Ensure exam has an adminId attached to satisfy security rules
+      final assignedAdminId = _currentExam.adminId.isNotEmpty
+          ? _currentExam.adminId
+          : (_currentUser?.uid ?? '');
+
       final updatedExam = _currentExam.copyWith(
+        adminId: assignedAdminId,
         questions: updatedQuestions,
         updatedAt: DateTime.now(),
       );
 
-      await _examService.updateExam(updatedExam);
-      _currentExam = updatedExam;
+      // If exam hasn't been written to Firestore yet, draft it; otherwise update it
+      if (updatedExam.id.isEmpty) {
+        final newId = await _examService.createExamDraft(
+          updatedExam,
+          adminId: assignedAdminId,
+        );
+        _currentExam = updatedExam.copyWith(id: newId);
+      } else {
+        await _examService.updateExam(updatedExam);
+        _currentExam = updatedExam;
+      }
+
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -229,10 +285,8 @@ class _AddMultipleChoiceQuestionScreenState
     if (!mounted) return;
 
     if (widget.isForQuestionBank) {
-      // Pop back to Question Bank screen
       Navigator.pop(context);
     } else {
-      // Continue to review exam
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => ReviewAndPublishScreen(exam: _currentExam),
@@ -345,7 +399,6 @@ class _AddMultipleChoiceQuestionScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Header & Draft Auto-Saved Tag
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,7 +471,7 @@ class _AddMultipleChoiceQuestionScreenState
             ),
             const SizedBox(height: 24),
 
-            // Main Form Card
+            // Form Box
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -436,7 +489,6 @@ class _AddMultipleChoiceQuestionScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Question Text Header & Marks Input Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -514,7 +566,6 @@ class _AddMultipleChoiceQuestionScreenState
                   ),
                   const SizedBox(height: 16),
 
-                  // Question Text Editor Box with Toolbar
                   Container(
                     decoration: BoxDecoration(
                       color: isDarkMode
@@ -577,7 +628,6 @@ class _AddMultipleChoiceQuestionScreenState
                   DottedDivider(color: borderColor),
                   const SizedBox(height: 20),
 
-                  // Answer Options Header
                   Row(
                     children: [
                       Icon(Icons.list, color: textColor, size: 18),
@@ -599,7 +649,6 @@ class _AddMultipleChoiceQuestionScreenState
                   ),
                   const SizedBox(height: 16),
 
-                  // Dynamic Options List
                   ListView.separated(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -700,7 +749,6 @@ class _AddMultipleChoiceQuestionScreenState
                   ),
                   const SizedBox(height: 16),
 
-                  // Add Another Option Button
                   TextButton.icon(
                     onPressed: _handleAddOption,
                     icon: const Icon(
@@ -725,7 +773,6 @@ class _AddMultipleChoiceQuestionScreenState
                   Divider(color: borderColor, height: 1),
                   const SizedBox(height: 20),
 
-                  // Bottom Action Buttons (Cancel, Save & Add Another, Done)
                   Row(
                     children: [
                       Expanded(
