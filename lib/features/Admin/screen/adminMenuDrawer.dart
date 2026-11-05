@@ -1,18 +1,44 @@
 // ignore_for_file: file_names
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/ReviewAndPublishScreen.dart';
 import 'package:prep_mate/features/Admin/screen/StudentDirectoryScreen.dart';
+import 'package:prep_mate/features/Admin/screen/adminDirectoryScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
 import 'package:prep_mate/features/Admin/screen/questionBankScreen.dart';
 import 'package:prep_mate/features/Admin/screen/showExamesScreen.dart';
-
 import 'package:prep_mate/features/Admin/screen/userResultScreen.dart';
 import 'package:prep_mate/features/Auth/screens/logOut.dart';
 
 class AdminMenuDrawer extends StatelessWidget {
   const AdminMenuDrawer({super.key});
+
+  Future<bool> _isSuperAdmin() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+
+    // Hardcoded Super Admin check
+    if (user.email?.toLowerCase() == 'admin@gmail.com') {
+      return true;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final role = (doc.data()?['role'] ?? '').toString().toLowerCase();
+        return role == 'super_admin';
+      }
+    } catch (_) {}
+
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,11 +57,7 @@ class AdminMenuDrawer extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(
-              color: isDarkMode
-                  ? const Color(0xFF1E1B4B)
-                  : const Color(0xFF1E1B4B),
-            ),
+            decoration: const BoxDecoration(color: Color(0xFF1E1B4B)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
@@ -66,8 +88,10 @@ class AdminMenuDrawer extends StatelessWidget {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => AdminHomeScreen()),
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const AdminHomeScreen(),
+                ),
               );
             },
           ),
@@ -82,7 +106,9 @@ class AdminMenuDrawer extends StatelessWidget {
             ),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => Showexamesscreen()),
+                MaterialPageRoute(
+                  builder: (context) => const Showexamesscreen(),
+                ),
               );
             },
           ),
@@ -98,7 +124,7 @@ class AdminMenuDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => ExamConfigurationScreen(),
+                  builder: (context) => const ExamConfigurationScreen(),
                 ),
               );
             },
@@ -114,7 +140,9 @@ class AdminMenuDrawer extends StatelessWidget {
             ),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => QuestionBankScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const QuestionBankScreen(),
+                ),
               );
             },
           ),
@@ -130,7 +158,7 @@ class AdminMenuDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => ReviewAndPublishScreen(),
+                  builder: (context) => const ReviewAndPublishScreen(),
                 ),
               );
             },
@@ -144,7 +172,7 @@ class AdminMenuDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => RecentResultsAndUsersScreen(),
+                  builder: (context) => const RecentResultsAndUsersScreen(),
                 ),
               );
             },
@@ -158,9 +186,39 @@ class AdminMenuDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => StudentDirectoryScreen(),
+                  builder: (context) => const StudentDirectoryScreen(),
                 ),
               );
+            },
+          ),
+
+          // Only Super Admin can view Registered Instructors
+          FutureBuilder<bool>(
+            future: _isSuperAdmin(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data == true) {
+                return ListTile(
+                  leading: const Icon(
+                    Icons.badge_rounded,
+                    color: Color(0xFFDC2626),
+                  ),
+                  title: Text(
+                    'Registered Instructors',
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AdminDirectoryScreen(),
+                      ),
+                    );
+                  },
+                );
+              }
+              return const SizedBox.shrink();
             },
           ),
 
@@ -171,9 +229,9 @@ class AdminMenuDrawer extends StatelessWidget {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (context) => LogoutPage()));
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const LogoutPage()),
+              );
             },
           ),
         ],
