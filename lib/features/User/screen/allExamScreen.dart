@@ -1,9 +1,12 @@
+// ignore_for_file: deprecated_member_use, file_names
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
 import 'package:prep_mate/features/User/screen/examDetail.dart';
 import 'package:prep_mate/features/User/widget/examListWidget.dart';
-
 
 class AllExamsScreen extends StatefulWidget {
   const AllExamsScreen({super.key});
@@ -15,9 +18,14 @@ class AllExamsScreen extends StatefulWidget {
 class _AllExamsScreenState extends State<AllExamsScreen> {
   final ExamService _examService = ExamService();
   final TextEditingController _searchController = TextEditingController();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
+  String _assignedAdminId = '';
+  bool _isLoadingUser = true;
+
+  Stream<List<ExamModel>>? _publishedExamsStream;
 
   final List<String> _categories = [
     'All Subjects',
@@ -30,11 +38,56 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchStudentAdminAndInitStream();
+
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase().trim();
-      });
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase().trim();
+        });
+      }
     });
+  }
+
+  /// Retrieves the student's assigned instructor/admin ID from Firestore
+  Future<void> _fetchStudentAdminAndInitStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingUser = false);
+      return;
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() ?? {};
+        _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+      }
+    } catch (_) {}
+
+    _updateExamsStream();
+
+    if (mounted) {
+      setState(() {
+        _isLoadingUser = false;
+      });
+    }
+  }
+
+  /// Updates the stream filtered by category and the student's assigned instructor
+  void _updateExamsStream() {
+    final selectedCategory = _selectedCategoryIndex == 0
+        ? null
+        : _categories[_selectedCategoryIndex];
+
+    _publishedExamsStream = _examService.getPublishedExamsStream(
+      category: selectedCategory,
+      adminId: _assignedAdminId,
+      role: 'student',
+    );
   }
 
   @override
@@ -44,11 +97,9 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
   }
 
   void _handleExamTap(ExamModel exam) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ExamdetailPage(exam: exam),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage(exam: exam)));
   }
 
   String _calculateDifficulty(ExamModel exam) {
@@ -67,13 +118,10 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
-
-    final selectedCategory = _selectedCategoryIndex == 0
-        ? null
-        : _categories[_selectedCategoryIndex];
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -122,183 +170,199 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              'Explore All Assessments',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Browse through our complete repository of standardized tests and quizzes.',
-              style: TextStyle(color: subtitleColor, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Search exams by title or keyword...",
-                hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                prefixIcon: Icon(Icons.search, color: subtitleColor),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: subtitleColor, size: 18),
-                        onPressed: () => _searchController.clear(),
-                      )
-                    : null,
-                filled: true,
-                fillColor: containerColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF7C3AED),
-                    width: 1.5,
+      body: _isLoadingUser || _publishedExamsStream == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+                  Text(
+                    'Explore Assessments',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 20),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Access published examinations created by your instructor.',
+                    style: TextStyle(color: subtitleColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
 
-            // Filter Category Chips
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final isSelected = _selectedCategoryIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(_categories[index]),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                        });
-                      },
-                      selectedColor: const Color(0xFF1E1B4B),
-                      backgroundColor: containerColor,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : (isDarkMode
-                                ? Colors.white70
-                                : const Color(0xFF1E1B4B)),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                  // Search Bar
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Search exams by title or keyword...",
+                      hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
+                      prefixIcon: Icon(Icons.search, color: subtitleColor),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: subtitleColor,
+                                size: 18,
+                              ),
+                              onPressed: () => _searchController.clear(),
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: containerColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16.0),
+                        borderSide: BorderSide(color: borderColor),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: BorderSide(
-                          color: isSelected ? Colors.transparent : borderColor,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16.0),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16.0),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF7C3AED),
+                          width: 1.5,
                         ),
                       ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                  );
-                },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Filter Category Chips
+                  SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final isSelected = _selectedCategoryIndex == index;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: ChoiceChip(
+                            label: Text(_categories[index]),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              setState(() {
+                                _selectedCategoryIndex = index;
+                                _updateExamsStream();
+                              });
+                            },
+                            selectedColor: const Color(0xFF1E1B4B),
+                            backgroundColor: containerColor,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDarkMode
+                                        ? Colors.white70
+                                        : const Color(0xFF1E1B4B)),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? Colors.transparent
+                                    : borderColor,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Realtime Stream of Respected Admin's Published Exams
+                  StreamBuilder<List<ExamModel>>(
+                    stream: _publishedExamsStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20.0),
+                            child: Text(
+                              'Failed to load assessments: ${snapshot.error}',
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        );
+                      }
+
+                      final allExams = snapshot.data ?? [];
+
+                      final filteredExams = allExams.where((exam) {
+                        return exam.title.toLowerCase().contains(
+                              _searchQuery,
+                            ) ||
+                            exam.category.toLowerCase().contains(
+                              _searchQuery,
+                            ) ||
+                            exam.examCode.toLowerCase().contains(_searchQuery);
+                      }).toList();
+
+                      if (filteredExams.isEmpty) {
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: containerColor,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _searchQuery.isNotEmpty
+                                  ? 'No exams found matching "$_searchQuery"'
+                                  : (_assignedAdminId.isEmpty
+                                        ? 'You are not linked to any instructor yet.'
+                                        : 'No published assessments available from your instructor under this category.'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: filteredExams.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, index) {
+                          final exam = filteredExams[index];
+                          return ExamListItemWidget(
+                            title: exam.title,
+                            category: exam.category,
+                            time: '${exam.durationMinutes} mins',
+                            mcqs: '${exam.questions.length} MCQs',
+                            difficulty: _calculateDifficulty(exam),
+                            onTap: () => _handleExamTap(exam),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 30),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            // Realtime Stream of Published Exams
-            StreamBuilder<List<ExamModel>>(
-              stream: _examService.getPublishedExamsStream(
-                category: selectedCategory,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20.0),
-                      child: Text(
-                        'Failed to load assessments: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  );
-                }
-
-                final allExams = snapshot.data ?? [];
-
-                final filteredExams = allExams.where((exam) {
-                  return exam.title.toLowerCase().contains(_searchQuery) ||
-                      exam.category.toLowerCase().contains(_searchQuery) ||
-                      exam.examCode.toLowerCase().contains(_searchQuery);
-                }).toList();
-
-                if (filteredExams.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: containerColor,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Center(
-                      child: Text(
-                        _searchQuery.isNotEmpty
-                            ? 'No exams found matching "$_searchQuery"'
-                            : 'No assessments available under this category.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: subtitleColor, fontSize: 14),
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredExams.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final exam = filteredExams[index];
-                    return ExamListItemWidget(
-                      title: exam.title,
-                      category: exam.category,
-                      time: '${exam.durationMinutes} mins',
-                      mcqs: '${exam.questions.length} MCQs',
-                      difficulty: _calculateDifficulty(exam),
-                      onTap: () => _handleExamTap(exam),
-                    );
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -1,20 +1,36 @@
+// ignore_for_file: file_names
+
 import 'dart:convert';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 
 class QuestionFileParser {
   static Future<List<QuestionModel>> pickAndParseQuestions() async {
-    final List<PlatformFile> files = await FilePicker.pickFiles(
+    // Official public API entry point
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json', 'csv'],
+      withData: true,
     );
 
-    if (files.isEmpty) return [];
+    if (result == null || result.files.isEmpty) return [];
 
-    final PlatformFile pickedFile = files.first;
-    final bytes = await pickedFile.readAsBytes();
-    String content = utf8.decode(bytes);
+    final PlatformFile pickedFile = result.files.first;
+    String content = '';
 
+    // Safely retrieve bytes from memory or disk
+    if (pickedFile.bytes != null) {
+      content = utf8.decode(pickedFile.bytes!);
+    } else if (pickedFile.path != null && pickedFile.path!.isNotEmpty) {
+      final file = File(pickedFile.path!);
+      final bytes = await file.readAsBytes();
+      content = utf8.decode(bytes);
+    } else {
+      throw const FormatException('Unable to read selected file contents.');
+    }
+
+    // Strip BOM character if present
     if (content.startsWith('\uFEFF')) {
       content = content.substring(1);
     }
@@ -42,20 +58,26 @@ class QuestionFileParser {
       final rawOptions = map['options'] is List
           ? List<dynamic>.from(map['options'])
           : <dynamic>[];
-      final int correctIndex =
-          (map['correctOptionIndex'] as num?)?.toInt() ?? 0;
 
       final List<QuestionOption> options = _normalizeOptions(rawOptions);
+
+      final dynamic rawCorrect =
+          map['correctOptionIndex'] ??
+          map['correctAnswer'] ??
+          map['correctOptionId'] ??
+          map['answer'];
+
+      final String correctOptionId = _resolveCorrectOption(
+        options,
+        rawCorrectValue: rawCorrect,
+      );
 
       return QuestionModel(
         id: '',
         questionText: map['questionText']?.toString() ?? '',
         marks: (map['marks'] as num?)?.toDouble() ?? 1.0,
         options: options,
-        correctOptionId: _resolveCorrectOption(
-          options,
-          correctIndex: correctIndex,
-        ),
+        correctOptionId: correctOptionId,
         type: map['type']?.toString() ?? 'multiple_choice',
         category: map['category']?.toString() ?? 'General',
         difficulty: map['difficulty']?.toString() ?? 'Medium',
@@ -74,16 +96,13 @@ class QuestionFileParser {
 
     final List<QuestionModel> parsed = [];
 
-    // Skip the header row (index 0)
     for (int i = 1; i < rows.length; i++) {
       final List<String> row = rows[i];
 
-      // Skip blank rows
       if (row.isEmpty || row.every((val) => val.trim().isEmpty)) {
         continue;
       }
 
-      // If the row was wrapped in outer quotes and didn't split, handle it
       List<String> columns = row;
       if (columns.length == 1 && columns[0].contains(',')) {
         columns = _parseCsvLine(columns[0]);
@@ -97,13 +116,12 @@ class QuestionFileParser {
           : 'General';
       final String difficulty =
           columns.length > 2 && columns[2].trim().isNotEmpty
-          ? columns[2].trim()
-          : 'Medium';
+              ? columns[2].trim()
+              : 'Medium';
       final double marks = columns.length > 3
           ? (double.tryParse(columns[3].trim()) ?? 1.0)
           : 1.0;
 
-      // Extract options (indices 4, 5, 6, 7 if available)
       final List<String> rawOptions = [];
       if (columns.length >= 9) {
         for (int c = 4; c <= 7; c++) {
@@ -112,7 +130,6 @@ class QuestionFileParser {
           }
         }
       } else {
-        // Fallback for variable-length rows
         for (int c = 4; c < columns.length - 1; c++) {
           if (columns[c].trim().isNotEmpty) {
             rawOptions.add(columns[c].trim());
@@ -120,10 +137,13 @@ class QuestionFileParser {
         }
       }
 
-      // The last column is always the zero-based correct index
-      final int correctIndex = int.tryParse(columns.last.trim()) ?? 0;
-
       final List<QuestionOption> options = _normalizeOptions(rawOptions);
+
+      final dynamic rawCorrect = columns.last.trim();
+      final String correctOptionId = _resolveCorrectOption(
+        options,
+        rawCorrectValue: rawCorrect,
+      );
 
       parsed.add(
         QuestionModel(
@@ -131,10 +151,7 @@ class QuestionFileParser {
           questionText: questionText,
           marks: marks,
           options: options,
-          correctOptionId: _resolveCorrectOption(
-            options,
-            correctIndex: correctIndex,
-          ),
+          correctOptionId: correctOptionId,
           type: 'multiple_choice',
           category: category,
           difficulty: difficulty,
@@ -154,10 +171,10 @@ class QuestionFileParser {
     for (int i = 0; i < rawOptions.length; i++) {
       final dynamic option = rawOptions[i];
       String text = '';
-      String id = 'opt_${i + 1}';
+
+      final String letterId = String.fromCharCode(65 + i);
 
       if (option is Map) {
-        id = option['id']?.toString() ?? id;
         text =
             option['text']?.toString() ??
             option['optionText']?.toString() ??
@@ -167,7 +184,7 @@ class QuestionFileParser {
         text = option?.toString() ?? '';
       }
 
-      normalized.add(QuestionOption(id: id, text: text.trim()));
+      normalized.add(QuestionOption(id: letterId, text: text.trim()));
     }
 
     return normalized;
@@ -175,16 +192,44 @@ class QuestionFileParser {
 
   static String _resolveCorrectOption(
     List<QuestionOption> options, {
-    required int correctIndex,
+    required dynamic rawCorrectValue,
   }) {
-    if (options.isEmpty) return '';
-    if (correctIndex >= 0 && correctIndex < options.length) {
-      return options[correctIndex].id;
+    if (options.isEmpty) return 'A';
+
+    final String valStr =
+        (rawCorrectValue?.toString() ?? '').trim().toUpperCase();
+
+    // Letter matching ('A', 'B', 'C', 'D'...)
+    if (valStr.length == 1 &&
+        valStr.codeUnitAt(0) >= 65 &&
+        valStr.codeUnitAt(0) <= 90) {
+      final match = options.where((o) => o.id == valStr);
+      if (match.isNotEmpty) return match.first.id;
     }
+
+    // Number matching
+    final int? parsedNum = int.tryParse(valStr);
+    if (parsedNum != null) {
+      if (parsedNum >= 0 && parsedNum < options.length) {
+        return options[parsedNum].id;
+      }
+      if (parsedNum >= 1 && parsedNum <= options.length) {
+        return options[parsedNum - 1].id;
+      }
+    }
+
+    final RegExp digitRegex = RegExp(r'\d+');
+    final match = digitRegex.firstMatch(valStr);
+    if (match != null) {
+      final int idx = (int.tryParse(match.group(0)!) ?? 1) - 1;
+      if (idx >= 0 && idx < options.length) {
+        return options[idx].id;
+      }
+    }
+
     return options.first.id;
   }
 
-  /// Parses an entire CSV string into rows and columns correctly handling quotes
   static List<List<String>> _parseCsvString(String input) {
     final List<List<String>> rows = [];
     final lines = const LineSplitter().convert(input);
@@ -196,20 +241,17 @@ class QuestionFileParser {
     return rows;
   }
 
-  /// Splits a single line by delimiter while respecting double-quoted values
   static List<String> _parseCsvLine(String line) {
     final List<String> fields = [];
     final StringBuffer currentField = StringBuffer();
     bool insideQuotes = false;
-    final String delimiter = line.contains(';') && !line.contains(',')
-        ? ';'
-        : ',';
+    final String delimiter =
+        line.contains(';') && !line.contains(',') ? ';' : ',';
 
     for (int i = 0; i < line.length; i++) {
       final String char = line[i];
 
       if (char == '"') {
-        // Escaped quote ("")
         if (insideQuotes && i + 1 < line.length && line[i + 1] == '"') {
           currentField.write('"');
           i++;

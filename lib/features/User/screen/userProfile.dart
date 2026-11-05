@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, file_names
+
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -55,6 +57,7 @@ class _UserProfileState extends State<Userprofile> {
         'photoUrl': 'assets/image/L_image.png',
         'academicLevel': 'System Administrator',
         'major': 'Computer Science',
+        'adminId': 'root_admin',
       };
     }
 
@@ -63,6 +66,205 @@ class _UserProfileState extends State<Userprofile> {
         .doc(user.uid)
         .get();
     return doc.data();
+  }
+
+  void _showUpdateAdminIdDialog(BuildContext context, String currentAdminId) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final controller = TextEditingController(text: currentAdminId);
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            backgroundColor: theme.colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.vpn_key_rounded,
+                    color: Color(0xFF7C3AED),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Instructor UID',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Enter the Instructor UID provided by your teacher to access their scoped exams and cohorts.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDarkMode
+                        ? const Color(0xFF94A3B8)
+                        : Colors.grey[600],
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: controller,
+                  decoration: InputDecoration(
+                    labelText: 'Instructor UID',
+                    hintText: 'Paste teacher UID here',
+                    filled: true,
+                    fillColor: isDarkMode
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF7C3AED),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E1B4B),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final newUid = controller.text.trim();
+                        final currentUid =
+                            FirebaseAuth.instance.currentUser?.uid ?? '';
+
+                        if (newUid.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter an Instructor UID.'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (newUid == currentUid) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'You cannot set your own UID as your instructor.',
+                              ),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                          return;
+                        }
+
+                        setDialogState(() => isSaving = true);
+
+                        try {
+                          // Validate that this UID corresponds to a registered admin
+                          final adminDoc = await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(newUid)
+                              .get();
+
+                          if (!adminDoc.exists ||
+                              (adminDoc.data()?['role'] ?? '')
+                                      .toString()
+                                      .toLowerCase() !=
+                                  'admin') {
+                            setDialogState(() => isSaving = false);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Invalid Instructor UID. No active instructor found with this code.',
+                                ),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                            return;
+                          }
+
+                          // Update student's linked adminId in Firestore
+                          await FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(currentUid)
+                              .update({'adminId': newUid});
+
+                          if (!ctx.mounted) return;
+                          Navigator.of(ctx).pop();
+
+                          _refreshProfile();
+
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Instructor updated to ${adminDoc.data()?['name'] ?? 'Instructor'} successfully!',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          setDialogState(() => isSaving = false);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error updating instructor: $e'),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Update',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   List<BadgeItem> _calculateBadges(List<dynamic> attempts) {
@@ -376,7 +578,7 @@ class _UserProfileState extends State<Userprofile> {
     );
   }
 
-  void _handleMenuAction(String title) async {
+  void _handleMenuAction(String title, {String currentAdminId = ''}) async {
     if (title == 'Personal Information') {
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -384,6 +586,8 @@ class _UserProfileState extends State<Userprofile> {
         ),
       );
       _refreshProfile();
+    } else if (title == 'Instructor UID') {
+      _showUpdateAdminIdDialog(context, currentAdminId);
     } else if (title == 'Saved Exams') {
       await Navigator.of(
         context,
@@ -407,7 +611,20 @@ class _UserProfileState extends State<Userprofile> {
   }
 
   void _handleLogout() async {
+    // 1. Set logging out state to prevent UI flickers
     setState(() => _isLoggingOut = true);
+
+    // 2. Show a clean blocking overlay so the cleared profile is never shown
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(
+        canPop: false,
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
+        ),
+      ),
+    );
 
     try {
       final AuthService authService = AuthService();
@@ -415,28 +632,33 @@ class _UserProfileState extends State<Userprofile> {
 
       if (!mounted) return;
 
+      // 3. Clear navigation stack and route to Login
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const Login()),
         (route) => false,
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+        // Dismiss loading dialog if sign out fails
+        Navigator.of(context, rootNavigator: true).pop();
         setState(() => _isLoggingOut = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Logout failed: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     }
   }
 
-  // FIX: Properly handle Local Assets vs Internet Images!
   ImageProvider _getProfileImage(String photoUrl) {
     if (photoUrl.isEmpty) {
       return const AssetImage('assets/image/L_image.png');
     } else if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
     } else if (photoUrl.startsWith('assets/')) {
-      return AssetImage(photoUrl); // Successfully read internal assets!
+      return AssetImage(photoUrl);
     } else {
       final file = File(photoUrl);
       if (file.existsSync()) {
@@ -475,10 +697,11 @@ class _UserProfileState extends State<Userprofile> {
         final userData = snapshot.data;
         final String displayName = userData?['name'] ?? 'User';
         final String displayEmail = userData?['email'] ?? '';
+        final String adminId = (userData?['adminId'] ?? '').toString();
 
-        // Ensure default local photoUrl is assigned correctly
-        final String photoUrl = userData?['photoUrl']?.isNotEmpty == true
-            ? userData!['photoUrl']
+        final String photoUrl =
+            userData?['photoUrl']?.toString().isNotEmpty == true
+            ? userData!['photoUrl'].toString()
             : 'assets/image/L_image.png';
 
         final String academicLevel = userData?['academicLevel'] ?? 'Year 3';
@@ -757,6 +980,21 @@ class _UserProfileState extends State<Userprofile> {
                         () => _handleMenuAction('Personal Information'),
                       ),
                       Divider(height: 1, color: borderColor),
+                      // Instructor UID update row
+                      _buildMenuRow(
+                        Icons.vpn_key_outlined,
+                        'Instructor Code',
+                        textColor,
+                        subtitleColor,
+                        () => _handleMenuAction(
+                          'Instructor UID',
+                          currentAdminId: adminId,
+                        ),
+                        subtitle: adminId.isNotEmpty
+                            ? adminId
+                            : 'Tap to connect your instructor',
+                      ),
+                      Divider(height: 1, color: borderColor),
                       _buildMenuRow(
                         Icons.bookmark_border,
                         'Saved Exams',
@@ -982,10 +1220,11 @@ class _UserProfileState extends State<Userprofile> {
     String title,
     Color textColor,
     Color subtitleColor,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    String? subtitle,
+  }) {
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -1002,6 +1241,18 @@ class _UserProfileState extends State<Userprofile> {
           fontWeight: FontWeight.w600,
         ),
       ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: subtitleColor,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+            )
+          : null,
       trailing: Icon(Icons.arrow_forward_ios, size: 16, color: subtitleColor),
       onTap: onTap,
     );

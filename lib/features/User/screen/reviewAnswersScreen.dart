@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, file_names
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
@@ -52,6 +54,15 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
   }
 
   Future<void> _fetchSubmissionAnswers() async {
+    // If the submission object already carries answers, use them directly
+    if (_submission.answers.isNotEmpty) {
+      setState(() {
+        _selectedAnswers = Map<String, String>.from(_submission.answers);
+        _isLoadingAnswers = false;
+      });
+      return;
+    }
+
     if (_exam.id.isEmpty || _submission.id.isEmpty) {
       setState(() => _isLoadingAnswers = false);
       return;
@@ -66,7 +77,9 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
           .get();
 
       if (doc.exists && doc.data() != null) {
-        final rawMap = doc.data()!['selectedAnswers'] as Map<String, dynamic>?;
+        final rawMap =
+            (doc.data()!['answers'] ?? doc.data()!['selectedAnswers'])
+                as Map<String, dynamic>?;
         if (rawMap != null) {
           _selectedAnswers = rawMap.map(
             (key, value) => MapEntry(key, value.toString()),
@@ -74,7 +87,7 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
         }
       }
     } catch (_) {
-      // Fallback to empty answers
+      // Fallback
     } finally {
       if (mounted) {
         setState(() => _isLoadingAnswers = false);
@@ -82,23 +95,12 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
     }
   }
 
-  // NEW: Helper to get just the letter (A, B, C, D)
   String _getOptionLetter(QuestionModel question, String optionId) {
     final index = question.options.indexWhere((o) => o.id == optionId);
     if (index != -1) {
       return String.fromCharCode(65 + index);
     }
     return '';
-  }
-
-  // NEW: Helper to get the letter AND the text (e.g. "A. Relational tables")
-  String _getOptionTextWithLetter(QuestionModel question, String optionId) {
-    final index = question.options.indexWhere((o) => o.id == optionId);
-    if (index != -1) {
-      final letter = String.fromCharCode(65 + index);
-      return '$letter. ${question.options[index].text}';
-    }
-    return optionId;
   }
 
   @override
@@ -113,7 +115,6 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    // Filter questions based on student selections
     final List<Map<String, dynamic>> evaluatedQuestions = [];
 
     for (int i = 0; i < _exam.questions.length; i++) {
@@ -170,13 +171,20 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   leading: IconButton(
-                    icon: Icon(Icons.arrow_back_rounded, color: textColor),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF1E1B4B),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     'Review Answers',
                     style: TextStyle(
-                      color: textColor,
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF1E1B4B),
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
@@ -195,113 +203,44 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Summary Filter Cards (Incorrect & Skipped)
+                  // Filter Toggle Chips (All, Incorrect, Skipped)
                   Row(
                     children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _filterMode = _filterMode == 'Incorrect'
-                                  ? 'All'
-                                  : 'Incorrect';
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? const Color(0xFF451A03).withOpacity(0.4)
-                                  : const Color(0xFFFEF2F2),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: _filterMode == 'Incorrect'
-                                    ? Colors.red
-                                    : (isDarkMode
-                                          ? Colors.red.withOpacity(0.3)
-                                          : Colors.red.shade100),
-                                width: _filterMode == 'Incorrect' ? 2 : 1,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  '${_submission.incorrectAnswers}',
-                                  style: const TextStyle(
-                                    color: Color(0xFFDC2626),
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _filterMode == 'Incorrect'
-                                      ? 'Showing Incorrect'
-                                      : 'Incorrect',
-                                  style: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      _buildFilterChip(
+                        title: 'All (${_exam.questions.length})',
+                        isSelected: _filterMode == 'All',
+                        selectedColor: const Color(0xFF1E1B4B),
+                        textColor: textColor,
+                        containerColor: containerColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () => setState(() => _filterMode = 'All'),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _filterMode = _filterMode == 'Skipped'
-                                  ? 'All'
-                                  : 'Skipped';
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: containerColor,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: _filterMode == 'Skipped'
-                                    ? const Color(0xFF7C3AED)
-                                    : borderColor,
-                                width: _filterMode == 'Skipped' ? 2 : 1,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  '${_submission.unattemptedAnswers}',
-                                  style: TextStyle(
-                                    color: textColor,
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _filterMode == 'Skipped'
-                                      ? 'Showing Skipped'
-                                      : 'Skipped',
-                                  style: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        title: 'Incorrect (${_submission.incorrectAnswers})',
+                        isSelected: _filterMode == 'Incorrect',
+                        selectedColor: const Color(0xFFEF4444),
+                        textColor: textColor,
+                        containerColor: containerColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () => setState(() => _filterMode = 'Incorrect'),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        title: 'Skipped (${_submission.unattemptedAnswers})',
+                        isSelected: _filterMode == 'Skipped',
+                        selectedColor: const Color(0xFF64748B),
+                        textColor: textColor,
+                        containerColor: containerColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        onTap: () => setState(() => _filterMode = 'Skipped'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
                   if (evaluatedQuestions.isEmpty)
                     Padding(
@@ -329,7 +268,6 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                         final isSkipped = item['isSkipped'] as bool;
                         final studentChoice = item['studentChoice'] as String?;
 
-                        // Get mapped A/B/C/D Letters
                         final studentLetter = studentChoice != null
                             ? _getOptionLetter(q, studentChoice)
                             : '';
@@ -338,36 +276,18 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                           q.correctOptionId,
                         );
 
-                        // Format Text with Letters
-                        final yourAnswerDisplay = !isSkipped
-                            ? _getOptionTextWithLetter(q, studentChoice!)
-                            : 'Skipped / Unattempted';
-                        final correctAnswerDisplay = _getOptionTextWithLetter(
-                          q,
-                          q.correctOptionId,
-                        );
-
-                        return _buildReviewCard(
+                        return _buildQuestionCardWithOptions(
                           questionNum: 'Question $qNum',
                           subject: q.category.isNotEmpty
                               ? q.category
                               : _exam.category,
+                          marks: q.marks,
                           isCorrect: isCorrect,
                           isSkipped: isSkipped,
-                          questionText: q.questionText,
-                          hasYourAnswer: !isSkipped,
-                          yourAnswerText: yourAnswerDisplay,
-                          correctAnswerText: correctAnswerDisplay,
-                          explanationTitle: isCorrect
-                              ? 'CORRECT ANSWER CONFIRMATION'
-                              : 'EXPLANATION & CORRECTION',
-
-                          // Dynamic explanation fixing the raw opt_ id issue!
-                          explanationText: isCorrect
-                              ? 'You correctly selected Option $studentLetter, which matches the answer key criteria.'
-                              : isSkipped
-                              ? 'This question was left blank. The required answer is Option $correctLetter.'
-                              : 'Option $studentLetter is incorrect. Option $correctLetter is the verified answer for this question.',
+                          question: q,
+                          studentChoice: studentChoice,
+                          studentLetter: studentLetter,
+                          correctLetter: correctLetter,
                           containerColor: containerColor,
                           textColor: textColor,
                           subtitleColor: subtitleColor,
@@ -383,17 +303,56 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
     );
   }
 
-  Widget _buildReviewCard({
+  Widget _buildFilterChip({
+    required String title,
+    required bool isSelected,
+    required Color selectedColor,
+    required Color textColor,
+    required Color containerColor,
+    required Color borderColor,
+    required bool isDarkMode,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? selectedColor : containerColor,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(
+              color: isSelected ? Colors.transparent : borderColor,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : (isDarkMode ? Colors.white70 : textColor),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionCardWithOptions({
     required String questionNum,
     required String subject,
+    required double marks,
     required bool isCorrect,
     required bool isSkipped,
-    required String questionText,
-    required bool hasYourAnswer,
-    String? yourAnswerText,
-    required String correctAnswerText,
-    required String explanationTitle,
-    required String explanationText,
+    required QuestionModel question,
+    required String? studentChoice,
+    required String studentLetter,
+    required String correctLetter,
     required Color containerColor,
     required Color textColor,
     required Color subtitleColor,
@@ -425,11 +384,11 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
           decoration: BoxDecoration(
             border: Border(left: BorderSide(color: statusColor, width: 5)),
           ),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Header Row
+              // Header Row: Question number, subject tag, marks
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -455,188 +414,247 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
                       ),
                     ],
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      subject,
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? const Color(0xFF93C5FD)
-                            : const Color(0xFF475569),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDarkMode
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          subject,
+                          style: TextStyle(
+                            color: isDarkMode
+                                ? const Color(0xFF93C5FD)
+                                : const Color(0xFF475569),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${marks.toInt()} Mark${marks.toInt() == 1 ? '' : 's'}',
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
               const SizedBox(height: 12),
 
-              // Question Text
+              // Question Statement
               Text(
-                questionText,
+                question.questionText,
                 style: TextStyle(
                   color: textColor,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   height: 1.3,
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Your Answer Box
-              if (hasYourAnswer) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isCorrect
-                        ? (isDarkMode
-                              ? const Color(0xFF064E3B).withOpacity(0.2)
-                              : const Color(0xFFECFDF5))
-                        : (isDarkMode
-                              ? const Color(0xFF451A03).withOpacity(0.3)
-                              : const Color(0xFFFEF2F2)),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isCorrect
-                          ? Colors.green.withOpacity(0.2)
-                          : (isDarkMode
-                                ? Colors.red.withOpacity(0.2)
-                                : Colors.red.shade200),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'YOUR ANSWER',
-                        style: TextStyle(
-                          color: isCorrect
-                              ? const Color(0xFF059669)
-                              : const Color(0xFFDC2626),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        yourAnswerText ?? '',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
+              // Renders all 4 options
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: question.options.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, optIdx) {
+                  final option = question.options[optIdx];
+                  final letter = String.fromCharCode(65 + optIdx);
+                  final isThisOptionCorrect =
+                      option.id == question.correctOptionId;
+                  final isThisOptionSelected = option.id == studentChoice;
 
-              // Correct Answer Box
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? const Color(0xFF064E3B).withOpacity(0.3)
-                      : const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDarkMode
-                        ? Colors.green.withOpacity(0.2)
-                        : Colors.green.shade200,
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'CORRECT ANSWER',
-                            style: TextStyle(
-                              color: Color(0xFF059669),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            correctAnswerText,
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.check_circle,
-                      color: Color(0xFF059669),
-                      size: 22,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
+                  Color optionBg;
+                  Color optionBorder;
+                  Widget? statusBadge;
 
-              // Explanation Box
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? const Color(0xFF1E1B4B).withOpacity(0.5)
-                      : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                  if (isThisOptionCorrect) {
+                    // Correct Option
+                    optionBg = isDarkMode
+                        ? const Color(0xFF064E3B).withOpacity(0.35)
+                        : const Color(0xFFDCFCE7);
+                    optionBorder = const Color(0xFF10B981);
+                    statusBadge = Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(
-                          Icons.lightbulb_outline,
-                          color: Color(0xFF8B5CF6),
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF10B981),
                           size: 16,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         Text(
-                          explanationTitle,
+                          isThisOptionSelected
+                              ? 'Your Choice (Correct)'
+                              : 'Correct Answer',
                           style: const TextStyle(
-                            color: Color(0xFF8B5CF6),
+                            color: Color(0xFF059669),
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
+                    );
+                  } else if (isThisOptionSelected) {
+                    // Incorrect Choice selected by Student
+                    optionBg = isDarkMode
+                        ? const Color(0xFF451A03).withOpacity(0.35)
+                        : const Color(0xFFFEE2E2);
+                    optionBorder = const Color(0xFFEF4444);
+                    statusBadge = const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.cancel_rounded,
+                          color: Color(0xFFEF4444),
+                          size: 16,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Your Selection (Incorrect)',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    // Default unselected Option
+                    optionBg = isDarkMode
+                        ? const Color(0xFF1E293B).withOpacity(0.5)
+                        : const Color(0xFFF8FAFC);
+                    optionBorder = isDarkMode
+                        ? Colors.white10
+                        : Colors.grey.shade200;
+                  }
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      explanationText,
-                      style: TextStyle(
-                        color: subtitleColor,
-                        fontSize: 13,
-                        height: 1.4,
+                    decoration: BoxDecoration(
+                      color: optionBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: optionBorder,
+                        width: (isThisOptionCorrect || isThisOptionSelected)
+                            ? 1.5
+                            : 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isThisOptionCorrect
+                                    ? const Color(0xFF10B981)
+                                    : (isThisOptionSelected
+                                          ? const Color(0xFFEF4444)
+                                          : (isDarkMode
+                                                ? Colors.white12
+                                                : Colors.grey.shade300)),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  letter,
+                                  style: TextStyle(
+                                    color:
+                                        (isThisOptionCorrect ||
+                                            isThisOptionSelected)
+                                        ? Colors.white
+                                        : textColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                option.text,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 14,
+                                  fontWeight:
+                                      (isThisOptionCorrect ||
+                                          isThisOptionSelected)
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (statusBadge != null) ...[
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 40),
+                            child: statusBadge,
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+
+              // Summary / Resolution Note
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? const Color(0xFF1E293B).withOpacity(0.6)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.lightbulb_outline_rounded,
+                      color: Color(0xFF8B5CF6),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isCorrect
+                            ? 'Great job! You selected Option $correctLetter, which is the verified answer.'
+                            : isSkipped
+                            ? 'You skipped this question. Option $correctLetter is the verified correct answer.'
+                            : 'You chose Option $studentLetter. The correct answer is Option $correctLetter.',
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ],

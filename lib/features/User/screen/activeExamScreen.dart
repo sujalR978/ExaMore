@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use, file_names
 
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
@@ -92,11 +93,22 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
       final studentName = _currentUser?.displayName ?? 'Student User';
       final studentPhoto = _currentUser?.photoURL;
 
+      // Fetch student's assigned adminId from Firestore
+      String? studentAdminId;
+      if (_currentUser?.uid != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser!.uid)
+            .get();
+        studentAdminId = userDoc.data()?['adminId'];
+      }
+
       final submission = await _examService.submitExamAttempt(
         examId: widget.exam.id,
         exam: widget.exam,
         studentId: studentId,
         studentName: studentName,
+        studentAdminId: studentAdminId,
         studentImageUrl: studentPhoto,
         selectedAnswers: _selectedAnswers,
       );
@@ -327,7 +339,6 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Question Progress Header & Bar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -366,7 +377,6 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Main Question Card Container
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -386,7 +396,6 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Subject Tag & Marks
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -424,7 +433,6 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Question Text
                         Text(
                           currentQuestion.questionText,
                           style: TextStyle(
@@ -436,13 +444,11 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Dynamic Options (FIXED TO RENDER A, B, C, D)
                         ...currentQuestion.options.asMap().entries.map((entry) {
                           final index = entry.key;
                           final option = entry.value;
                           final isSelected = selectedOptionId == option.id;
 
-                          // Generates A, B, C, D based on the index (0=A, 1=B, 2=C, 3=D)
                           final String optionLetter = String.fromCharCode(
                             65 + index,
                           );
@@ -466,7 +472,6 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Navigation Buttons Row (Previous & Next/Submit)
                   Row(
                     children: [
                       if (_currentIndex > 0)
@@ -551,7 +556,6 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
                   const Divider(),
                   const SizedBox(height: 16),
 
-                  // Submit Exam Early Button
                   SizedBox(
                     width: double.infinity,
                     height: 52,

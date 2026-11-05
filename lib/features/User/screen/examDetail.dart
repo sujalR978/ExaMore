@@ -31,6 +31,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
           examCode: 'EXM-2026-001',
           title: 'General Assessment',
           category: 'General',
+          adminId: '',
           durationMinutes: 60,
           totalMarks: 100,
           status: 'Published',
@@ -68,7 +69,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
       return;
     }
 
-    // Safety check: Ensure the exam ID exists
     if (_exam.id.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cannot save: Invalid Exam ID.')),
@@ -106,7 +106,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
     return 'Scheduled for: ${DateFormat('MMM dd, yyyy • hh:mm a').format(date)}';
   }
 
-  void _handleStartExam(BuildContext context) {
+  Future<void> _handleStartExam(BuildContext context) async {
     if (_exam.questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -116,6 +116,55 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
       );
       return;
     }
+
+    final uid = _currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in before starting an examination.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // 3-Tier Access Verification: Check user's assigned admin vs Exam's admin
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      final userData = userDoc.data() ?? {};
+      final String userRole = (userData['role'] ?? 'student')
+          .toString()
+          .toLowerCase();
+      final String userAdminId = userData['adminId'] ?? '';
+
+      // Super admins bypass restriction. Students must match exam.adminId
+      if (userRole != 'super_admin' &&
+          _exam.adminId.isNotEmpty &&
+          userAdminId != _exam.adminId) {
+        if (!context.mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Access Restricted'),
+            content: const Text(
+              'You are only permitted to access assessments assigned by your designated Admin/Instructor.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    } catch (_) {}
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -264,7 +313,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Main Header Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -324,7 +372,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
@@ -377,7 +424,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Schedule Info Container
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -421,7 +467,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Stats Row (Mins, MCQs, Marks)
                   Row(
                     children: [
                       Expanded(
@@ -469,7 +514,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // Instructions Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -532,12 +576,40 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // Top Performers Card (Live Stream from Submissions)
+            // Top Performers Card
             StreamBuilder<List<StudentSubmissionModel>>(
               stream: _examService.getExamSubmissionsStream(_exam.id),
               builder: (context, snapshot) {
-                final submissions = snapshot.data ?? [];
-                final topPerformers = submissions.take(3).toList();
+                final allSubmissions = snapshot.data ?? [];
+
+                // Filter out 0 marks and rank by score descending
+                final validSubmissions = allSubmissions
+                    .where((s) => s.marksObtained > 0)
+                    .toList();
+
+                validSubmissions.sort((a, b) {
+                  final scoreComp = b.marksObtained.compareTo(a.marksObtained);
+                  if (scoreComp != 0) return scoreComp;
+                  return a.submittedAt.compareTo(b.submittedAt);
+                });
+
+                // Deduplicate so each student only appears once with their best score
+                final Map<String, StudentSubmissionModel> uniqueTopStudents =
+                    {};
+                for (var s in validSubmissions) {
+                  final key = s.studentId.isNotEmpty
+                      ? s.studentId
+                      : s.studentName;
+                  if (!uniqueTopStudents.containsKey(key) ||
+                      s.marksObtained > uniqueTopStudents[key]!.marksObtained) {
+                    uniqueTopStudents[key] = s;
+                  }
+                }
+
+                final topPerformers = uniqueTopStudents.values.toList()
+                  ..sort((a, b) => b.marksObtained.compareTo(a.marksObtained));
+
+                final displayedPerformers = topPerformers.take(3).toList();
 
                 return Container(
                   padding: const EdgeInsets.all(20),
@@ -569,20 +641,20 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      if (topPerformers.isEmpty)
+                      if (displayedPerformers.isEmpty)
                         Text(
-                          'No candidates have completed this assessment yet. Be the first!',
+                          'No qualifying top scores yet. Score points on this assessment to claim 1st place!',
                           style: TextStyle(color: subtitleColor, fontSize: 13),
                         )
                       else
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: topPerformers.length,
+                          itemCount: displayedPerformers.length,
                           separatorBuilder: (_, __) =>
                               const Divider(height: 24),
                           itemBuilder: (context, idx) {
-                            final p = topPerformers[idx];
+                            final p = displayedPerformers[idx];
                             final rank = idx == 0
                                 ? '1st'
                                 : idx == 1
@@ -605,7 +677,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // Topics Covered Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -650,7 +721,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             const SizedBox(height: 20),
 
-            // Honor Code Notice Box
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -685,7 +755,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
             ),
             const SizedBox(height: 24),
 
-            // Start Exam Button
             SizedBox(
               width: double.infinity,
               height: 52,

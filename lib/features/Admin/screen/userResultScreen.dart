@@ -1,3 +1,7 @@
+// ignore_for_file: deprecated_member_use, file_names
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/CandidateDetailScreen.dart';
@@ -17,17 +21,56 @@ class _RecentResultsAndUsersScreenState
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
   final ExamService _examService = ExamService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   String _searchQuery = '';
+  String _userRole = 'admin';
+  bool _isLoadingRole = true;
 
   @override
   void initState() {
     super.initState();
+    _fetchUserRole();
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
+  }
+
+  Future<void> _fetchUserRole() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingRole = false);
+      return;
+    }
+
+    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+      if (mounted) {
+        setState(() {
+          _userRole = 'super_admin';
+          _isLoadingRole = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
+
+      if (doc.exists && mounted) {
+        setState(() {
+          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _isLoadingRole = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoadingRole = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingRole = false);
+    }
   }
 
   @override
@@ -60,6 +103,21 @@ class _RecentResultsAndUsersScreenState
     return parts[0][0].toUpperCase();
   }
 
+  Stream<List> _getResultsStream() {
+    final bool isSuperAdmin =
+        _userRole == 'super_admin' ||
+        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
+
+    if (isSuperAdmin) {
+      // Super Admin inspects results across the entire platform
+      return _examService.getAllRecentSubmissionsStream();
+    } else {
+      // Regular Admin only receives submissions for exams they created
+      final String adminId = _currentUser?.uid ?? '';
+      return _examService.getRecentSubmissionsByAdminStream(adminId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -71,6 +129,17 @@ class _RecentResultsAndUsersScreenState
         ? const Color(0xFF94A3B8)
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+
+    if (_isLoadingRole) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final bool isSuperAdmin =
+        _userRole == 'super_admin' ||
+        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -109,7 +178,7 @@ class _RecentResultsAndUsersScreenState
                     },
                   ),
                   title: Text(
-                    'Exam Administration',
+                    isSuperAdmin ? 'Super Admin Portal' : 'Exam Administration',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
@@ -119,25 +188,14 @@ class _RecentResultsAndUsersScreenState
                     ),
                   ),
                   centerTitle: true,
-                  actions: const [
-                    Padding(
-                      padding: EdgeInsets.only(right: 8.0),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundImage: NetworkImage(
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
           ),
         ),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _examService.getAllRecentSubmissionsStream(),
+      body: StreamBuilder<List>(
+        stream: _getResultsStream(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -179,7 +237,9 @@ class _RecentResultsAndUsersScreenState
               children: [
                 const SizedBox(height: 8),
                 Text(
-                  'Recent Results & Users',
+                  isSuperAdmin
+                      ? 'Platform-Wide Results'
+                      : 'Recent Results & Users',
                   style: TextStyle(
                     color: textColor,
                     fontSize: 26,
@@ -188,50 +248,13 @@ class _RecentResultsAndUsersScreenState
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Review recent mock test performance across cohorts.',
+                  isSuperAdmin
+                      ? 'Review all candidate performances across all instructors and exams.'
+                      : 'Review student performance on your published exams.',
                   style: TextStyle(
                     color: subtitleColor,
                     fontSize: 14,
                     height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Search Bar
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: "Search students or exams...",
-                    hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                    prefixIcon: Icon(Icons.search, color: subtitleColor),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              color: subtitleColor,
-                              size: 18,
-                            ),
-                            onPressed: () => _searchController.clear(),
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: containerColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF7C3AED),
-                        width: 1.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                 ),
                 const SizedBox(height: 20),

@@ -1,6 +1,7 @@
-// ignore_for_file: unrelated_type_equality_checks, file_names
+// ignore_for_file: unrelated_type_equality_checks, file_names, deprecated_member_use
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
@@ -20,12 +21,18 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
   final ExamService _examService = ExamService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
   final Set<String> _selectedQuestionIds = {};
   bool _isCreatingExam = false;
   bool _isImporting = false;
+
+  String _userRole = 'admin';
+  String _adminUid = '';
+  bool _isLoadingRole = true;
+  Stream<List<QuestionModel>>? _questionStream;
 
   final List<String> _categories = [
     'All Subjects',
@@ -34,6 +41,61 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     'History',
     'Literature',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _adminUid = _currentUser?.uid ?? '';
+    _initRoleAndStream();
+
+    _searchController.addListener(() {
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase().trim();
+        });
+      }
+    });
+  }
+
+  Future<void> _initRoleAndStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingRole = false);
+      return;
+    }
+
+    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+      _userRole = 'super_admin';
+    } else {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser.uid)
+            .get();
+
+        if (doc.exists) {
+          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+        }
+      } catch (_) {}
+    }
+
+    _updateQuestionStream();
+
+    if (mounted) {
+      setState(() => _isLoadingRole = false);
+    }
+  }
+
+  void _updateQuestionStream() {
+    final selectedCategory = _selectedCategoryIndex == 0
+        ? null
+        : _categories[_selectedCategoryIndex];
+
+    _questionStream = _examService.getQuestionBankStream(
+      category: selectedCategory,
+      adminId: _adminUid,
+      role: _userRole,
+    );
+  }
 
   @override
   void dispose() {
@@ -50,7 +112,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     return 'Just now';
   }
 
-  // Bulk Import Questions from CSV/JSON
+  // Bulk Import Questions stamped with this Admin's UID
   Future<void> _handleBulkImport() async {
     try {
       final questions = await QuestionFileParser.pickAndParseQuestions();
@@ -65,7 +127,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           ),
           title: const Text('Confirm Bulk Import'),
           content: Text(
-            'Found ${questions.length} questions in file. Upload them to Question Bank now?',
+            'Found ${questions.length} questions in file. Upload them to your Question Bank now?',
           ),
           actions: [
             TextButton(
@@ -88,7 +150,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
 
       setState(() => _isImporting = true);
 
-      // Batch insert into question_bank
       final batch = FirebaseFirestore.instance.batch();
       final collection = FirebaseFirestore.instance.collection('question_bank');
 
@@ -98,11 +159,12 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           'id': docRef.id,
           'questionText': q.questionText,
           'marks': q.marks,
-          'options': q.options.map((o) => o.toMap()).toList(), // ✅ Proper serialization
+          'options': q.options.map((o) => o.toMap()).toList(),
           'correctOptionId': q.correctOptionId,
           'type': q.type,
           'category': q.category,
           'difficulty': q.difficulty,
+          'adminId': _adminUid, // <-- Binds question to current Admin
           'views': 0,
           'estimatedTimeMinutes': q.estimatedTimeMinutes,
           'createdAt': FieldValue.serverTimestamp(),
@@ -131,18 +193,18 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     }
   }
 
-  // Opens Add Question screen with fallback ExamModel
   void _handleAddQuestion() {
     final currentCategory =
         _categories[_selectedCategoryIndex] == 'All Subjects'
-        ? 'General'
-        : _categories[_selectedCategoryIndex];
+            ? 'General'
+            : _categories[_selectedCategoryIndex];
 
     final tempExam = ExamModel(
       id: '',
       examCode: '',
       title: 'Question Bank Entry',
       category: currentCategory,
+      adminId: _adminUid, // <-- Stamped with this Admin's UID
       durationMinutes: 60,
       totalMarks: 100,
     );
@@ -157,7 +219,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     );
   }
 
-  // Delete a single question from Firestore Question Bank
   Future<void> _handleDeleteQuestion(String questionId) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -168,7 +229,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
           style: TextStyle(color: Colors.red),
         ),
         content: const Text(
-          'Are you sure you want to remove this question from the bank?',
+          'Are you sure you want to remove this question from your bank?',
         ),
         actions: [
           TextButton(
@@ -198,13 +259,12 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
     }
   }
 
-  // Show detailed view of options & correct answer
   void _showQuestionDetails(QuestionModel question) {
     showDialog(
       context: context,
@@ -246,7 +306,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
               ),
               const SizedBox(height: 8),
               ...question.options.map((opt) {
-                final isCorrect = opt == question.correctOptionId;
+                final isCorrect = opt.id == question.correctOptionId;
                 return Container(
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(
@@ -274,7 +334,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          opt.toString(),
+                          '${opt.id}. ${opt.text}',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: isCorrect
@@ -306,7 +366,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     );
   }
 
-  // Create an exam from selected bank questions
   Future<void> _handleCreateExam(List<QuestionModel> allQuestions) async {
     if (_selectedQuestionIds.isEmpty) {
       Navigator.of(context).push(
@@ -332,6 +391,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
         title: '$category Assessment Draft',
         category: category,
         questions: selectedQuestions,
+        adminId: _adminUid,
       );
 
       final stream = _examService.getExamStream(examId);
@@ -377,9 +437,14 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    final selectedCategory = _selectedCategoryIndex == 0
-        ? null
-        : _categories[_selectedCategoryIndex];
+    if (_isLoadingRole || _questionStream == null) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final bool isSuperAdmin = _userRole == 'super_admin';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -427,13 +492,13 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                     ),
                   ),
                   title: Text(
-                    'Examora',
+                    isSuperAdmin ? 'Examora (All Banks)' : 'Examora Question Bank',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
                           : const Color(0xFF1E1B4B),
                       fontWeight: FontWeight.bold,
-                      fontSize: 20,
+                      fontSize: 18,
                     ),
                   ),
                   centerTitle: false,
@@ -450,7 +515,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
         ),
       ),
       body: StreamBuilder<List<QuestionModel>>(
-        stream: _examService.getQuestionBankStream(category: selectedCategory),
+        stream: _questionStream,
         builder: (context, snapshot) {
           final allQuestions = snapshot.data ?? [];
 
@@ -468,21 +533,23 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
               children: [
                 const SizedBox(height: 8),
                 Text(
-                  'Question Bank',
+                  isSuperAdmin ? 'Global Question Bank' : 'My Question Bank',
                   style: TextStyle(
                     color: textColor,
-                    fontSize: 30,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage and curate your repository of academic questions.',
-                  style: TextStyle(color: subtitleColor, fontSize: 14),
+                  isSuperAdmin
+                      ? 'Managing question repositories across all instructors.'
+                      : 'Curate your private repository of academic questions.',
+                  style: TextStyle(color: subtitleColor, fontSize: 13),
                 ),
                 const SizedBox(height: 20),
 
-                // Top Action Buttons (Create Exam, Import CSV/JSON, Add Single)
+                // Top Action Buttons
                 Row(
                   children: [
                     Expanded(
@@ -533,7 +600,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Bulk Import Button
                     Expanded(
                       flex: 2,
                       child: OutlinedButton(
@@ -571,7 +637,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Add Single Question Button
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
@@ -689,9 +754,10 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                                 label: Text(_categories[index]),
                                 selected: isSelected,
                                 onSelected: (selected) {
-                                  setState(
-                                    () => _selectedCategoryIndex = index,
-                                  );
+                                  setState(() {
+                                    _selectedCategoryIndex = index;
+                                    _updateQuestionStream();
+                                  });
                                 },
                                 selectedColor: const Color(0xFF1E1B4B),
                                 backgroundColor: isDarkMode
@@ -779,7 +845,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                     child: Center(
                       child: Text(
                         allQuestions.isEmpty
-                            ? 'No questions in Question Bank yet. Tap "Add" or "Import File" to start!'
+                            ? 'No questions in your Question Bank yet. Tap "Add" or "Import File" to start!'
                             : 'No questions match "$_searchQuery"',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
@@ -869,7 +935,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Badges
                 Wrap(
                   spacing: 6,
                   children: [
@@ -900,7 +965,6 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
                     ),
                   ],
                 ),
-                // Checkbox & Delete Action
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

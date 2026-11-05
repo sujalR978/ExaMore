@@ -76,18 +76,24 @@ class _LoginState extends State<Login> {
     try {
       final AuthService authService = AuthService();
 
-      String role = await authService.signInUser(
+      final Map<String, dynamic> userData = await authService.signInUser(
         email: _email.text.trim(),
         password: _password.text,
       );
 
+      final String role = (userData['role'] ?? 'student')
+          .toString()
+          .toLowerCase();
+
       if (!mounted) return;
 
-      if (role == 'admin') {
+      // 3-Tier Routing
+      if (role == 'super_admin' || role == 'admin') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
         );
       } else {
+        // Regular Student
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const MainNavigator()),
         );
@@ -99,6 +105,10 @@ class _LoginState extends State<Login> {
         _showErrorSnackBar("Email is not registered.");
       } else if (e.code == 'wrong-password') {
         _showErrorSnackBar("Incorrect password.");
+      } else if (e.code == 'email-not-verified') {
+        _showErrorSnackBar(
+          "Please verify your email before logging in. Check your inbox.",
+        );
       } else if (e.code == 'invalid-email') {
         _showErrorSnackBar("The email address is badly formatted.");
       } else if (e.code == 'user-disabled') {

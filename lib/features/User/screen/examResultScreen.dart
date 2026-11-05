@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use, file_names
+
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/services/exam_service.dart';
@@ -63,7 +65,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     );
   }
 
-  void _handleSave() {
+  void _handleBackToDashboard() {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const MainNavigator()),
       (route) => false,
@@ -113,20 +115,24 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   scrolledUnderElevation: 0,
-                  // FIX: Added Proper Back Navigation
                   leading: IconButton(
-                    icon: Icon(Icons.arrow_back_rounded, color: textColor),
-                    onPressed: _handleSave,
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF1E1B4B),
+                    ),
+                    onPressed: _handleBackToDashboard,
                     tooltip: "Back to Dashboard",
                   ),
                   title: Text(
-                    'Examora',
+                    'Assessment Result',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
-                          : const Color(0xFFB45309),
+                          : const Color(0xFF1E1B4B),
                       fontWeight: FontWeight.bold,
-                      fontSize: 20, // Reduced slightly
+                      fontSize: 18,
                     ),
                   ),
                   centerTitle: true,
@@ -142,10 +148,10 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Exam Result',
+              'Performance Summary',
               style: TextStyle(
                 color: textColor,
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -158,10 +164,10 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
 
             // Score Overview Card
             Container(
-              padding: const EdgeInsets.all(20), // Reduced from 24
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: containerColor,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
@@ -189,7 +195,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Text(
-                      isPassed ? 'PASS' : 'NEEDS IMPROVEMENT',
+                      isPassed ? 'PASSED' : 'NEEDS IMPROVEMENT',
                       style: TextStyle(
                         color: isPassed
                             ? (isDarkMode
@@ -217,7 +223,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                         ),
                         style: TextStyle(
                           color: textColor,
-                          fontSize: 36, // Reduced from 48
+                          fontSize: 38,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -225,7 +231,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                         '/${_submission.totalMarks.toInt()}',
                         style: TextStyle(
                           color: subtitleColor,
-                          fontSize: 18, // Reduced from 22
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -233,33 +239,40 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Total Score Points',
+                    'Marks Secured',
                     style: TextStyle(
                       color: subtitleColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // Visual Circular Progress - Reduced Size
+                  const SizedBox(height: 18),
                   CustomCircularProgress(
                     progress: scoreRatio,
                     text: '${_submission.scorePercentage.toInt()}%',
-                    width: 100, // Reduced from 120
-                    height: 100, // Reduced from 120
-                    circleSize: 120, // Reduced from 160
-                    strokeWidth: 10, // Reduced from 14
+                    width: 100,
+                    height: 100,
+                    circleSize: 120,
+                    strokeWidth: 10,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Class Rank Banner
+            // Class Rank Banner with Live Submissions Stream
             StreamBuilder<List<StudentSubmissionModel>>(
               stream: _examService.getExamSubmissionsStream(_exam.id),
               builder: (context, snapshot) {
-                final allSubmissions = snapshot.data ?? [];
+                final allSubmissions = List<StudentSubmissionModel>.from(
+                  snapshot.data ?? [],
+                );
+
+                // Sort descending by score
+                allSubmissions.sort(
+                  (a, b) => b.scorePercentage.compareTo(a.scorePercentage),
+                );
+
                 int rank = 1;
                 final total = allSubmissions.length;
 
@@ -276,7 +289,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 if (rank == 3) suffix = 'rd';
 
                 return Container(
-                  padding: const EdgeInsets.all(16), // Reduced padding
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: isDarkMode
                         ? const Color(0xFF1E1B4B)
@@ -284,7 +297,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withOpacity(0.12),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -305,7 +318,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                               ),
                               SizedBox(width: 6),
                               Text(
-                                'Class Rank',
+                                'Cohort Rank',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 13,
@@ -323,9 +336,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                                 '$rank',
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 28,
+                                  fontSize: 30,
                                   fontWeight: FontWeight.bold,
-                                ), // Reduced from 36
+                                ),
                               ),
                               Text(
                                 suffix,
@@ -340,8 +353,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                           const SizedBox(height: 2),
                           Text(
                             total > 1
-                                ? 'Ranked $rank out of $total submissions'
-                                : 'First evaluation recorded',
+                                ? 'Ranked $rank of $total registered students'
+                                : 'Initial attempt recorded for this exam',
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: 11,
@@ -351,9 +364,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       ),
                       Icon(
                         Icons.emoji_events_outlined,
-                        color: Colors.white.withOpacity(0.1),
-                        size: 50,
-                      ), // Reduced from 70
+                        color: Colors.white.withOpacity(0.12),
+                        size: 52,
+                      ),
                     ],
                   ),
                 );
@@ -361,7 +374,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Stats Row: Correct, Incorrect, Skipped
+            // Stat Metrics: Correct, Incorrect, Skipped
             Row(
               children: [
                 Expanded(
@@ -406,9 +419,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Subject Breakdown Card
+            // Subject & Accuracy Breakdown
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: containerColor,
                 borderRadius: BorderRadius.circular(20),
@@ -418,10 +431,10 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Subject Breakdown',
+                    'Subject Performance',
                     style: TextStyle(
                       color: textColor,
-                      fontSize: 18,
+                      fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -434,7 +447,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     subtitleColor,
                     isDarkMode,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   _buildSubjectBar(
                     'Accuracy',
                     '${_submission.correctAnswers + _submission.incorrectAnswers > 0 ? ((_submission.correctAnswers / (_submission.correctAnswers + _submission.incorrectAnswers)) * 100).toInt() : 0}%',
@@ -451,9 +464,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-            // Buttons
+            // Action Buttons
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -488,7 +501,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               width: double.infinity,
               height: 48,
               child: OutlinedButton(
-                onPressed: _handleSave,
+                onPressed: _handleBackToDashboard,
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(
                     color: isDarkMode ? Colors.white30 : Colors.grey.shade400,
@@ -533,13 +546,10 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     bool isDarkMode,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 4,
-      ), // Reduced padding
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
       decoration: BoxDecoration(
         color: containerColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
       child: Column(
@@ -553,7 +563,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
-          ), // Reduced font
+          ),
           const SizedBox(height: 2),
           Text(
             label,
@@ -606,7 +616,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
           borderRadius: BorderRadius.circular(10),
           child: LinearProgressIndicator(
             value: value.clamp(0.0, 1.0),
-            minHeight: 6, // Thinner bar
+            minHeight: 6,
             backgroundColor: isDarkMode
                 ? const Color(0xFF1E293B)
                 : const Color(0xFFE2E8F0),

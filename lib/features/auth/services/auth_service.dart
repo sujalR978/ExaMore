@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,10 +8,16 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  static const String superAdminEmail = 'admin@gmail.com';
+  static const String superAdminPassword = 'admin123';
+
+  // Email & Password Registration
   Future<void> createUser({
     required String name,
     required String email,
     required String password,
+    String role = 'student',
+    String? adminId,
   }) async {
     UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
       email: email,
@@ -20,7 +27,6 @@ class AuthService {
     final User? firebaseUser = userCredential.user;
     if (firebaseUser == null) return;
 
-    // 1. Send the email verification link
     await firebaseUser.sendEmailVerification();
 
     String uid = firebaseUser.uid;
@@ -29,6 +35,8 @@ class AuthService {
       name: name,
       email: email,
       password: password,
+      role: role,
+      adminId: adminId,
       loginMethod: 'register',
       photoUrl: 'assets/image/L_image.png',
       createdAt: DateTime.now(),
@@ -40,13 +48,13 @@ class AuthService {
     } on FirebaseException {
       rethrow;
     } finally {
-      // 2. Sign out immediately so unverified accounts cannot browse the app
       await _auth.signOut();
     }
   }
 
-  Future<void> singInWithGoogle({
-    Future<bool> Function()? onConfirmRegistration,
+  // Google Sign-In with dynamic Instructor Code linking
+  Future<Map<String, dynamic>> singInWithGoogle({
+    Future<String?> Function()? onGetAdminId,
   }) async {
     try {
       await GoogleSignIn.instance.initialize(
@@ -84,10 +92,25 @@ class AuthService {
       final bool isNewUser =
           userCredential.additionalUserInfo?.isNewUser ?? false;
 
-      if (isNewUser) {
-        if (onConfirmRegistration != null) {
-          bool proceed = await onConfirmRegistration();
-          if (!proceed) {
+      // Check if user document already exists in Firestore
+      final docSnap = await _firestore
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .get();
+
+      String? linkedAdminId;
+      String resolvedRole = 'student';
+
+      if (docSnap.exists) {
+        final data = docSnap.data();
+        resolvedRole = (data?['role'] ?? 'student').toString().toLowerCase();
+        linkedAdminId = data?['adminId'];
+      } else if (isNewUser || !docSnap.exists) {
+        // First-time user: collect instructor ID through dialog callback
+        if (onGetAdminId != null) {
+          linkedAdminId = await onGetAdminId();
+          if (linkedAdminId == null) {
+            // User cancelled the modal dialog
             await firebaseUser.delete();
             await GoogleSignIn.instance.signOut();
             throw Exception('sign_in_canceled');
@@ -95,14 +118,26 @@ class AuthService {
         }
       }
 
+      // Check if user is predefined super admin via Google account
+      if (firebaseUser.email?.toLowerCase() == superAdminEmail) {
+        resolvedRole = 'super_admin';
+        linkedAdminId = null;
+      }
+
       UserModel user = UserModel(
         uid: firebaseUser.uid,
-        name: firebaseUser.displayName ?? '',
+        name: firebaseUser.displayName ?? 'Student',
         email: firebaseUser.email ?? '',
         password: '',
+        role: resolvedRole,
+        adminId: linkedAdminId,
         loginMethod: 'google',
-        photoUrl: firebaseUser.photoURL ?? '',
-        createdAt: DateTime.now(),
+        photoUrl: firebaseUser.photoURL ?? 'assets/image/L_image.png',
+        createdAt: docSnap.exists
+            ? (docSnap.data()?['createdAt'] != null
+                  ? (docSnap.data()!['createdAt'] as Timestamp).toDate()
+                  : DateTime.now())
+            : DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
@@ -110,64 +145,89 @@ class AuthService {
           .collection('users')
           .doc(firebaseUser.uid)
           .set(user.toMap(), SetOptions(merge: true));
+
+      return {
+        'role': resolvedRole,
+        'uid': firebaseUser.uid,
+        'adminId': linkedAdminId,
+      };
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<String> signInUser({
+  // Email & Password Login
+  Future<Map<String, dynamic>> signInUser({
     required String email,
     required String password,
   }) async {
-    String trimmedEmail = email.trim().toLowerCase();
-    String trimmedPassword = password.trim();
+    final String trimmedEmail = email.trim().toLowerCase();
+    final String trimmedPassword = password.trim();
 
-    // 1. Check for Admin Credentials
-    if (trimmedEmail == 'admin@gmail.com' && trimmedPassword == 'admin123') {
-      return 'admin';
-    }
+    final bool isSuperAdminCreds =
+        (trimmedEmail == superAdminEmail &&
+        trimmedPassword == superAdminPassword);
 
-    // 2. Check if the user document exists in Firestore
-    final userQuery = await _firestore
-        .collection('users')
-        .where('email', isEqualTo: trimmedEmail)
-        .limit(1)
-        .get();
+    UserCredential? userCredential;
 
-    if (userQuery.docs.isEmpty && trimmedEmail != 'admin@gmail.com') {
-      throw FirebaseAuthException(
-        code: 'user-not-found',
-        message: 'Email is not registered.',
-      );
-    }
-
-    // 3. Attempt Firebase Authentication
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: trimmedEmail,
-        password: trimmedPassword,
-      );
-
-      final User? user = userCredential.user;
-
-      // 4. Enforce verification check: reload user to get latest status
-      if (user != null) {
-        await user.reload();
-        if (!user.emailVerified) {
-          await _auth.signOut();
-          throw FirebaseAuthException(
-            code: 'email-not-verified',
-            message:
-                'Please verify your email before logging in. Check your inbox for the link.',
-          );
+    // 1. Super Admin Auto-Provisioning & Bypass
+    if (isSuperAdminCreds) {
+      try {
+        userCredential = await _auth.signInWithEmailAndPassword(
+          email: trimmedEmail,
+          password: trimmedPassword,
+        );
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
+          try {
+            userCredential = await _auth.createUserWithEmailAndPassword(
+              email: trimmedEmail,
+              password: trimmedPassword,
+            );
+          } catch (_) {
+            rethrow;
+          }
+        } else {
+          rethrow;
         }
       }
 
-      return 'user';
+      final String superAdminUid = userCredential.user!.uid;
+
+      final adminDoc = await _firestore
+          .collection('users')
+          .doc(superAdminUid)
+          .get();
+
+      if (!adminDoc.exists || adminDoc.data()?['role'] != 'super_admin') {
+        await _firestore.collection('users').doc(superAdminUid).set({
+          'uid': superAdminUid,
+          'name': 'Super Admin',
+          'email': superAdminEmail,
+          'role': 'super_admin',
+          'adminId': null,
+          'loginMethod': 'password',
+          'photoUrl': 'assets/image/L_image.png',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
+      return {'role': 'super_admin', 'uid': superAdminUid, 'adminId': null};
+    }
+
+    // 2. Standard User / Admin Login
+    try {
+      userCredential = await _auth.signInWithEmailAndPassword(
+        email: trimmedEmail,
+        password: trimmedPassword,
+      );
     } on FirebaseAuthException catch (e) {
-      // Preserve explicit error states
-      if (e.code == 'email-not-verified') {
-        rethrow;
+      if (e.code == 'user-not-found') {
+        throw FirebaseAuthException(
+          code: 'user-not-found',
+          message: 'Email is not registered.',
+        );
       }
       if (e.code == 'invalid-credential' || e.code == 'wrong-password') {
         throw FirebaseAuthException(
@@ -177,6 +237,48 @@ class AuthService {
       }
       rethrow;
     }
+
+    final User? user = userCredential.user;
+    if (user == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Email is not registered.',
+      );
+    }
+
+    final String uid = user.uid;
+
+    final DocumentSnapshot userDoc = await _firestore
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    if (!userDoc.exists) {
+      await _auth.signOut();
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'User profile not found. Please register again.',
+      );
+    }
+
+    final userData = userDoc.data() as Map<String, dynamic>;
+    final String role = (userData['role'] ?? 'student')
+        .toString()
+        .toLowerCase();
+    final String? adminId = userData['adminId'];
+
+    // Email verification check (Super Admin excluded)
+    await user.reload();
+    if (!user.emailVerified && role != 'super_admin') {
+      await _auth.signOut();
+      throw FirebaseAuthException(
+        code: 'email-not-verified',
+        message:
+            'Please verify your email before logging in. Check your inbox for the link.',
+      );
+    }
+
+    return {'role': role, 'uid': uid, 'adminId': adminId};
   }
 
   Future<void> signOut() async {

@@ -1,8 +1,11 @@
+// ignore_for_file: deprecated_member_use, file_names
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
-
 import 'package:prep_mate/features/Admin/screen/ExamAnalyticsDetailScreen.dart';
 import 'package:prep_mate/features/Admin/screen/ExamConfigurationScreen.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
@@ -19,9 +22,15 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
   final ExamService _examService = ExamService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
+  String _userRole = 'admin';
+  String _adminUid = '';
+  bool _isLoadingRole = true;
+
+  Stream<List<ExamModel>>? _examsStream;
 
   final List<String> _categories = [
     'All',
@@ -34,11 +43,58 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   @override
   void initState() {
     super.initState();
+    _adminUid = _currentUser?.uid ?? '';
+    _initRoleAndStream();
+
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase().trim();
-      });
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase().trim();
+        });
+      }
     });
+  }
+
+  Future<void> _initRoleAndStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingRole = false);
+      return;
+    }
+
+    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+      _userRole = 'super_admin';
+    } else {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser.uid)
+            .get();
+
+        if (doc.exists) {
+          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+        }
+      } catch (_) {}
+    }
+
+    _updateExamsStream();
+
+    if (mounted) {
+      setState(() {
+        _isLoadingRole = false;
+      });
+    }
+  }
+
+  void _updateExamsStream() {
+    final selectedCategory = _selectedCategoryIndex == 0
+        ? null
+        : _categories[_selectedCategoryIndex];
+
+    _examsStream = _examService.getExamsStream(
+      category: selectedCategory,
+      adminId: _adminUid,
+      role: _userRole,
+    );
   }
 
   @override
@@ -121,7 +177,8 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   void _handleViewResults(ExamModel exam) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const ExamAnalyticsDetailScreen(),
+        builder: (context) =>
+            ExamAnalyticsDetailScreen(examId: exam.id, exam: exam),
       ),
     );
   }
@@ -143,9 +200,14 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    final selectedCategory = _selectedCategoryIndex == 0
-        ? null
-        : _categories[_selectedCategoryIndex];
+    if (_isLoadingRole || _examsStream == null) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final bool isSuperAdmin = _userRole == 'super_admin';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -184,7 +246,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                     },
                   ),
                   title: Text(
-                    'Exam Administration',
+                    isSuperAdmin ? 'All Platform Exams' : 'My Active Exams',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
@@ -194,17 +256,6 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                     ),
                   ),
                   centerTitle: true,
-                  actions: const [
-                    Padding(
-                      padding: EdgeInsets.only(right: 8.0),
-                      child: CircleAvatar(
-                        radius: 18,
-                        backgroundImage: NetworkImage(
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -218,12 +269,19 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
           children: [
             const SizedBox(height: 8),
             Text(
-              'Active Exams',
+              isSuperAdmin ? 'Platform Exams' : 'Active Exams',
               style: TextStyle(
                 color: textColor,
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isSuperAdmin
+                  ? 'Overview of all active and draft examinations across all instructors.'
+                  : 'Manage and review examinations created for your student cohorts.',
+              style: TextStyle(color: subtitleColor, fontSize: 13),
             ),
             const SizedBox(height: 16),
 
@@ -278,6 +336,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       onSelected: (selected) {
                         setState(() {
                           _selectedCategoryIndex = index;
+                          _updateExamsStream();
                         });
                       },
                       selectedColor: const Color(0xFF1E1B4B),
@@ -304,9 +363,9 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
             ),
             const SizedBox(height: 24),
 
-            // Live Exams show
+            // Live Exams Stream
             StreamBuilder<List<ExamModel>>(
-              stream: _examService.getExamsStream(category: selectedCategory),
+              stream: _examsStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
@@ -331,7 +390,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
 
                 final allExams = snapshot.data ?? [];
 
-                // Filter locally by search query
+                // Local Search Filter
                 final filteredExams = allExams.where((exam) {
                   return exam.title.toLowerCase().contains(_searchQuery) ||
                       exam.examCode.toLowerCase().contains(_searchQuery);
@@ -342,7 +401,11 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                     padding: const EdgeInsets.symmetric(vertical: 40.0),
                     child: Center(
                       child: Text(
-                        'No exams found matching your criteria',
+                        _searchQuery.isNotEmpty
+                            ? 'No exams found matching "$_searchQuery"'
+                            : (isSuperAdmin
+                                  ? 'No exams available on the platform.'
+                                  : 'You have not created any exams in this category.'),
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
                     ),

@@ -1,3 +1,6 @@
+// ignore_for_file: deprecated_member_use, file_names
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -20,19 +23,48 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Lazily create and cache the stream on its first use.
-  late final Stream<List> _attemptsStream = _examService
-      .getUserExamAttemptsStream(_currentUser?.uid ?? '');
+  String _assignedAdminId = '';
+  bool _isLoadingUser = true;
+  Stream<List>? _attemptsStream;
 
   @override
   void initState() {
     super.initState();
+    _fetchStudentAdminAndInitStream();
 
     _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text.toLowerCase().trim();
-      });
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text.toLowerCase().trim();
+        });
+      }
     });
+  }
+
+  /// Looks up the student's linked adminId from their Firestore profile
+  Future<void> _fetchStudentAdminAndInitStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingUser = false);
+      return;
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() ?? {};
+        _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+      }
+    } catch (_) {}
+
+    _attemptsStream = _examService.getUserExamAttemptsStream(_currentUser.uid);
+
+    if (mounted) {
+      setState(() => _isLoadingUser = false);
+    }
   }
 
   @override
@@ -107,13 +139,20 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF1E1B4B),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     'Exam Attempts History',
                     style: TextStyle(
-                      color: textColor,
+                      color: isDarkMode
+                          ? const Color(0xFFFBBF24)
+                          : const Color(0xFF1E1B4B),
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
@@ -125,151 +164,172 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<List>(
-        // 3. ADDED: Pass the cached stream variable here instead of calling the function directly
-        stream: _attemptsStream,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40.0),
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  'Error loading attempts history: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            );
-          }
-
-          final rawAttempts = snapshot.data ?? [];
-
-          // Group submissions by exam title
-          final Map<String, List<dynamic>> groupedData = {};
-
-          for (var item in rawAttempts) {
-            final submission = item['submission'] as StudentSubmissionModel;
-            final key = submission.examTitle.isNotEmpty
-                ? submission.examTitle
-                : 'Standardized Assessment';
-
-            groupedData.putIfAbsent(key, () => []).add(item);
-          }
-
-          // Filter by search query
-          final filteredEntries = groupedData.entries.where((entry) {
-            final title = entry.key.toLowerCase();
-            return title.contains(_searchQuery);
-          }).toList();
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                Text(
-                  'Past Performance',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Review your scores and breakdown across all exam attempts.',
-                  style: TextStyle(color: subtitleColor, fontSize: 14),
-                ),
-                const SizedBox(height: 20),
-
-                // Search Bar Widget
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: "Search exam or subject...",
-                    hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                    prefixIcon: Icon(Icons.search, color: subtitleColor),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              color: subtitleColor,
-                              size: 18,
-                            ),
-                            onPressed: () => _searchController.clear(),
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: containerColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: BorderSide(color: borderColor),
+      body: _isLoadingUser || _attemptsStream == null
+          ? const Center(child: CircularProgressIndicator())
+          : StreamBuilder<List>(
+              stream: _attemptsStream,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40.0),
+                      child: CircularProgressIndicator(),
                     ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF7C3AED),
-                        width: 1.5,
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Text(
+                        'Error loading attempts history: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-                const SizedBox(height: 20),
+                  );
+                }
 
-                if (filteredEntries.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(
-                      child: Text(
-                        rawAttempts.isEmpty
-                            ? 'No exam attempts recorded yet.'
-                            : 'No exams found matching "$_searchQuery"',
+                final rawAttempts = snapshot.data ?? [];
+
+                // Filter by assigned adminId if available, then group by exam title
+                final Map<String, List<dynamic>> groupedData = {};
+
+                for (var item in rawAttempts) {
+                  final submission =
+                      item['submission'] as StudentSubmissionModel;
+                  final examAdminId = (item['adminId'] ?? '').toString().trim();
+
+                  // Cohort isolation: If user has an assigned instructor, only show their exams
+                  if (_assignedAdminId.isNotEmpty &&
+                      examAdminId.isNotEmpty &&
+                      examAdminId != _assignedAdminId) {
+                    continue;
+                  }
+
+                  final key = submission.examTitle.isNotEmpty
+                      ? submission.examTitle
+                      : 'Standardized Assessment';
+
+                  groupedData.putIfAbsent(key, () => []).add(item);
+                }
+
+                // Filter by search query
+                final filteredEntries = groupedData.entries.where((entry) {
+                  final title = entry.key.toLowerCase();
+                  return title.contains(_searchQuery);
+                }).toList();
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        'Past Performance',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Review your scores and breakdown across all exam attempts.',
                         style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
-                    ),
-                  )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredEntries.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 20),
-                    itemBuilder: (context, index) {
-                      final entry = filteredEntries[index];
-                      final examTitle = entry.key;
-                      final attemptsList = entry.value;
+                      const SizedBox(height: 20),
 
-                      return _buildExamGroupCard(
-                        examTitle: examTitle,
-                        containerColor: containerColor,
-                        textColor: textColor,
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                        attempts: attemptsList,
-                      );
-                    },
+                      // Search Bar Widget
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: "Search exam or subject...",
+                          hintStyle: TextStyle(
+                            color: subtitleColor,
+                            fontSize: 13,
+                          ),
+                          prefixIcon: Icon(Icons.search, color: subtitleColor),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: subtitleColor,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => _searchController.clear(),
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: containerColor,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16.0),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16.0),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16.0),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF7C3AED),
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      if (filteredEntries.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 40.0),
+                          child: Center(
+                            child: Text(
+                              rawAttempts.isEmpty
+                                  ? 'No exam attempts recorded yet.'
+                                  : 'No exams found matching "$_searchQuery"',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredEntries.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 20),
+                          itemBuilder: (context, index) {
+                            final entry = filteredEntries[index];
+                            final examTitle = entry.key;
+                            final attemptsList = entry.value;
+
+                            return _buildExamGroupCard(
+                              examTitle: examTitle,
+                              containerColor: containerColor,
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                              borderColor: borderColor,
+                              isDarkMode: isDarkMode,
+                              attempts: attemptsList,
+                            );
+                          },
+                        ),
+                      const SizedBox(height: 30),
+                    ],
                   ),
-                const SizedBox(height: 30),
-              ],
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 
@@ -349,7 +409,6 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
           const Divider(height: 1),
           const SizedBox(height: 12),
 
-          // List of individual attempts
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -360,7 +419,6 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
               final examId = item['examId'] as String;
               final submission = item['submission'] as StudentSubmissionModel;
 
-              // Compute attempt label (newest on top)
               final attemptNumber = 'Attempt ${totalAttempts - index}';
               final isPass = submission.isPassed;
               final scoreText =

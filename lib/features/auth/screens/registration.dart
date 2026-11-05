@@ -22,8 +22,12 @@ class _RegistrationState extends State<Registration> {
   final _formKey = GlobalKey<FormState>();
   bool _isRegistering = false;
 
+  // Role: 'student' or 'admin'
+  String _selectedRole = 'student';
+
   final TextEditingController _name = TextEditingController();
   final TextEditingController _email = TextEditingController();
+  final TextEditingController _adminCode = TextEditingController();
   final TextEditingController _password = TextEditingController();
   final TextEditingController _cPassword = TextEditingController();
 
@@ -31,6 +35,7 @@ class _RegistrationState extends State<Registration> {
   void dispose() {
     _name.dispose();
     _email.dispose();
+    _adminCode.dispose();
     _password.dispose();
     _cPassword.dispose();
     super.dispose();
@@ -159,27 +164,112 @@ class _RegistrationState extends State<Registration> {
     final String inputEmail = _email.text.trim().toLowerCase();
     final String inputName = _name.text.trim();
     final String inputPassword = _password.text.trim();
+    final String inputCode = _adminCode.text.trim();
 
     try {
-      final existingUserQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: inputEmail)
-          .limit(1)
-          .get();
+      String? validatedAdminId;
 
-      if (existingUserQuery.docs.isNotEmpty) {
-        _showError(
-          'This email is already registered in our database. Please login instead.',
-        );
-        setState(() => _isRegistering = false);
-        return;
+      // -------------------------------------------------------------
+      // 1. ADMIN REGISTRATION VERIFICATION: Requires Super Admin UID or Email
+      // -------------------------------------------------------------
+      if (_selectedRole == 'admin') {
+        if (inputCode.isEmpty) {
+          _showError('Super Admin Authorization Code is required.');
+          setState(() => _isRegistering = false);
+          return;
+        }
+
+        // Hardcoded Super Admin credentials shortcut
+        final bool isHardcodedSuperAdmin =
+            inputCode.toLowerCase() == 'admin@gmail.com' ||
+            inputCode == 'admin123';
+
+        if (!isHardcodedSuperAdmin) {
+          // Verify via Firestore document lookup by UID
+          final superAdminDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(inputCode)
+              .get();
+
+          if (superAdminDoc.exists &&
+              superAdminDoc.data()?['role'] == 'super_admin') {
+            // Valid Super Admin UID
+          } else {
+            // Fallback: Check if they passed Super Admin's email
+            final superAdminQuery = await FirebaseFirestore.instance
+                .collection('users')
+                .where('email', isEqualTo: inputCode.toLowerCase())
+                .limit(1)
+                .get();
+
+            if (superAdminQuery.docs.isEmpty ||
+                superAdminQuery.docs.first.data()['role'] != 'super_admin') {
+              _showError(
+                'Invalid Super Admin Code. Only authorized personnel can create Admin accounts.',
+              );
+              setState(() => _isRegistering = false);
+              return;
+            }
+          }
+        }
       }
 
+      // -------------------------------------------------------------
+      // 2. STUDENT REGISTRATION VERIFICATION: Requires Admin/SuperAdmin UID
+      // -------------------------------------------------------------
+      if (_selectedRole == 'student') {
+        if (inputCode.isEmpty) {
+          _showError('Instructor Code or Email is required for students.');
+          setState(() => _isRegistering = false);
+          return;
+        }
+
+        final adminDocById = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(inputCode)
+            .get();
+
+        if (adminDocById.exists &&
+            (adminDocById.data()?['role'] == 'admin' ||
+                adminDocById.data()?['role'] == 'super_admin')) {
+          validatedAdminId = adminDocById.id;
+        } else {
+          final adminByEmailQuery = await FirebaseFirestore.instance
+              .collection('users')
+              .where('email', isEqualTo: inputCode.toLowerCase())
+              .limit(1)
+              .get();
+
+          if (adminByEmailQuery.docs.isNotEmpty) {
+            final data = adminByEmailQuery.docs.first.data();
+            final role = (data['role'] ?? '').toString().toLowerCase();
+            if (role == 'admin' || role == 'super_admin') {
+              validatedAdminId = adminByEmailQuery.docs.first.id;
+            } else {
+              _showError('Invalid Admin Code / Email.');
+              setState(() => _isRegistering = false);
+              return;
+            }
+          } else {
+            _showError(
+              'Invalid Admin Code / Email. Please enter a valid Instructor UID or Email.',
+            );
+            setState(() => _isRegistering = false);
+            return;
+          }
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 3. Register user in Firebase Authentication & Firestore
+      // -------------------------------------------------------------
       final AuthService authService = AuthService();
       await authService.createUser(
         name: inputName,
         email: inputEmail,
         password: inputPassword,
+        role: _selectedRole,
+        adminId: validatedAdminId,
       );
 
       if (!mounted) return;
@@ -291,9 +381,108 @@ class _RegistrationState extends State<Registration> {
                             text:
                                 "Start your journey toward better exam results.",
                           ),
+
+                          // Role Selector Tab
                           Padding(
                             padding: const EdgeInsets.only(
-                              top: 24,
+                              top: 20,
+                              left: 24,
+                              right: 24,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedRole = 'student';
+                                          _adminCode.clear();
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _selectedRole == 'student'
+                                              ? const Color(0xFF7C3AED)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            "Student",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: _selectedRole == 'student'
+                                                  ? Colors.white
+                                                  : (isDark
+                                                        ? Colors.white70
+                                                        : const Color(
+                                                            0xFF64748B,
+                                                          )),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedRole = 'admin';
+                                          _adminCode.clear();
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _selectedRole == 'admin'
+                                              ? const Color(0xFF7C3AED)
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            "Admin / Instructor",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: _selectedRole == 'admin'
+                                                  ? Colors.white
+                                                  : (isDark
+                                                        ? Colors.white70
+                                                        : const Color(
+                                                            0xFF64748B,
+                                                          )),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: 20,
                               bottom: 24,
                               left: 24,
                               right: 24,
@@ -304,6 +493,7 @@ class _RegistrationState extends State<Registration> {
                               child: const Googlebutton(),
                             ),
                           ),
+
                           Padding(
                             padding: const EdgeInsets.only(
                               bottom: 24,
@@ -343,6 +533,7 @@ class _RegistrationState extends State<Registration> {
                               ],
                             ),
                           ),
+
                           Form(
                             key: _formKey,
                             child: SizedBox(
@@ -379,6 +570,43 @@ class _RegistrationState extends State<Registration> {
                                         },
                                       ),
                                     ),
+
+                                    // Dynamic Verification Field for Students & Admins
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 4.0,
+                                      ),
+                                      child: Filedtitle(
+                                        text: _selectedRole == 'admin'
+                                            ? "Super Admin Authorization Code"
+                                            : "Admin / Instructor Code or Email",
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 16,
+                                      ),
+                                      child: Inputfield(
+                                        controller: _adminCode,
+                                        hintText: _selectedRole == 'admin'
+                                            ? "Enter Super Admin UID or Email"
+                                            : "admin_uid or teacher@school.edu",
+                                        icon: _selectedRole == 'admin'
+                                            ? Icons.security_outlined
+                                            : Icons.school_outlined,
+                                        isPassword: false,
+                                        validator: (value) {
+                                          if (value == null ||
+                                              value.trim().isEmpty) {
+                                            return _selectedRole == 'admin'
+                                                ? "Super Admin authorization code is required"
+                                                : "Instructor code/email is required to link exams";
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                    ),
+
                                     const Padding(
                                       padding: EdgeInsets.only(bottom: 4.0),
                                       child: Filedtitle(text: "Email Address"),
@@ -389,7 +617,7 @@ class _RegistrationState extends State<Registration> {
                                       ),
                                       child: Inputfield(
                                         controller: _email,
-                                        hintText: "student@university.edu",
+                                        hintText: "user@example.com",
                                         icon: Icons.email,
                                         isPassword: false,
                                         validator: (value) {

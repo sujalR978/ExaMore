@@ -1,3 +1,6 @@
+// ignore_for_file: deprecated_member_use, file_names
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
@@ -22,6 +25,9 @@ class _ShowexamState extends State<Showexam> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  String _assignedAdminId = '';
+  bool _isLoadingUser = true;
+
   final List<String> _categories = [
     'All Subjects',
     'Science',
@@ -30,22 +36,63 @@ class _ShowexamState extends State<Showexam> {
     'Computer Science',
   ];
 
-  // Cached streams to prevent re-creation and avoid rebuild flickers
-  late final Stream<List<Map<String, dynamic>>> _savedExamsStream;
-  late Stream<List<ExamModel>> _publishedExamsStream;
+  late final Stream<List<dynamic>> _savedExamsStream;
+  Stream<List<ExamModel>>? _publishedExamsStream;
 
   @override
   void initState() {
     super.initState();
     final uid = _currentUser?.uid ?? '';
     _savedExamsStream = _examService.getSavedExamsStream(uid);
-    _publishedExamsStream = _examService.getPublishedExamsStream();
+
+    _fetchStudentAdminAndInitStream();
 
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text.toLowerCase().trim();
       });
     });
+  }
+
+  /// Looks up the student's linked adminId from their Firestore profile
+  Future<void> _fetchStudentAdminAndInitStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingUser = false);
+      return;
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() ?? {};
+        _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+      }
+    } catch (_) {}
+
+    _updatePublishedExamsStream();
+
+    if (mounted) {
+      setState(() {
+        _isLoadingUser = false;
+      });
+    }
+  }
+
+  /// Updates the stream scoped to the student's assigned instructor
+  void _updatePublishedExamsStream() {
+    final selectedCategory = _selectedCategoryIndex == 0
+        ? null
+        : _categories[_selectedCategoryIndex];
+
+    _publishedExamsStream = _examService.getPublishedExamsStream(
+      category: selectedCategory,
+      adminId: _assignedAdminId,
+      role: 'student',
+    );
   }
 
   @override
@@ -57,11 +104,7 @@ class _ShowexamState extends State<Showexam> {
   void _onCategorySelected(int index) {
     setState(() {
       _selectedCategoryIndex = index;
-      final selectedCategory = index == 0 ? null : _categories[index];
-      // Only re-query published exams stream when category chip actually changes
-      _publishedExamsStream = _examService.getPublishedExamsStream(
-        category: selectedCategory,
-      );
+      _updatePublishedExamsStream();
     });
   }
 
@@ -208,269 +251,294 @@ class _ShowexamState extends State<Showexam> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              'Explore Exams',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Find practice tests and assessments across all subjects.',
-              style: TextStyle(color: subtitleColor, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-
-            // Search Bar with Clear Icon
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search for 'Calculus' or 'Biology'...",
-                      hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                      prefixIcon: Icon(Icons.search, color: subtitleColor),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(
-                                Icons.clear,
-                                color: subtitleColor,
-                                size: 18,
-                              ),
-                              onPressed: () => _searchController.clear(),
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: containerColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16.0),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16.0),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16.0),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF7C3AED),
-                          width: 1.5,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Category Filter Chips
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final isSelected = _selectedCategoryIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(_categories[index]),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        _onCategorySelected(index);
-                      },
-                      selectedColor: const Color(0xFF1E1B4B),
-                      backgroundColor: containerColor,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : (isDarkMode
-                                  ? Colors.white70
-                                  : const Color(0xFF1E1B4B)),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: BorderSide(
-                          color: isSelected ? Colors.transparent : borderColor,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Section Header: Recommended for You
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Recommended for You',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: _handleViewAll,
-                  child: Text(
-                    'View All',
+      body: _isLoadingUser || _publishedExamsStream == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+                  Text(
+                    'Explore Exams',
                     style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFFB45309),
+                      color: textColor,
+                      fontSize: 32,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Find practice tests and assessments across all subjects.',
+                    style: TextStyle(color: subtitleColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 20),
 
-            // Synchronized Streams: Saved IDs + Published Exams
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _savedExamsStream,
-              builder: (context, savedSnapshot) {
-                final savedIds = (savedSnapshot.data ?? [])
-                    .map((item) => (item['exam'] as ExamModel).id)
-                    .toSet();
-
-                return StreamBuilder<List<ExamModel>>(
-                  stream: _publishedExamsStream,
-                  builder: (context, snapshot) {
-                    // Only show progress indicator on initial load when data has not arrived
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 40.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20.0),
-                          child: Text(
-                            'Error loading exams: ${snapshot.error}',
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      );
-                    }
-
-                    final allExams = snapshot.data ?? [];
-
-                    final filteredExams = allExams.where((exam) {
-                      return exam.title.toLowerCase().contains(_searchQuery) ||
-                          exam.category.toLowerCase().contains(_searchQuery) ||
-                          exam.examCode.toLowerCase().contains(_searchQuery);
-                    }).toList();
-
-                    if (filteredExams.isEmpty) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(28),
-                        decoration: BoxDecoration(
-                          color: containerColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _searchQuery.isNotEmpty
-                                ? 'No exams found matching "$_searchQuery"'
-                                : 'No published assessments available under this category.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
+                  // Search Bar with Clear Icon
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: "Search for 'Calculus' or 'Biology'...",
+                            hintStyle: TextStyle(
                               color: subtitleColor,
-                              fontSize: 14,
+                              fontSize: 13,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: subtitleColor,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      color: subtitleColor,
+                                      size: 18,
+                                    ),
+                                    onPressed: () => _searchController.clear(),
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: containerColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16.0),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16.0),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16.0),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF7C3AED),
+                                width: 1.5,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 14,
                             ),
                           ),
                         ),
-                      );
-                    }
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
 
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: filteredExams.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  // Category Filter Chips
+                  SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length,
                       itemBuilder: (context, index) {
-                        final exam = filteredExams[index];
-                        final isBookmarked = savedIds.contains(exam.id);
-
-                        final isMath =
-                            exam.category.toLowerCase().contains('math') ||
-                            exam.category.toLowerCase().contains('calc');
-
-                        final badgeBg = isMath
-                            ? (isDarkMode
-                                  ? const Color(0xFF312E81)
-                                  : const Color(0xFFDBEAFE))
-                            : (isDarkMode
-                                  ? const Color(0xFF2E2A72)
-                                  : const Color(0xFFDBEAFE));
-
-                        final badgeText = isMath
-                            ? (isDarkMode
-                                  ? const Color(0xFF93C5FD)
-                                  : const Color(0xFF1D4ED8))
-                            : (isDarkMode
-                                  ? const Color(0xFF93C5FD)
-                                  : const Color(0xFF1D4ED8));
-
-                        return ExamCardWidget(
-                          badgeText: exam.category.toUpperCase(),
-                          badgeColor: badgeBg,
-                          badgeTextColor: badgeText,
-                          title: exam.title,
-                          description:
-                              'Comprehensive test with ${exam.questions.length} questions. Total marks: ${exam.totalMarks.toInt()} pts. Passing requirement: ${exam.passingScorePercentage.toInt()}%.',
-                          time: '${exam.durationMinutes} mins',
-                          mcqs: '${exam.questions.length} MCQs',
-                          icon: _getCategoryIcon(exam.category),
-                          isBookmarked: isBookmarked,
-                          buttonText: index % 2 == 0
-                              ? 'Start Exam'
-                              : 'View Details',
-                          buttonBgColor: index % 2 == 0
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF5B21B6),
-                          buttonTextColor: index % 2 == 0
-                              ? const Color(0xFF1E1B4B)
-                              : Colors.white,
-                          onButtonPressed: () => _handleStartExam(exam),
-                          onBookmarkToggle: () =>
-                              _handleBookmarkToggle(exam, userId),
+                        final isSelected = _selectedCategoryIndex == index;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: ChoiceChip(
+                            label: Text(_categories[index]),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              _onCategorySelected(index);
+                            },
+                            selectedColor: const Color(0xFF1E1B4B),
+                            backgroundColor: containerColor,
+                            labelStyle: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : (isDarkMode
+                                        ? Colors.white70
+                                        : const Color(0xFF1E1B4B)),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(100),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? Colors.transparent
+                                    : borderColor,
+                              ),
+                            ),
+                          ),
                         );
                       },
-                    );
-                  },
-                );
-              },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Section Header: Recommended for You
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Recommended for You',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _handleViewAll,
+                        child: Text(
+                          'View All',
+                          style: TextStyle(
+                            color: isDarkMode
+                                ? const Color(0xFFFBBF24)
+                                : const Color(0xFFB45309),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Synchronized Streams: Saved IDs + Scoped Published Exams
+                  StreamBuilder<List>(
+                    stream: _savedExamsStream,
+                    builder: (context, savedSnapshot) {
+                      final savedIds = (savedSnapshot.data ?? [])
+                          .map((item) => (item['exam'] as ExamModel).id)
+                          .toSet();
+
+                      return StreamBuilder<List<ExamModel>>(
+                        stream: _publishedExamsStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 40.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20.0,
+                                ),
+                                child: Text(
+                                  'Error loading exams: ${snapshot.error}',
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final allExams = snapshot.data ?? [];
+
+                          final filteredExams = allExams.where((exam) {
+                            return exam.title.toLowerCase().contains(
+                                  _searchQuery,
+                                ) ||
+                                exam.category.toLowerCase().contains(
+                                  _searchQuery,
+                                ) ||
+                                exam.examCode.toLowerCase().contains(
+                                  _searchQuery,
+                                );
+                          }).toList();
+
+                          if (filteredExams.isEmpty) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(28),
+                              decoration: BoxDecoration(
+                                color: containerColor,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _searchQuery.isNotEmpty
+                                      ? 'No exams found matching "$_searchQuery"'
+                                      : (_assignedAdminId.isEmpty
+                                            ? 'You are not linked to any instructor yet.'
+                                            : 'No published assessments available from your instructor under this category.'),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filteredExams.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, index) {
+                              final exam = filteredExams[index];
+                              final isBookmarked = savedIds.contains(exam.id);
+
+                              final isMath =
+                                  exam.category.toLowerCase().contains(
+                                    'math',
+                                  ) ||
+                                  exam.category.toLowerCase().contains('calc');
+
+                              final badgeBg = isMath
+                                  ? (isDarkMode
+                                        ? const Color(0xFF312E81)
+                                        : const Color(0xFFDBEAFE))
+                                  : (isDarkMode
+                                        ? const Color(0xFF2E2A72)
+                                        : const Color(0xFFDBEAFE));
+
+                              final badgeText = isMath
+                                  ? (isDarkMode
+                                        ? const Color(0xFF93C5FD)
+                                        : const Color(0xFF1D4ED8))
+                                  : (isDarkMode
+                                        ? const Color(0xFF93C5FD)
+                                        : const Color(0xFF1D4ED8));
+
+                              return ExamCardWidget(
+                                badgeText: exam.category.toUpperCase(),
+                                badgeColor: badgeBg,
+                                badgeTextColor: badgeText,
+                                title: exam.title,
+                                description:
+                                    'Comprehensive test with ${exam.questions.length} questions. Total marks: ${exam.totalMarks.toInt()} pts. Passing requirement: ${exam.passingScorePercentage.toInt()}%.',
+                                time: '${exam.durationMinutes} mins',
+                                mcqs: '${exam.questions.length} MCQs',
+                                icon: _getCategoryIcon(exam.category),
+                                isBookmarked: isBookmarked,
+                                buttonText: index % 2 == 0
+                                    ? 'Start Exam'
+                                    : 'View Details',
+                                buttonBgColor: index % 2 == 0
+                                    ? const Color(0xFFFBBF24)
+                                    : const Color(0xFF5B21B6),
+                                buttonTextColor: index % 2 == 0
+                                    ? const Color(0xFF1E1B4B)
+                                    : Colors.white,
+                                onButtonPressed: () => _handleStartExam(exam),
+                                onBookmarkToggle: () =>
+                                    _handleBookmarkToggle(exam, userId),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 30),
+                ],
+              ),
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
     );
   }
 }

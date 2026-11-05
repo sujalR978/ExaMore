@@ -1,3 +1,8 @@
+// ignore_for_file: deprecated_member_use, file_names
+
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
@@ -18,20 +23,53 @@ class _HomeScreenState extends State<Userhomescreen> {
   final ExamService _examService = ExamService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  // Cached streams to prevent re-instantiation on widget rebuilds
-  late final Stream<List<ExamModel>> _publishedExamsStream;
-  late final Stream<List<Map<String, dynamic>>> _savedExamsStream;
-  late final Stream<Map<String, int>> _performanceMetricsStream;
+  Stream<List<ExamModel>>? _publishedExamsStream;
+  late final Stream<List> _savedExamsStream;
+  late final Stream<Map<String, dynamic>> _performanceMetricsStream;
+
+  String _assignedAdminId = '';
+  bool _isLoadingUser = true;
 
   @override
   void initState() {
     super.initState();
     final uid = _currentUser?.uid ?? '';
-    _publishedExamsStream = _examService.getPublishedExamsStream();
     _savedExamsStream = _examService.getSavedExamsStream(uid);
     _performanceMetricsStream = _examService.getUserPerformanceMetricsStream(
       uid,
     );
+
+    _fetchStudentAdminAndInitStream();
+  }
+
+  /// Looks up the student's assigned instructor/admin ID
+  Future<void> _fetchStudentAdminAndInitStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingUser = false);
+      return;
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser.uid)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() ?? {};
+        _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+      }
+    } catch (_) {}
+
+    // Strictly scope published exams to the student's assigned instructor
+    _publishedExamsStream = _examService.getPublishedExamsStream(
+      adminId: _assignedAdminId,
+      role: 'student',
+    );
+
+    if (mounted) {
+      setState(() => _isLoadingUser = false);
+    }
   }
 
   void _handleViewAll(BuildContext context) {
@@ -208,7 +246,7 @@ class _HomeScreenState extends State<Userhomescreen> {
             const SizedBox(height: 20),
 
             // Dynamic Overall Progress & Study Streak
-            StreamBuilder<Map<String, int>>(
+            StreamBuilder<Map<String, dynamic>>(
               stream: _performanceMetricsStream,
               builder: (context, metricSnapshot) {
                 final metrics =
@@ -389,121 +427,133 @@ class _HomeScreenState extends State<Userhomescreen> {
             ),
             const SizedBox(height: 12),
 
-            // Combined Stream: Saved IDs + Published Exams
-            StreamBuilder<List<Map<String, dynamic>>>(
-              stream: _savedExamsStream,
-              builder: (context, savedSnapshot) {
-                final savedIds = (savedSnapshot.data ?? [])
-                    .map((item) => (item['exam'] as ExamModel).id)
-                    .toSet();
+            // Combined Stream: Saved IDs + Scoped Published Exams
+            _isLoadingUser || _publishedExamsStream == null
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : StreamBuilder<List>(
+                    stream: _savedExamsStream,
+                    builder: (context, savedSnapshot) {
+                      final savedIds = (savedSnapshot.data ?? [])
+                          .map((item) => (item['exam'] as ExamModel).id)
+                          .toSet();
 
-                return StreamBuilder<List<ExamModel>>(
-                  stream: _publishedExamsStream,
-                  builder: (context, snapshot) {
-                    // Only show spinner on very first load before data arrives
-                    if (snapshot.connectionState == ConnectionState.waiting &&
-                        !snapshot.hasData) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24.0),
-                          child: CircularProgressIndicator(),
-                        ),
+                      return StreamBuilder<List<ExamModel>>(
+                        stream: _publishedExamsStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24.0),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20.0,
+                                ),
+                                child: Text(
+                                  'Unable to load exams: ${snapshot.error}',
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final exams = snapshot.data ?? [];
+
+                          if (exams.isEmpty) {
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                color: containerColor,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _assignedAdminId.isEmpty
+                                      ? 'You are not linked to any instructor yet.'
+                                      : 'No published assessments available from your instructor.\nPlease check back later!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final displayExams = exams.take(3).toList();
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: displayExams.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 16),
+                            itemBuilder: (context, index) {
+                              final exam = displayExams[index];
+                              final isBookmarked = savedIds.contains(exam.id);
+
+                              final isScience =
+                                  exam.category.toLowerCase().contains('sci') ||
+                                  exam.category.toLowerCase().contains('bio') ||
+                                  exam.category.toLowerCase().contains('chem');
+
+                              final badgeBg = isScience
+                                  ? (isDarkMode
+                                        ? const Color(0xFF2E2A72)
+                                        : const Color(0xFFDBEAFE))
+                                  : (isDarkMode
+                                        ? const Color(0xFF451A03)
+                                        : const Color(0xFFFEF3C7));
+
+                              final badgeText = isScience
+                                  ? (isDarkMode
+                                        ? const Color(0xFF93C5FD)
+                                        : const Color(0xFF1D4ED8))
+                                  : (isDarkMode
+                                        ? const Color(0xFFFCD34D)
+                                        : const Color(0xFFB45309));
+
+                              return ExamCard(
+                                badgeText: exam.category.toUpperCase(),
+                                badgeColor: badgeBg,
+                                badgeTextColor: badgeText,
+                                title: exam.title,
+                                time: '${exam.durationMinutes} mins',
+                                mcqs: '${exam.questions.length} MCQs',
+                                icon: _getCategoryIcon(exam.category),
+                                isDarkMode: isDarkMode,
+                                containerColor: containerColor,
+                                textColor: textColor,
+                                subtitleColor: subtitleColor,
+                                borderColor: borderColor,
+                                isBookmarked: isBookmarked,
+                                onBookmarkToggle: () =>
+                                    _handleBookmarkToggle(exam, userId),
+                                onViewDetails: () =>
+                                    _handleViewDetails(context, exam),
+                              );
+                            },
+                          );
+                        },
                       );
-                    }
-
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20.0),
-                          child: Text(
-                            'Unable to load exams: ${snapshot.error}',
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      );
-                    }
-
-                    final exams = snapshot.data ?? [];
-
-                    if (exams.isEmpty) {
-                      return Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: containerColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'No published exams available yet.\nPlease check back later!',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-
-                    final displayExams = exams.take(3).toList();
-
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: displayExams.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        final exam = displayExams[index];
-                        final isBookmarked = savedIds.contains(exam.id);
-
-                        final isScience =
-                            exam.category.toLowerCase().contains('sci') ||
-                            exam.category.toLowerCase().contains('bio') ||
-                            exam.category.toLowerCase().contains('chem');
-
-                        final badgeBg = isScience
-                            ? (isDarkMode
-                                  ? const Color(0xFF2E2A72)
-                                  : const Color(0xFFDBEAFE))
-                            : (isDarkMode
-                                  ? const Color(0xFF451A03)
-                                  : const Color(0xFFFEF3C7));
-
-                        final badgeText = isScience
-                            ? (isDarkMode
-                                  ? const Color(0xFF93C5FD)
-                                  : const Color(0xFF1D4ED8))
-                            : (isDarkMode
-                                  ? const Color(0xFFFCD34D)
-                                  : const Color(0xFFB45309));
-
-                        return ExamCard(
-                          badgeText: exam.category.toUpperCase(),
-                          badgeColor: badgeBg,
-                          badgeTextColor: badgeText,
-                          title: exam.title,
-                          time: '${exam.durationMinutes} mins',
-                          mcqs: '${exam.questions.length} MCQs',
-                          icon: _getCategoryIcon(exam.category),
-                          isDarkMode: isDarkMode,
-                          containerColor: containerColor,
-                          textColor: textColor,
-                          subtitleColor: subtitleColor,
-                          borderColor: borderColor,
-                          isBookmarked: isBookmarked,
-                          onBookmarkToggle: () =>
-                              _handleBookmarkToggle(exam, userId),
-                          onViewDetails: () =>
-                              _handleViewDetails(context, exam),
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+                    },
+                  ),
             const SizedBox(height: 30),
           ],
         ),

@@ -1,5 +1,8 @@
+// ignore_for_file: deprecated_member_use, file_names
+
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/screen/adminMenuDrawer.dart';
 
@@ -13,22 +16,74 @@ class StudentDirectoryScreen extends StatefulWidget {
 class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
+  String _userRole = 'admin';
+  bool _isLoadingRole = true;
+
+  // Storing the Stream reference prevents rebuilding the entire stream on setState
+  Stream<QuerySnapshot>? _studentStream;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
+    _initRoleAndStream();
+  }
+
+  Future<void> _initRoleAndStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingRole = false);
+      return;
+    }
+
+    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+      _userRole = 'super_admin';
+    } else {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser.uid)
+            .get();
+
+        if (doc.exists) {
+          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+        }
+      } catch (_) {}
+    }
+
+    final bool isSuperAdmin =
+        _userRole == 'super_admin' ||
+        _currentUser.email?.toLowerCase() == 'admin@gmail.com';
+    final uid = _currentUser.uid;
+
+    // Initialize the stream ONCE
+    if (isSuperAdmin) {
+      _studentStream = FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .snapshots();
+    } else {
+      _studentStream = FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'student')
+          .where('adminId', isEqualTo: uid)
+          .snapshots();
+    }
+
+    if (mounted) {
       setState(() {
-        _searchQuery = _searchController.text.trim().toLowerCase();
+        _isLoadingRole = false;
       });
-    });
+    }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -214,7 +269,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     );
   }
 
-  /// Normalizes major strings by removing filler words like "major", "department", etc.
   String _normalizeMajor(String raw) {
     return raw
         .toLowerCase()
@@ -224,17 +278,14 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         .trim();
   }
 
-  /// Accurate check that prevents "Computer Science" from matching general "Science"
   bool _checkCategoryMatch(String majorInDb, String selectedCategory) {
     if (selectedCategory.toLowerCase() == 'all') return true;
 
     final normDb = _normalizeMajor(majorInDb);
     final normCat = _normalizeMajor(selectedCategory);
 
-    // Exact normalized match (e.g. "science" == "science")
     if (normDb == normCat) return true;
 
-    // Explicit differentiation: do not let "science" grab "computer science"
     if (normCat == 'science') {
       return normDb == 'science' ||
           normDb == 'pure science' ||
@@ -261,6 +312,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         ? const Color(0xFF94A3B8)
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+
+    if (_isLoadingRole || _studentStream == null) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final isSuperAdmin =
+        _userRole == 'super_admin' ||
+        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -299,7 +361,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   ),
                   title: Text(
-                    'Student Directory',
+                    isSuperAdmin ? 'All System Students' : 'My Students',
                     style: TextStyle(
                       color: isDarkMode
                           ? const Color(0xFFFBBF24)
@@ -316,7 +378,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
+        stream: _studentStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -336,9 +398,14 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
           final allDocs = snapshot.data?.docs ?? [];
 
-          // Dynamically read exact majors that exist in the database
+          final studentDocs = allDocs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            final role = (data['role'] ?? 'student').toString().toLowerCase();
+            return role == 'student';
+          }).toList();
+
           final Set<String> dynamicCategories = {'All'};
-          for (final doc in allDocs) {
+          for (final doc in studentDocs) {
             final data = doc.data() as Map<String, dynamic>? ?? {};
             final major =
                 data['major']?.toString() ??
@@ -365,170 +432,182 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
           final selectedCatName = categoriesList[_selectedCategoryIndex];
 
-          // Filter documents
-          final filteredDocs = allDocs.where((doc) {
+          // Filter documents using current query without interrupting UI stream
+          final filteredDocs = studentDocs.where((doc) {
             final data = doc.data() as Map<String, dynamic>? ?? {};
             final name = (data['name'] ?? '').toString().toLowerCase();
             final email = (data['email'] ?? '').toString().toLowerCase();
+            final phone = (data['phone'] ?? '').toString().toLowerCase();
             final major = (data['major'] ?? data['department'] ?? '')
                 .toString();
             final docId = doc.id.toLowerCase();
 
-            final matchesSearch =
+            final bool matchesSearch =
                 _searchQuery.isEmpty ||
                 name.contains(_searchQuery) ||
                 email.contains(_searchQuery) ||
+                phone.contains(_searchQuery) ||
                 major.toLowerCase().contains(_searchQuery) ||
                 docId.contains(_searchQuery);
 
-            final matchesCategory = _checkCategoryMatch(major, selectedCatName);
+            final bool matchesCategory = (_searchQuery.isNotEmpty)
+                ? true
+                : _checkCategoryMatch(major, selectedCatName);
 
             return matchesSearch && matchesCategory;
           }).toList();
 
-          return SingleChildScrollView(
+          return ListView(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            children: [
+              const SizedBox(height: 8),
 
-                // Search Bar
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: "Search by name, email, major...",
-                    hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                    prefixIcon: Icon(Icons.search, color: subtitleColor),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              color: subtitleColor,
-                              size: 18,
-                            ),
-                            onPressed: () => _searchController.clear(),
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: containerColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: BorderSide(color: borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF7C3AED),
-                        width: 1.5,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Category Chips
-                SizedBox(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: categoriesList.length,
-                    itemBuilder: (context, index) {
-                      final isSelected = _selectedCategoryIndex == index;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: ChoiceChip(
-                          label: Text(categoriesList[index]),
-                          selected: isSelected,
-                          onSelected: (selected) {
+              // Search Bar
+              TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val.trim().toLowerCase();
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: "Search by student name, email, major...",
+                  hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
+                  prefixIcon: Icon(Icons.search, color: subtitleColor),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: subtitleColor,
+                            size: 18,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
                             setState(() {
-                              _selectedCategoryIndex = index;
+                              _searchQuery = '';
                             });
                           },
-                          selectedColor: const Color(0xFFFBBF24),
-                          backgroundColor: containerColor,
-                          labelStyle: TextStyle(
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: containerColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.0),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF7C3AED),
+                      width: 1.5,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Category Chips
+              SizedBox(
+                height: 40,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: categoriesList.length,
+                  itemBuilder: (context, index) {
+                    final isSelected = _selectedCategoryIndex == index;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ChoiceChip(
+                        label: Text(categoriesList[index]),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCategoryIndex = index;
+                          });
+                        },
+                        selectedColor: const Color(0xFFFBBF24),
+                        backgroundColor: containerColor,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? const Color(0xFF1E1B4B)
+                              : (isDarkMode
+                                    ? Colors.white70
+                                    : const Color(0xFF1E1B4B)),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(100),
+                          side: BorderSide(
                             color: isSelected
-                                ? const Color(0xFF1E1B4B)
-                                : (isDarkMode
-                                      ? Colors.white70
-                                      : const Color(0xFF1E1B4B)),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100),
-                            side: BorderSide(
-                              color: isSelected
-                                  ? Colors.transparent
-                                  : borderColor,
-                            ),
+                                ? Colors.transparent
+                                : borderColor,
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Student Cards List
-                if (filteredDocs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(
-                      child: Text(
-                        _searchQuery.isNotEmpty
-                            ? 'No students matching "$_searchQuery"'
-                            : 'No students found in category "$selectedCatName"',
-                        style: TextStyle(color: subtitleColor, fontSize: 14),
                       ),
-                    ),
-                  )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredDocs.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final doc = filteredDocs[index];
-                      final data = doc.data() as Map<String, dynamic>? ?? {};
-                      final String uid = doc.id;
-                      final String name =
-                          data['name']?.toString() ?? 'Unnamed Student';
-                      final String major =
-                          data['major']?.toString() ??
-                          data['department']?.toString() ??
-                          'General';
-                      final String academicLevel =
-                          data['academicLevel']?.toString() ?? 'Year 3';
-                      final String photoUrl =
-                          data['photoUrl']?.toString() ?? '';
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
 
-                      return _buildStudentCard(
-                        uid: uid,
-                        name: name,
-                        department: '$major • $academicLevel',
-                        photoUrl: photoUrl,
-                        containerColor: containerColor,
-                        textColor: textColor,
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                        onTap: () => _showStudentInfo(data),
-                        onDelete: () => _confirmDeleteUser(uid, name),
-                      );
-                    },
+              // Student Cards List
+              if (filteredDocs.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40.0),
+                  child: Center(
+                    child: Text(
+                      _searchQuery.isNotEmpty
+                          ? 'No students matching "$_searchQuery"'
+                          : 'No students found in category "$selectedCatName"',
+                      style: TextStyle(color: subtitleColor, fontSize: 14),
+                    ),
                   ),
-                const SizedBox(height: 30),
-              ],
-            ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredDocs.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final doc = filteredDocs[index];
+                    final data = doc.data() as Map<String, dynamic>? ?? {};
+                    final String uid = doc.id;
+                    final String name =
+                        data['name']?.toString() ?? 'Unnamed Student';
+                    final String major =
+                        data['major']?.toString() ??
+                        data['department']?.toString() ??
+                        'General';
+                    final String academicLevel =
+                        data['academicLevel']?.toString() ?? 'Year 3';
+                    final String photoUrl = data['photoUrl']?.toString() ?? '';
+
+                    return _buildStudentCard(
+                      uid: uid,
+                      name: name,
+                      department: '$major • $academicLevel',
+                      photoUrl: photoUrl,
+                      containerColor: containerColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      borderColor: borderColor,
+                      isDarkMode: isDarkMode,
+                      onTap: () => _showStudentInfo(data),
+                      onDelete: () => _confirmDeleteUser(uid, name),
+                    );
+                  },
+                ),
+              const SizedBox(height: 30),
+            ],
           );
         },
       ),
