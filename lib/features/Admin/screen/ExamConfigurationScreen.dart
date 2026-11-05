@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, file_names
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
 import 'package:prep_mate/features/Admin/screen/AddMultipleChoiceQuestionScreen.dart';
@@ -42,7 +43,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   @override
   void initState() {
     super.initState();
-    // Pre-populate if editing an existing exam
     _titleController = TextEditingController(text: widget.exam?.title ?? '');
     _durationController = TextEditingController(
       text: widget.exam != null
@@ -74,6 +74,11 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw Exception("You must be logged in to create or edit an exam.");
+      }
+
       final title = _titleController.text.trim();
       final category = _selectedCategory ?? 'General';
       final duration = int.tryParse(_durationController.text.trim()) ?? 120;
@@ -81,12 +86,18 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       final negativeMarking =
           double.tryParse(_negativeMarkingController.text.trim()) ?? 0.0;
 
+      // Ensure a valid adminId is assigned
+      final String assignedAdminId = (widget.exam?.adminId.isNotEmpty ?? false)
+          ? widget.exam!.adminId
+          : currentUser.uid;
+
       ExamModel currentExam;
 
       if (_isEditing) {
         currentExam = widget.exam!.copyWith(
           title: title,
           category: category,
+          adminId: assignedAdminId,
           durationMinutes: duration,
           totalMarks: totalMarks,
           negativeMarking: negativeMarking,
@@ -99,12 +110,18 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           examCode: '',
           title: title,
           category: category,
+          adminId: assignedAdminId, // <-- Assigned user UID
           durationMinutes: duration,
           totalMarks: totalMarks,
           negativeMarking: negativeMarking,
           status: 'Draft',
         );
-        final newDocId = await _examService.createExamDraft(currentExam);
+
+        // Pass the adminId to the service creation method
+        final newDocId = await _examService.createExamDraft(
+          currentExam,
+          adminId: assignedAdminId,
+        );
         currentExam = currentExam.copyWith(id: newDocId);
       }
 
@@ -211,7 +228,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Stepper Header Indicator
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 20.0,
@@ -219,7 +235,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
               ),
               child: Row(
                 children: [
-                  // Step 1 (Active)
                   _buildStepItem('1', 'Exam Details', true, true, isDarkMode),
                   Expanded(
                     child: Container(
@@ -229,7 +244,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                           : const Color(0xFF0D9488),
                     ),
                   ),
-                  // Step 2 (Inactive)
                   _buildStepItem(
                     '2',
                     'Add Questions',
@@ -243,7 +257,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                       color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
                     ),
                   ),
-                  // Step 3 (Inactive)
                   _buildStepItem(
                     '3',
                     'Review & Publish',
@@ -255,8 +268,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Main Configuration Card
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -288,7 +299,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     Divider(color: borderColor, height: 1),
                     const SizedBox(height: 20),
 
-                    // Exam Title Field
                     _buildFieldLabel('Exam Title *', subtitleColor),
                     const SizedBox(height: 6),
                     TextFormField(
@@ -306,7 +316,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Category Dropdown
                     _buildFieldLabel('Category', subtitleColor),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
@@ -336,7 +345,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Duration Field
                     _buildFieldLabel('Duration (Minutes) *', subtitleColor),
                     const SizedBox(height: 6),
                     TextFormField(
@@ -366,7 +374,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Total Marks Field
                     _buildFieldLabel('Total Marks', subtitleColor),
                     const SizedBox(height: 6),
                     TextFormField(
@@ -390,7 +397,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Negative Marking Field
                     _buildFieldLabel(
                       'Negative Marking (Per Question)',
                       subtitleColor,
@@ -412,7 +418,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Pro Tip Box
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -462,7 +467,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     Divider(color: borderColor, height: 1),
                     const SizedBox(height: 20),
 
-                    // Bottom Action Buttons
                     Row(
                       children: [
                         Expanded(
