@@ -1,6 +1,7 @@
-
 // ignore_for_file: file_names
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prep_mate/features/Admin/model/exam_model.dart';
@@ -23,14 +24,23 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
   final ExamService _examService = ExamService();
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
   String _searchQuery = '';
   ExamModel? _selectedExam;
+
+  String _userRole = 'admin';
+  String _adminUid = '';
+  bool _isLoadingRole = true;
+
+  Stream<List<ExamModel>>? _examsStream;
 
   @override
   void initState() {
     super.initState();
     _selectedExam = widget.exam;
+    _adminUid = _currentUser?.uid ?? '';
+    _initRoleAndStream();
 
     _searchController.addListener(() {
       if (mounted) {
@@ -39,6 +49,40 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
         });
       }
     });
+  }
+
+  Future<void> _initRoleAndStream() async {
+    if (_currentUser == null) {
+      if (mounted) setState(() => _isLoadingRole = false);
+      return;
+    }
+
+    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+      _userRole = 'super_admin';
+    } else {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser.uid)
+            .get();
+
+        if (doc.exists) {
+          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+        }
+      } catch (_) {}
+    }
+
+    // Role-based scoping: Super admin sees all, regular admin only sees their own
+    _examsStream = _examService.getExamsStream(
+      adminId: _adminUid,
+      role: _userRole,
+    );
+
+    if (mounted) {
+      setState(() {
+        _isLoadingRole = false;
+      });
+    }
   }
 
   @override
@@ -68,9 +112,15 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    // Listen to all exams in Firestore so we can resolve any missing ID automatically
+    if (_isLoadingRole || _examsStream == null) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return StreamBuilder<List<ExamModel>>(
-      stream: _examService.getExamsStream(),
+      stream: _examsStream,
       builder: (context, examsSnapshot) {
         final availableExams = examsSnapshot.data ?? [];
 
@@ -99,6 +149,10 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           final match = availableExams.where((e) => e.id == activeExam!.id);
           if (match.isNotEmpty) {
             activeExam = match.first;
+          } else if (availableExams.isNotEmpty) {
+            activeExam = availableExams.first;
+          } else {
+            activeExam = null;
           }
         }
 
@@ -145,7 +199,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                             _scaffoldKey.currentState?.openDrawer(),
                       ),
                       title: Text(
-                        'Examora Analytics',
+                        _userRole == 'super_admin'
+                            ? 'Examora Global Analytics'
+                            : 'Examora Analytics',
                         style: TextStyle(
                           color: isDarkMode
                               ? const Color(0xFFFBBF24)
@@ -179,7 +235,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No Published Exams Found',
+                          'No Exams Found',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -188,7 +244,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Create and publish an exam to view student analytics.',
+                          _userRole == 'super_admin'
+                              ? 'No exams exist across the platform.'
+                              : 'You have not created any exams yet.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 13, color: subtitleColor),
                         ),
@@ -275,7 +333,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dropdown switcher if multiple exams exist
+              // Dropdown switcher only shows exams the logged in admin has access to
               if (availableExams.length > 1) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -721,7 +779,6 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  // Student Avatar & Name
                                   Expanded(
                                     flex: 5,
                                     child: Row(
@@ -773,7 +830,6 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                       ],
                                     ),
                                   ),
-                                  // Student ID
                                   Expanded(
                                     flex: 3,
                                     child: Text(
@@ -785,7 +841,6 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                       ),
                                     ),
                                   ),
-                                  // Score
                                   Expanded(
                                     flex: 2,
                                     child: Align(
