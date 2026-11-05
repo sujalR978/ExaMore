@@ -24,6 +24,7 @@ class QuestionModel {
   final String type;
   final String category;
   final String difficulty;
+  final String adminId; // <-- Creator/Admin UID for cohort isolation
   final int views;
   final int estimatedTimeMinutes;
   final DateTime createdAt;
@@ -37,6 +38,7 @@ class QuestionModel {
     this.type = 'Multiple Choice',
     this.category = 'General',
     this.difficulty = 'Medium',
+    this.adminId = '',
     this.views = 0,
     this.estimatedTimeMinutes = 2,
     DateTime? createdAt,
@@ -52,6 +54,7 @@ class QuestionModel {
       'type': type,
       'category': category,
       'difficulty': difficulty,
+      'adminId': adminId,
       'views': views,
       'estimatedTimeMinutes': estimatedTimeMinutes,
       'createdAt': Timestamp.fromDate(createdAt),
@@ -70,6 +73,7 @@ class QuestionModel {
       type: map['type'] ?? 'Multiple Choice',
       category: map['category'] ?? 'General',
       difficulty: map['difficulty'] ?? 'Medium',
+      adminId: map['adminId'] ?? '',
       views: (map['views'] as num?)?.toInt() ?? 0,
       estimatedTimeMinutes: (map['estimatedTimeMinutes'] as num?)?.toInt() ?? 2,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -82,6 +86,7 @@ class ExamModel {
   final String examCode; //'EXM-2024-089'
   final String title;
   final String category;
+  final String adminId; // Creator/Admin UID for 3-tier role filtering
   final int durationMinutes;
   final double totalMarks;
   final double negativeMarking;
@@ -101,6 +106,7 @@ class ExamModel {
     required this.examCode,
     required this.title,
     required this.category,
+    this.adminId = '',
     required this.durationMinutes,
     required this.totalMarks,
     this.negativeMarking = 0.0,
@@ -119,9 +125,11 @@ class ExamModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'examCode': examCode,
       'title': title,
       'category': category,
+      'adminId': adminId,
       'durationMinutes': durationMinutes,
       'totalMarks': totalMarks,
       'negativeMarking': negativeMarking,
@@ -146,6 +154,7 @@ class ExamModel {
       examCode: data['examCode'] ?? '',
       title: data['title'] ?? '',
       category: data['category'] ?? 'General',
+      adminId: data['adminId'] ?? '',
       durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 0,
       totalMarks: (data['totalMarks'] as num?)?.toDouble() ?? 0.0,
       negativeMarking: (data['negativeMarking'] as num?)?.toDouble() ?? 0.0,
@@ -170,6 +179,7 @@ class ExamModel {
     String? examCode,
     String? title,
     String? category,
+    String? adminId,
     int? durationMinutes,
     double? totalMarks,
     double? negativeMarking,
@@ -189,6 +199,7 @@ class ExamModel {
       examCode: examCode ?? this.examCode,
       title: title ?? this.title,
       category: category ?? this.category,
+      adminId: adminId ?? this.adminId,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       totalMarks: totalMarks ?? this.totalMarks,
       negativeMarking: negativeMarking ?? this.negativeMarking,
@@ -223,6 +234,7 @@ class StudentSubmissionModel {
   final bool isPassed;
   final bool isOnline;
   final DateTime submittedAt;
+  final Map<String, dynamic> answers;
 
   StudentSubmissionModel({
     required this.id,
@@ -239,14 +251,41 @@ class StudentSubmissionModel {
     required this.isPassed,
     this.isOnline = true,
     required this.submittedAt,
+    this.answers = const {},
   });
 
-  factory StudentSubmissionModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'studentName': studentName,
+      'studentId': studentId,
+      'studentImageUrl': studentImageUrl,
+      'examTitle': examTitle,
+      'scorePercentage': scorePercentage,
+      'marksObtained': marksObtained,
+      'totalMarks': totalMarks,
+      'correctAnswers': correctAnswers,
+      'incorrectAnswers': incorrectAnswers,
+      'unattemptedAnswers': unattemptedAnswers,
+      'isPassed': isPassed,
+      'isOnline': isOnline,
+      'submittedAt': Timestamp.fromDate(submittedAt),
+      'answers': answers,
+    };
+  }
+
+  factory StudentSubmissionModel.fromMap(
+    Map<String, dynamic> data, [
+    String? docId,
+  ]) {
     return StudentSubmissionModel(
-      id: doc.id,
+      id: docId ?? data['id'] ?? '',
       studentName: data['studentName'] ?? 'Anonymous Student',
-      studentId: data['studentId'] ?? doc.id.substring(0, 6).toUpperCase(),
+      studentId:
+          data['studentId'] ??
+          (docId != null && docId.length >= 6
+              ? docId.substring(0, 6).toUpperCase()
+              : 'UNKNOWN'),
       studentImageUrl: data['studentImageUrl'],
       examTitle: data['examTitle'] ?? 'Exam Assessment',
       scorePercentage: (data['scorePercentage'] as num?)?.toDouble() ?? 0.0,
@@ -257,9 +296,18 @@ class StudentSubmissionModel {
       unattemptedAnswers: (data['unattemptedAnswers'] as num?)?.toInt() ?? 0,
       isPassed: data['isPassed'] ?? false,
       isOnline: data['isOnline'] ?? false,
-      submittedAt:
-          (data['submittedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      submittedAt: (data['submittedAt'] is Timestamp)
+          ? (data['submittedAt'] as Timestamp).toDate()
+          : (data['submittedAt'] is String
+                ? DateTime.tryParse(data['submittedAt']) ?? DateTime.now()
+                : DateTime.now()),
+      answers: Map<String, dynamic>.from(data['answers'] ?? {}),
     );
+  }
+
+  factory StudentSubmissionModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return StudentSubmissionModel.fromMap(data, doc.id);
   }
 }
 
@@ -275,13 +323,13 @@ class BulkUploadService {
     );
 
     for (final question in questions) {
-      final docRef = bankCollection.doc(); // Generate automatic unique ID
+      final docRef = bankCollection.doc();
 
       final Map<String, dynamic> data = {
         'id': docRef.id,
         'questionText': question.questionText,
         'marks': question.marks,
-        'options': question.options,
+        'options': question.options.map((o) => o.toMap()).toList(),
         'correctOptionId': question.correctOptionId,
         'type': question.type,
         'category': question.category,
@@ -294,7 +342,6 @@ class BulkUploadService {
       batch.set(docRef, data);
     }
 
-    // Single atomic commit
     await batch.commit();
   }
 }
