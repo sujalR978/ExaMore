@@ -1,0 +1,348 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
+import 'package:prep_mate/features/auth/screens/forgot_password_screen.dart';
+import 'package:prep_mate/features/auth/screens/registration_screen.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
+import 'package:prep_mate/features/auth/widgets/custom_button.dart';
+import 'package:prep_mate/features/auth/widgets/field_title.dart';
+import 'package:prep_mate/features/auth/widgets/google_button.dart';
+import 'package:prep_mate/features/auth/widgets/input_field.dart';
+import 'package:prep_mate/features/auth/widgets/main_title.dart';
+import 'package:prep_mate/features/auth/widgets/sub_title.dart';
+import 'package:prep_mate/features/auth/widgets/custom_text_button.dart';
+import 'package:prep_mate/features/user/navigation/main_navigator.dart';
+
+class Login extends StatefulWidget {
+  const Login({super.key});
+
+  @override
+  State<Login> createState() => _LoginState();
+}
+
+class _LoginState extends State<Login> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _password = TextEditingController();
+  bool _isLogin = false;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.redAccent.shade700,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+        elevation: 4,
+      ),
+    );
+  }
+
+  Future<void> login() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isLogin = true;
+    });
+
+    try {
+      final AuthService authService = AuthService();
+
+      final Map<String, dynamic> userData = await authService.signInUser(
+        email: _email.text.trim(),
+        password: _password.text,
+      );
+
+      final String role = (userData['role'] ?? 'student')
+          .toString()
+          .toLowerCase();
+
+      if (!mounted) return;
+
+      // 3-Tier Routing
+      if (role == 'super_admin' || role == 'admin') {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        );
+      } else {
+        // Regular Student
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const MainNavigator()),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      if (e.code == 'user-not-found') {
+        _showErrorSnackBar("Email is not registered.");
+      } else if (e.code == 'wrong-password') {
+        _showErrorSnackBar("Incorrect password.");
+      } else if (e.code == 'email-not-verified') {
+        _showErrorSnackBar(
+          "Please verify your email before logging in. Check your inbox.",
+        );
+      } else if (e.code == 'invalid-email') {
+        _showErrorSnackBar("The email address is badly formatted.");
+      } else if (e.code == 'user-disabled') {
+        _showErrorSnackBar(
+          "This account has been disabled by an administrator.",
+        );
+      } else if (e.code == 'too-many-requests') {
+        _showErrorSnackBar("Too many failed attempts. Please try again later.");
+      } else if (e.code == 'network-request-failed') {
+        _showErrorSnackBar(
+          "No internet connection. Please check your network.",
+        );
+      } else {
+        _showErrorSnackBar(
+          e.message ?? "An unexpected authentication error occurred.",
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showErrorSnackBar(
+        e
+            .toString()
+            .replaceAll("Exception: ", "")
+            .replaceAll(RegExp(r'\[.*?\] '), ''),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLogin = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 80.0,
+              horizontal: 16.0,
+            ),
+            child: Column(
+              children: [
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? Colors.white24 : Colors.black12,
+                        width: 1,
+                      ),
+                    ),
+                    child: const CircleAvatar(
+                      radius: 54,
+                      backgroundImage: AssetImage('assets/image/L_image.png'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Maintitle(text: "ExaMora"),
+                const SizedBox(height: 4),
+                const Subtitle(text: "Smart Exams. Better Results."),
+                const SizedBox(height: 32),
+                Container(
+                  width: 358,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      width: 1,
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : const Color(0xffE2E8F0),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(
+                        height: 46,
+                        width: double.infinity,
+                        child: Googlebutton(),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 23),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                thickness: 1,
+                                color: isDark
+                                    ? const Color(0xFF475569)
+                                    : const Color(0xffCBC4D2),
+                                endIndent: 10,
+                              ),
+                            ),
+                            Text(
+                              "OR LOG IN WITH EMAIL",
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: isDark
+                                    ? const Color(0xFF94A3B8)
+                                    : const Color(0xff7A7582),
+                                fontSize: 12,
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                thickness: 1,
+                                color: isDark
+                                    ? const Color(0xFF475569)
+                                    : const Color(0xffCBC4D2),
+                                indent: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Filedtitle(text: "Email Address"),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8.0,
+                              ),
+                              child: Inputfield(
+                                controller: _email,
+                                hintText: "student@university.edu",
+                                icon: Icons.email,
+                                isPassword: false,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return "Email is required";
+                                  }
+                                  final emailRegex = RegExp(
+                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                  );
+                                  if (!emailRegex.hasMatch(value.trim())) {
+                                    return "Enter a valid email";
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Filedtitle(text: "Password"),
+                                Textbutton(
+                                  text: "Forgot Password?",
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const ForgotPasswordPage(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 8.0,
+                                bottom: 15,
+                              ),
+                              child: Inputfield(
+                                controller: _password,
+                                hintText: "••••••••",
+                                icon: Icons.lock,
+                                isPassword: true,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return "Password is required";
+                                  }
+                                  if (value.length < 6) {
+                                    return "Password must be at least 6 characters";
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            SizedBox(
+                              height: 55,
+                              width: double.infinity,
+                              child: Button(
+                                text: _isLogin ? "Logging in..." : "Login",
+                                icon: Icons.arrow_forward,
+                                onPressed: () {
+                                  if (!_isLogin) login();
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Subtitle(text: "Don't have an account?"),
+                                Textbutton(
+                                  text: "Register",
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const Registration(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

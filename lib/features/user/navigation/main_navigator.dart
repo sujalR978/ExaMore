@@ -1,0 +1,175 @@
+import 'package:flutter/material.dart';
+import 'package:prep_mate/features/user/screens/exam_attempts_history_screen.dart';
+import 'package:prep_mate/features/user/screens/show_exam_screen.dart';
+import 'package:prep_mate/features/user/screens/user_home_screen.dart';
+import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
+
+class MainNavigator extends StatefulWidget {
+  const MainNavigator({super.key});
+
+  @override
+  State<MainNavigator> createState() => _MainNavigatorState();
+}
+
+class _MainNavigatorState extends State<MainNavigator> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const Userhomescreen(),
+    const Showexam(),
+    const ExamAttemptsHistoryScreen(),
+    const Userprofile(),
+  ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final containerColor = theme.colorScheme.surface;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      // Using standard bottomNavigationBar slot. Flutter automatically sizes
+      // the body above it so your content will never be hidden or overridden!
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
+          child: Container(
+            height: 65,
+            decoration: BoxDecoration(
+              color: containerColor,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(
+                  0,
+                  Icons.dashboard_outlined,
+                  Icons.dashboard,
+                  'Dashboard',
+                  isDarkMode,
+                ),
+                _buildNavItem(
+                  1,
+                  Icons.assignment,
+                  Icons.assignment_outlined,
+                  'Exams',
+                  isDarkMode,
+                ),
+                _buildNavItem(
+                  2,
+                  Icons.book,
+                  Icons.book_outlined,
+                  'Result',
+                  isDarkMode,
+                ),
+                _buildNavItem(
+                  3,
+                  Icons.person,
+                  Icons.person_outline,
+                  'Profile',
+                  isDarkMode,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    int index,
+    IconData activeIcon,
+    IconData inactiveIcon,
+    String label,
+    bool isDarkMode,
+  ) {
+    final bool isSelected = _currentIndex == index;
+    final selectedBg = isDarkMode
+        ? const Color(0xFF312E81)
+        : const Color(0xFFFEF3C7);
+    final selectedColor = isDarkMode
+        ? const Color(0xFFFBBF24)
+        : const Color(0xFFB45309);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _onItemTapped(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 8,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? selectedBg : Colors.transparent,
+          borderRadius: BorderRadius.circular(100),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : inactiveIcon,
+              color: isSelected ? selectedColor : Colors.grey[500],
+              size: 22,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selectedColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PlaceholderScreen extends StatelessWidget {
+  final String title;
+  const PlaceholderScreen({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Center(
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:prep_mate/features/Admin/screen/adminHomeScreen.dart';
-import 'package:prep_mate/features/Auth/screens/login.dart';
-import 'package:prep_mate/features/User/Navigator/mainNavigator.dart';
+import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
+import 'package:prep_mate/features/auth/screens/login_screen.dart';
+import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 
