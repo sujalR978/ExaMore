@@ -1,7 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/user/screens/privacy_policy_screen.dart';
 
 class Settingscreen extends StatefulWidget {
@@ -54,16 +54,7 @@ class _SettingscreenState extends State<Settingscreen> {
     setState(() => _isDeleting = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final uid = user.uid;
-
-        // 1. Delete Firestore user document
-        await FirebaseFirestore.instance.collection('users').doc(uid).delete();
-
-        // 2. Delete Firebase Auth user
-        await user.delete();
-      }
+      await AuthService().deleteAccount();
 
       if (!mounted) return;
 

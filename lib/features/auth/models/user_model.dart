@@ -4,7 +4,6 @@ class UserModel {
   final String uid;
   final String name;
   final String email;
-  final String password;
   final String role; // 'super_admin' | 'admin' | 'student'
   final String?
   adminId; // Null for Super Admin & Admin; holds the Admin's UID for Students
@@ -17,7 +16,6 @@ class UserModel {
     required this.uid,
     required this.name,
     required this.email,
-    required this.password,
     this.role = 'student',
     this.adminId,
     required this.loginMethod,
@@ -31,7 +29,6 @@ class UserModel {
       'uid': uid,
       'name': name,
       'email': email,
-      'password': password,
       'role': role,
       'adminId': adminId,
       'loginMethod': loginMethod,
@@ -55,7 +52,6 @@ class UserModel {
       uid: map['uid'] ?? '',
       name: map['name'] ?? '',
       email: map['email'] ?? '',
-      password: map['password'] ?? '',
       role: map['role'] ?? 'student',
       adminId: map['adminId'],
       loginMethod: map['loginMethod'] ?? '',
@@ -69,7 +65,6 @@ class UserModel {
     String? uid,
     String? name,
     String? email,
-    String? password,
     String? role,
     String? adminId,
     String? loginMethod,
@@ -81,7 +76,6 @@ class UserModel {
       uid: uid ?? this.uid,
       name: name ?? this.name,
       email: email ?? this.email,
-      password: password ?? this.password,
       role: role ?? this.role,
       adminId: adminId ?? this.adminId,
       loginMethod: loginMethod ?? this.loginMethod,

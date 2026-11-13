@@ -170,60 +170,16 @@ class _RegistrationState extends State<Registration> {
       String? validatedAdminId;
 
       // -------------------------------------------------------------
-      // 1. ADMIN REGISTRATION VERIFICATION: Requires Super Admin UID or Email
+      // 1. ADMIN REGISTRATION: Direct self-service educator signup
       // -------------------------------------------------------------
       if (_selectedRole == 'admin') {
-        if (inputCode.isEmpty) {
-          _showError('Super Admin Authorization Code is required.');
-          setState(() => _isRegistering = false);
-          return;
-        }
-
-        // Hardcoded Super Admin credentials shortcut
-        final bool isHardcodedSuperAdmin =
-            inputCode.toLowerCase() == 'admin@gmail.com' ||
-            inputCode == 'admin123';
-
-        if (!isHardcodedSuperAdmin) {
-          // Verify via Firestore document lookup by UID
-          final superAdminDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(inputCode)
-              .get();
-
-          if (superAdminDoc.exists &&
-              superAdminDoc.data()?['role'] == 'super_admin') {
-            // Valid Super Admin UID
-          } else {
-            // Fallback: Check if they passed Super Admin's email
-            final superAdminQuery = await FirebaseFirestore.instance
-                .collection('users')
-                .where('email', isEqualTo: inputCode.toLowerCase())
-                .limit(1)
-                .get();
-
-            if (superAdminQuery.docs.isEmpty ||
-                superAdminQuery.docs.first.data()['role'] != 'super_admin') {
-              _showError(
-                'Invalid Super Admin Code. Only authorized personnel can create Admin accounts.',
-              );
-              setState(() => _isRegistering = false);
-              return;
-            }
-          }
-        }
+        validatedAdminId = null;
       }
 
       // -------------------------------------------------------------
-      // 2. STUDENT REGISTRATION VERIFICATION: Requires Admin/SuperAdmin UID
+      // 2. STUDENT REGISTRATION: Optional Instructor Code/Email verification
       // -------------------------------------------------------------
-      if (_selectedRole == 'student') {
-        if (inputCode.isEmpty) {
-          _showError('Instructor Code or Email is required for students.');
-          setState(() => _isRegistering = false);
-          return;
-        }
-
+      if (_selectedRole == 'student' && inputCode.isNotEmpty) {
         final adminDocById = await FirebaseFirestore.instance
             .collection('users')
             .doc(inputCode)
@@ -246,7 +202,7 @@ class _RegistrationState extends State<Registration> {
             if (role == 'admin' || role == 'super_admin') {
               validatedAdminId = adminByEmailQuery.docs.first.id;
             } else {
-              _showError('Invalid Admin Code / Email.');
+              _showError('Invalid Admin Code / Email. Please enter a valid Instructor UID or Email.');
               setState(() => _isRegistering = false);
               return;
             }
@@ -571,41 +527,29 @@ class _RegistrationState extends State<Registration> {
                                       ),
                                     ),
 
-                                    // Dynamic Verification Field for Students & Admins
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 4.0,
+                                    // Optional Verification Field for Students
+                                    if (_selectedRole == 'student') ...[
+                                      const Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom: 4.0,
+                                        ),
+                                        child: Filedtitle(
+                                          text: "Instructor Code or Email (Optional)",
+                                        ),
                                       ),
-                                      child: Filedtitle(
-                                        text: _selectedRole == 'admin'
-                                            ? "Super Admin Authorization Code"
-                                            : "Admin / Instructor Code or Email",
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 16,
+                                        ),
+                                        child: Inputfield(
+                                          controller: _adminCode,
+                                          hintText: "teacher@school.edu or admin_uid",
+                                          icon: Icons.school_outlined,
+                                          isPassword: false,
+                                          validator: (value) => null,
+                                        ),
                                       ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 16,
-                                      ),
-                                      child: Inputfield(
-                                        controller: _adminCode,
-                                        hintText: _selectedRole == 'admin'
-                                            ? "Enter Super Admin UID or Email"
-                                            : "admin_uid or teacher@school.edu",
-                                        icon: _selectedRole == 'admin'
-                                            ? Icons.security_outlined
-                                            : Icons.school_outlined,
-                                        isPassword: false,
-                                        validator: (value) {
-                                          if (value == null ||
-                                              value.trim().isEmpty) {
-                                            return _selectedRole == 'admin'
-                                                ? "Super Admin authorization code is required"
-                                                : "Instructor code/email is required to link exams";
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                    ),
+                                    ],
 
                                     const Padding(
                                       padding: EdgeInsets.only(bottom: 4.0),

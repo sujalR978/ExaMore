@@ -224,7 +224,7 @@ class _GooglebuttonState extends State<Googlebutton> {
       final AuthService authService = AuthService();
 
       // Sign in and provide callback to prompt for Admin ID if this is a new student
-      final Map<String, dynamic> session = await authService.singInWithGoogle(
+      final Map<String, dynamic> session = await authService.signInWithGoogle(
         onGetAdminId: () async {
           return await _promptInstructorCodeDialog();
         },

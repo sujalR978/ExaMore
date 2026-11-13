@@ -69,9 +69,6 @@ class MyApp extends StatelessWidget {
                       );
                     }
 
-                    final isHardcodedSuperAdmin =
-                        user.email?.toLowerCase() == 'admin@gmail.com';
-
                     String role = 'student';
 
                     if (roleSnapshot.hasData && roleSnapshot.data!.exists) {
@@ -81,11 +78,9 @@ class MyApp extends StatelessWidget {
                           .toString()
                           .toLowerCase()
                           .trim();
-                    } else if (isHardcodedSuperAdmin) {
-                      role = 'super_admin';
                     }
 
-                    // 3-Tier Routing Gate - FIXED
+                    // Role-based routing gate
                     if (role == 'super_admin' || role == 'admin') {
                       return const AdminHomeScreen();
                     } else {

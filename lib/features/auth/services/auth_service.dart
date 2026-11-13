@@ -8,9 +8,6 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  static const String superAdminEmail = 'admin@gmail.com';
-  static const String superAdminPassword = 'admin123';
-
   // Email & Password Registration
   Future<void> createUser({
     required String name,
@@ -34,7 +31,6 @@ class AuthService {
       uid: uid,
       name: name,
       email: email,
-      password: password,
       role: role,
       adminId: adminId,
       loginMethod: 'register',
@@ -53,7 +49,7 @@ class AuthService {
   }
 
   // Google Sign-In with dynamic Instructor Code linking
-  Future<Map<String, dynamic>> singInWithGoogle({
+  Future<Map<String, dynamic>> signInWithGoogle({
     Future<String?> Function()? onGetAdminId,
   }) async {
     try {
@@ -118,17 +114,10 @@ class AuthService {
         }
       }
 
-      // Check if user is predefined super admin via Google account
-      if (firebaseUser.email?.toLowerCase() == superAdminEmail) {
-        resolvedRole = 'super_admin';
-        linkedAdminId = null;
-      }
-
       UserModel user = UserModel(
         uid: firebaseUser.uid,
         name: firebaseUser.displayName ?? 'Student',
         email: firebaseUser.email ?? '',
-        password: '',
         role: resolvedRole,
         adminId: linkedAdminId,
         loginMethod: 'google',
@@ -156,6 +145,11 @@ class AuthService {
     }
   }
 
+  // Alias for backward compatibility
+  Future<Map<String, dynamic>> singInWithGoogle({
+    Future<String?> Function()? onGetAdminId,
+  }) => signInWithGoogle(onGetAdminId: onGetAdminId);
+
   // Email & Password Login
   Future<Map<String, dynamic>> signInUser({
     required String email,
@@ -164,59 +158,8 @@ class AuthService {
     final String trimmedEmail = email.trim().toLowerCase();
     final String trimmedPassword = password.trim();
 
-    final bool isSuperAdminCreds =
-        (trimmedEmail == superAdminEmail &&
-        trimmedPassword == superAdminPassword);
-
     UserCredential? userCredential;
 
-    // 1. Super Admin Auto-Provisioning & Bypass
-    if (isSuperAdminCreds) {
-      try {
-        userCredential = await _auth.signInWithEmailAndPassword(
-          email: trimmedEmail,
-          password: trimmedPassword,
-        );
-      } on FirebaseAuthException catch (e) {
-        if (e.code == 'user-not-found' || e.code == 'invalid-credential') {
-          try {
-            userCredential = await _auth.createUserWithEmailAndPassword(
-              email: trimmedEmail,
-              password: trimmedPassword,
-            );
-          } catch (_) {
-            rethrow;
-          }
-        } else {
-          rethrow;
-        }
-      }
-
-      final String superAdminUid = userCredential.user!.uid;
-
-      final adminDoc = await _firestore
-          .collection('users')
-          .doc(superAdminUid)
-          .get();
-
-      if (!adminDoc.exists || adminDoc.data()?['role'] != 'super_admin') {
-        await _firestore.collection('users').doc(superAdminUid).set({
-          'uid': superAdminUid,
-          'name': 'Super Admin',
-          'email': superAdminEmail,
-          'role': 'super_admin',
-          'adminId': null,
-          'loginMethod': 'password',
-          'photoUrl': 'assets/image/L_image.png',
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-
-      return {'role': 'super_admin', 'uid': superAdminUid, 'adminId': null};
-    }
-
-    // 2. Standard User / Admin Login
     try {
       userCredential = await _auth.signInWithEmailAndPassword(
         email: trimmedEmail,
@@ -267,7 +210,7 @@ class AuthService {
         .toLowerCase();
     final String? adminId = userData['adminId'];
 
-    // Email verification check (Super Admin excluded)
+    // Email verification check (Super Admin excluded if flagged in DB)
     await user.reload();
     if (!user.emailVerified && role != 'super_admin') {
       await _auth.signOut();
@@ -279,6 +222,59 @@ class AuthService {
     }
 
     return {'role': role, 'uid': uid, 'adminId': adminId};
+  }
+
+  // Google Play Compliant Account & Data Deletion
+  Future<void> deleteAccount() async {
+    final User? user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('No authenticated user found to delete.');
+    }
+
+    final String uid = user.uid;
+
+    try {
+      // 1. Delete user subcollections (saved_exams, attempts)
+      final savedExamsSnapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('saved_exams')
+          .get();
+      for (final doc in savedExamsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      final attemptsSnapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('attempts')
+          .get();
+      for (final doc in attemptsSnapshot.docs) {
+        await doc.reference.delete();
+      }
+
+      // 2. Delete main user document
+      await _firestore.collection('users').doc(uid).delete();
+
+      // 3. Delete Firebase Auth user
+      await user.delete();
+
+      // 4. Sign out from Google if signed in
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        throw FirebaseAuthException(
+          code: 'requires-recent-login',
+          message:
+              'For security reasons, please log in again before deleting your account.',
+        );
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {
