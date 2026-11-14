@@ -9,6 +9,7 @@ import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/csv_export_service.dart';
+import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 
 class ExamAnalyticsDetailScreen extends StatefulWidget {
   final ExamModel? exam;
@@ -242,20 +243,30 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                       backgroundColor: Colors.transparent,
                       elevation: 0,
                       scrolledUnderElevation: 0,
-                      leading: IconButton(
-                        icon: Icon(
-                          Icons.menu,
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF1E1B4B),
-                        ),
-                        onPressed: () =>
-                            _scaffoldKey.currentState?.openDrawer(),
-                      ),
+                      leading: Navigator.canPop(context)
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.arrow_back,
+                                color: isDarkMode
+                                    ? const Color(0xFFFBBF24)
+                                    : const Color(0xFF1E1B4B),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            )
+                          : IconButton(
+                              icon: Icon(
+                                Icons.menu,
+                                color: isDarkMode
+                                    ? const Color(0xFFFBBF24)
+                                    : const Color(0xFF1E1B4B),
+                              ),
+                              onPressed: () =>
+                                  _scaffoldKey.currentState?.openDrawer(),
+                            ),
                       title: Text(
                         _userRole == 'super_admin'
-                            ? 'Examora Global Analytics'
-                            : 'Examora Analytics',
+                            ? 'Exam Analytics (Global)'
+                            : 'Exam Analytics',
                         style: TextStyle(
                           color: isDarkMode
                               ? const Color(0xFFFBBF24)
@@ -265,6 +276,122 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                         ),
                       ),
                       centerTitle: true,
+                      actions: [
+                        if (activeExam != null && activeExam.id.isNotEmpty)
+                          PopupMenuButton<String>(
+                            icon: Icon(
+                              Icons.more_vert,
+                              color: isDarkMode
+                                  ? const Color(0xFFFBBF24)
+                                  : const Color(0xFF1E1B4B),
+                            ),
+                            onSelected: (val) async {
+                              if (val == 'edit') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ExamConfigurationScreen(
+                                      exam: activeExam,
+                                    ),
+                                  ),
+                                );
+                              } else if (val == 'delete') {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    title: Row(
+                                      children: const [
+                                        Icon(
+                                          Icons.delete_forever,
+                                          color: Colors.redAccent,
+                                          size: 22,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Delete Exam?'),
+                                      ],
+                                    ),
+                                    content: Text(
+                                      'Permanently delete "${activeExam!.title}"? All submissions and statistics will also be deleted.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.redAccent,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Delete Exam'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed == true && mounted) {
+                                  await _examService.deleteExam(activeExam!.id);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content:
+                                            Text('Exam deleted successfully'),
+                                        backgroundColor: Color(0xFF10B981),
+                                      ),
+                                    );
+                                    if (Navigator.canPop(context)) {
+                                      Navigator.pop(context);
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                      color: Color(0xFF7C3AED),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Edit Exam'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: Colors.redAccent,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Delete Exam',
+                                      style:
+                                          TextStyle(color: Colors.redAccent),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                   ),
                 ),

@@ -90,9 +90,17 @@ class _CreateClassroomDialogState extends State<CreateClassroomDialog> {
 
   void _addSubject() {
     final text = _subjectInputController.text.trim();
-    if (text.isNotEmpty && !_subjects.contains(text)) {
+    if (text.isNotEmpty) {
+      final items = text
+          .split(RegExp(r'[,;\n]+'))
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty);
       setState(() {
-        _subjects.add(text);
+        for (final item in items) {
+          if (!_subjects.contains(item)) {
+            _subjects.add(item);
+          }
+        }
         _subjectInputController.clear();
       });
     }

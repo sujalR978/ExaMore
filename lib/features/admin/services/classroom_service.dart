@@ -97,17 +97,63 @@ class ClassroomService {
     await _classroomsCollection.doc(classroomId).delete();
   }
 
-  /// Adds a subject to a classroom
+  /// Adds multiple subjects to a classroom at once
+  static Future<void> addSubjects({
+    required String classroomId,
+    required List<String> subjectNames,
+  }) async {
+    final cleanList = subjectNames
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet()
+        .toList();
+    if (cleanList.isEmpty) return;
+
+    await _classroomsCollection.doc(classroomId).update({
+      'subjects': FieldValue.arrayUnion(cleanList),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Adds a single subject to a classroom
   static Future<void> addSubject({
     required String classroomId,
     required String subjectName,
   }) async {
-    final cleanName = subjectName.trim();
-    if (cleanName.isEmpty) return;
+    await addSubjects(
+      classroomId: classroomId,
+      subjectNames: [subjectName],
+    );
+  }
 
-    await _classroomsCollection.doc(classroomId).update({
-      'subjects': FieldValue.arrayUnion([cleanName]),
-      'updatedAt': FieldValue.serverTimestamp(),
+  /// Edits an existing subject in a classroom
+  static Future<void> editSubject({
+    required String classroomId,
+    required String oldSubjectName,
+    required String newSubjectName,
+  }) async {
+    final oldName = oldSubjectName.trim();
+    final newName = newSubjectName.trim();
+    if (oldName.isEmpty || newName.isEmpty || oldName == newName) return;
+
+    final docRef = _classroomsCollection.doc(classroomId);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data() as Map<String, dynamic>;
+      final List<dynamic> current = List.from(data['subjects'] ?? []);
+      final index = current.indexOf(oldName);
+      if (index != -1) {
+        current[index] = newName;
+      } else if (!current.contains(newName)) {
+        current.add(newName);
+      }
+      final updated = current.toSet().toList();
+      transaction.update(docRef, {
+        'subjects': updated,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 

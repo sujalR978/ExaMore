@@ -6,8 +6,8 @@ import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
-import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class ExamConfigurationScreen extends StatefulWidget {
   final ExamModel? exam; // Pass null to create new, or pass existing exam to edit
@@ -22,13 +22,16 @@ class ExamConfigurationScreen extends StatefulWidget {
 
 class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final ExamService _examService = ExamService();
 
   late TextEditingController _titleController;
   late TextEditingController _durationController;
   late TextEditingController _marksController;
   late TextEditingController _negativeMarkingController;
+  late TextEditingController _passingScoreController;
+
+  bool _shuffleQuestions = false;
+  bool _showResultsImmediately = false;
 
   ClassroomModel? _selectedClassroom;
   List<ClassroomModel> _availableClassrooms = [];
@@ -37,6 +40,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   bool _isLoading = false;
 
   bool get _isEditing => widget.exam != null;
+  bool get _isLockedToClassroom => widget.classroom != null;
 
   @override
   void initState() {
@@ -45,18 +49,26 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     _durationController = TextEditingController(
       text: widget.exam != null
           ? widget.exam!.durationMinutes.toString()
-          : '120',
+          : '60',
     );
     _marksController = TextEditingController(
       text: widget.exam != null
           ? widget.exam!.totalMarks.toInt().toString()
-          : '100',
+          : '50',
     );
     _negativeMarkingController = TextEditingController(
       text: widget.exam != null
           ? widget.exam!.negativeMarking.toString()
-          : '0.25',
+          : '0.0',
     );
+    _passingScoreController = TextEditingController(
+      text: widget.exam != null
+          ? widget.exam!.passingScorePercentage.toInt().toString()
+          : '50',
+    );
+
+    _shuffleQuestions = widget.exam?.shuffleQuestions ?? false;
+    _showResultsImmediately = widget.exam?.showResultsImmediately ?? false;
 
     _selectedClassroom = widget.classroom;
     if (widget.exam?.category != null && widget.exam!.category.isNotEmpty) {
@@ -142,18 +154,33 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     });
   }
 
-  void _showAddSubjectInlineDialog() {
+  Future<void> _showAddSubjectInlineDialog() async {
     if (_selectedClassroom == null) return;
-    final controller = TextEditingController();
 
-    showDialog(
+    final controller = TextEditingController();
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
-          children: const [
-            Icon(Icons.library_books_outlined, color: Color(0xFF7C3AED)),
-            SizedBox(width: 8),
-            Text('Add Subject to Class'),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.book_outlined,
+                color: Color(0xFF7C3AED),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Add New Subject',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
           ],
         ),
         content: Column(
@@ -161,17 +188,24 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Add a new subject to "${_selectedClassroom!.name}":',
+              'Add subject(s) to "${_selectedClassroom!.name}". Separate multiple subjects with commas for instant batch adding:',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               autofocus: true,
+              maxLines: 2,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Organic Chemistry, Calculus',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: 'e.g. Physics, Economics, English',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -185,23 +219,37 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7C3AED),
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            onPressed: () async {
-              final newSubject = controller.text.trim();
-              if (newSubject.isNotEmpty) {
-                await ClassroomService.addSubject(
-                  classroomId: _selectedClassroom!.id,
-                  subjectName: newSubject,
-                );
-                if (mounted) {
-                  Navigator.pop(ctx);
+            onPressed: () {
+              final raw = controller.text.trim();
+              if (raw.isNotEmpty) {
+                final names = raw
+                    .split(RegExp(r'[,;\n]+'))
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty)
+                    .toList();
+
+                if (names.isNotEmpty) {
+                  // Instant 0ms optimistic update
                   setState(() {
-                    if (!_selectedClassroom!.subjects.contains(newSubject)) {
-                      _selectedClassroom!.subjects.add(newSubject);
+                    for (final n in names) {
+                      if (!_selectedClassroom!.subjects.contains(n)) {
+                        _selectedClassroom!.subjects.add(n);
+                      }
                     }
-                    _selectedCategory = newSubject;
+                    _selectedCategory = names.first;
                     _recomputeCategoryOptions();
                   });
+                  Navigator.pop(ctx);
+
+                  // Asynchronous batch Firestore sync
+                  ClassroomService.addSubjects(
+                    classroomId: _selectedClassroom!.id,
+                    subjectNames: names,
+                  );
                 }
               }
             },
@@ -225,12 +273,14 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
       final title = _titleController.text.trim();
       final category = _selectedCategory;
-      final duration = int.tryParse(_durationController.text.trim()) ?? 120;
-      final totalMarks = double.tryParse(_marksController.text.trim()) ?? 100.0;
+      final duration = int.tryParse(_durationController.text.trim()) ?? 60;
+      final totalMarks = double.tryParse(_marksController.text.trim()) ?? 50.0;
       final negativeMarking =
           double.tryParse(_negativeMarkingController.text.trim()) ?? 0.0;
+      final passingPercentage =
+          double.tryParse(_passingScoreController.text.trim()) ?? 50.0;
 
-      // Ensure a valid adminId is assigned
+      // Ensure valid adminId is assigned
       final String assignedAdminId = (widget.exam?.adminId.isNotEmpty ?? false)
           ? widget.exam!.adminId
           : currentUser.uid;
@@ -247,6 +297,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           durationMinutes: duration,
           totalMarks: totalMarks,
           negativeMarking: negativeMarking,
+          passingScorePercentage: passingPercentage,
+          shuffleQuestions: _shuffleQuestions,
+          showResultsImmediately: _showResultsImmediately,
           updatedAt: DateTime.now(),
         );
         await _examService.updateExam(currentExam);
@@ -262,6 +315,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           durationMinutes: duration,
           totalMarks: totalMarks,
           negativeMarking: negativeMarking,
+          passingScorePercentage: passingPercentage,
+          shuffleQuestions: _shuffleQuestions,
+          showResultsImmediately: _showResultsImmediately,
           status: 'Draft',
         );
 
@@ -303,6 +359,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     _durationController.dispose();
     _marksController.dispose();
     _negativeMarkingController.dispose();
+    _passingScoreController.dispose();
     super.dispose();
   }
 
@@ -313,595 +370,732 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final borderColor =
+        isDarkMode ? Colors.white12 : const Color(0xFFE2E8F0);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: textColor,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _isEditing ? 'Edit Exam' : 'Create New Exam',
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.pop(context),
+            ),
+            Text(
+              'Step 1 of 3 • Basic Configuration',
+              style: TextStyle(
+                color: subtitleColor,
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (_isLockedToClassroom)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(100),
                   ),
-                  title: Text(
-                    _isEditing ? 'Edit Exam' : 'Configure Exam',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.school,
+                        size: 14,
+                        color: Color(0xFF7C3AED),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        widget.classroom!.name,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ],
                   ),
-                  centerTitle: true,
                 ),
               ),
             ),
-          ),
-        ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 10.0,
-              ),
-              child: Row(
-                children: [
-                  _buildStepItem('1', 'Exam Details', true, true, isDarkMode),
-                  Expanded(
-                    child: Container(
-                      height: 3,
-                      color: isDarkMode
-                          ? const Color(0xFF0F766E)
-                          : const Color(0xFF0D9488),
-                    ),
-                  ),
-                  _buildStepItem(
-                    '2',
-                    'Add Questions',
-                    false,
-                    false,
-                    isDarkMode,
-                  ),
-                  Expanded(
-                    child: Container(
-                      height: 3,
-                      color: isDarkMode ? Colors.white12 : Colors.grey.shade300,
-                    ),
-                  ),
-                  _buildStepItem('3', 'Review', false, false, isDarkMode),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
+      body: Column(
+        children: [
+          ExamStepperHeader(currentStep: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Exam Information',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Configure classroom, subject, marks, and duration for this test.',
-                      style: TextStyle(color: subtitleColor, fontSize: 13),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 1. Exam Title
-                    _buildFieldLabel('Exam Title *', subtitleColor),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _titleController,
-                      style: TextStyle(color: textColor),
-                      decoration: _inputDecoration(
-                        hint: 'e.g., Midterm Biology 101, Linear Algebra Quiz',
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                      ),
-                      validator: (val) => val == null || val.trim().isEmpty
-                          ? 'Please enter exam title'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 2. Target Classroom Selector (Only when NOT created inside a specific class)
-                    if (widget.classroom == null) ...[
-                      _buildFieldLabel(
-                        'Target Classroom (Optional)',
-                        subtitleColor,
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<String?>(
-                        isExpanded: true,
-                        value: _selectedClassroom?.id,
-                        dropdownColor: containerColor,
-                        style: TextStyle(color: textColor, fontSize: 14),
-                        decoration: _inputDecoration(
-                          hint: 'Select Classroom (Optional)',
-                          prefixIcon: Icon(
-                            Icons.school_outlined,
-                            color: subtitleColor,
-                            size: 20,
-                          ),
-                          subtitleColor: subtitleColor,
-                          borderColor: borderColor,
-                          isDarkMode: isDarkMode,
-                        ),
-                        items: [
-                          DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text(
-                              'Global / All Classes (No specific class)',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: subtitleColor,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                          ..._availableClassrooms.map((c) {
-                            return DropdownMenuItem<String?>(
-                              value: c.id,
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.class_outlined,
-                                    size: 16,
-                                    color: Color(0xFF7C3AED),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      c.name +
-                                          (c.section.isNotEmpty
-                                              ? ' (${c.section})'
-                                              : ''),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: textColor,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                        onChanged: (val) {
-                          setState(() {
-                            if (val == null) {
-                              _selectedClassroom = null;
-                            } else {
-                              final match = _availableClassrooms.where(
-                                (c) => c.id == val,
-                              );
-                              _selectedClassroom =
-                                  match.isNotEmpty ? match.first : null;
-                            }
-                            _recomputeCategoryOptions();
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                    ] else ...[
-                      // When launched from inside a classroom, don't ask for selection.
-                      // Show a neat auto-bound info badge.
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? const Color(0xFF1E293B)
-                              : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                color:
-                                    const Color(0xFF7C3AED).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.school,
-                                size: 18,
-                                color: Color(0xFF7C3AED),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Classroom',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: subtitleColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  Text(
-                                    widget.classroom!.name +
-                                        (widget.classroom!.section.isNotEmpty
-                                            ? ' (${widget.classroom!.section})'
-                                            : ''),
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: textColor,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    const Color(0xFF10B981).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.lock_outline,
-                                    size: 12,
-                                    color: Color(0xFF10B981),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Selected',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF10B981),
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // 3. Subject / Category: 1) General, 2) Class Subjects
-                    Row(
+                    // CARD 1: GENERAL INFORMATION
+                    _buildSectionCard(
+                      title: 'General Information',
+                      subtitle:
+                          'Define the exam title, classroom, and primary subject.',
+                      icon: Icons.description_outlined,
+                      containerColor: containerColor,
+                      borderColor: borderColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
                       children: [
-                        Expanded(
-                          child: Text(
-                            _selectedClassroom != null
-                                ? 'Subject for "${_selectedClassroom!.name}" *'
-                                : 'Subject / Category *',
-                            style: TextStyle(
+                        // Exam Title
+                        _buildFieldLabel('Exam Title *', subtitleColor),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _titleController,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: 'e.g. Unit 3 Midterm, Linear Algebra Quiz',
+                            prefixIcon: Icon(
+                              Icons.edit_note_rounded,
                               color: subtitleColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              size: 20,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
                           ),
+                          validator: (val) => val == null || val.trim().isEmpty
+                              ? 'Please enter an exam title'
+                              : null,
                         ),
-                        if (_selectedClassroom != null)
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF7C3AED),
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                            ),
-                            onPressed: _showAddSubjectInlineDialog,
-                            icon: const Icon(Icons.add, size: 14),
-                            label: const Text(
-                              'Add Subject',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                        const SizedBox(height: 16),
+
+                        // Target Classroom Selector
+                        if (!_isLockedToClassroom) ...[
+                          _buildFieldLabel(
+                            'Target Classroom (Optional)',
+                            subtitleColor,
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: _categoryOptions.contains(_selectedCategory)
-                          ? _selectedCategory
-                          : _categoryOptions.first,
-                      dropdownColor: containerColor,
-                      style: TextStyle(color: textColor, fontSize: 14),
-                      decoration: _inputDecoration(
-                        hint: 'Select Subject',
-                        prefixIcon: Icon(
-                          Icons.library_books_outlined,
-                          color: subtitleColor,
-                          size: 20,
-                        ),
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                      ),
-                      items: _categoryOptions.map((category) {
-                        final isGeneral = category.toLowerCase() == 'general';
-                        return DropdownMenuItem<String>(
-                          value: category,
-                          child: Row(
-                            children: [
-                              Icon(
-                                isGeneral
-                                    ? Icons.public
-                                    : Icons.menu_book_rounded,
-                                size: 16,
-                                color: isGeneral
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFF7C3AED),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String?>(
+                            isExpanded: true,
+                            value: _selectedClassroom?.id,
+                            dropdownColor: containerColor,
+                            style: TextStyle(color: textColor, fontSize: 14),
+                            decoration: _inputDecoration(
+                              hint: 'Select Classroom (Optional)',
+                              prefixIcon: Icon(
+                                Icons.school_outlined,
+                                color: subtitleColor,
+                                size: 20,
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
+                              subtitleColor: subtitleColor,
+                              borderColor: borderColor,
+                              isDarkMode: isDarkMode,
+                            ),
+                            items: [
+                              DropdownMenuItem<String?>(
+                                value: null,
                                 child: Text(
-                                  category,
+                                  'Global / All Classes (Open Access)',
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: textColor,
-                                    fontWeight: isGeneral
-                                        ? FontWeight.bold
-                                        : FontWeight.w500,
+                                    color: subtitleColor,
+                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
                               ),
-                              if (isGeneral) ...[
-                                const SizedBox(width: 6),
+                              ..._availableClassrooms.map((c) {
+                                return DropdownMenuItem<String?>(
+                                  value: c.id,
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.class_outlined,
+                                        size: 16,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          c.name +
+                                              (c.section.isNotEmpty
+                                                  ? ' (${c.section})'
+                                                  : ''),
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                if (val == null) {
+                                  _selectedClassroom = null;
+                                } else {
+                                  final match = _availableClassrooms.where(
+                                    (c) => c.id == val,
+                                  );
+                                  _selectedClassroom =
+                                      match.isNotEmpty ? match.first : null;
+                                }
+                                _recomputeCategoryOptions();
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ] else ...[
+                          // Clean read-only banner when launched inside a classroom
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED)
+                                        .withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.school,
+                                    size: 18,
+                                    color: Color(0xFF7C3AED),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Classroom',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: subtitleColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      Text(
+                                        widget.classroom!.name +
+                                            (widget.classroom!.section.isNotEmpty
+                                                ? ' (${widget.classroom!.section})'
+                                                : ''),
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: textColor,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 1,
+                                    horizontal: 8,
+                                    vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF10B981)
                                         .withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
-                                    'Default',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Color(0xFF10B981),
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_outline,
+                                        size: 12,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Selected',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF10B981),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedCategory = val;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 4. Duration
-                    _buildFieldLabel('Duration (Minutes) *', subtitleColor),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _durationController,
-                      keyboardType: TextInputType.number,
-                      style: TextStyle(color: textColor),
-                      decoration: _inputDecoration(
-                        hint: '120',
-                        prefixIcon: Icon(
-                          Icons.timer_outlined,
-                          color: subtitleColor,
-                          size: 20,
-                        ),
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'Please enter duration';
-                        }
-                        if (int.tryParse(val.trim()) == null) {
-                          return 'Please enter a valid number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 5. Total Marks
-                    _buildFieldLabel('Total Marks', subtitleColor),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _marksController,
-                      keyboardType: TextInputType.number,
-                      style: TextStyle(color: textColor),
-                      decoration: _inputDecoration(
-                        hint: '100',
-                        prefixIcon: Icon(
-                          Icons.score_outlined,
-                          color: subtitleColor,
-                          size: 20,
-                        ),
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                      ),
-                      validator: (val) {
-                        if (val != null &&
-                            val.isNotEmpty &&
-                            double.tryParse(val.trim()) == null) {
-                          return 'Please enter a valid number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 6. Negative Marking
-                    _buildFieldLabel(
-                      'Negative Marking (Per Question)',
-                      subtitleColor,
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _negativeMarkingController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      style: TextStyle(color: textColor),
-                      decoration: _inputDecoration(
-                        hint: '0.25',
-                        suffixText: 'pts',
-                        prefixIcon: Icon(
-                          Icons.remove_circle_outline,
-                          color: subtitleColor,
-                          size: 20,
-                        ),
-                        subtitleColor: subtitleColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: _handleCancel,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: BorderSide(color: borderColor),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              'Cancel',
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.bold,
-                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleNext,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF7C3AED),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Subject / Category Selector
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _selectedClassroom != null
+                                    ? 'Subject for "${_selectedClassroom!.name}" *'
+                                    : 'Subject / Category *',
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              elevation: 0,
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
+                            if (_selectedClassroom != null)
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF7C3AED),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                ),
+                                onPressed: _showAddSubjectInlineDialog,
+                                icon: const Icon(Icons.add, size: 14),
+                                label: const Text(
+                                  'Add Subject',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          isExpanded: true,
+                          value: _categoryOptions.contains(_selectedCategory)
+                              ? _selectedCategory
+                              : _categoryOptions.first,
+                          dropdownColor: containerColor,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: 'Select Subject',
+                            prefixIcon: Icon(
+                              Icons.library_books_outlined,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
+                          ),
+                          items: _categoryOptions.map((category) {
+                            final isGeneral =
+                                category.toLowerCase() == 'general';
+                            return DropdownMenuItem<String>(
+                              value: category,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isGeneral
+                                        ? Icons.public
+                                        : Icons.menu_book_rounded,
+                                    size: 16,
+                                    color: isGeneral
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFF7C3AED),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      category,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontWeight: isGeneral
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
+                                      ),
                                     ),
-                                  )
-                                : const Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        'Next: Questions',
+                                  ),
+                                  if (isGeneral) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981)
+                                            .withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Default',
                                         style: TextStyle(
+                                          fontSize: 10,
+                                          color: Color(0xFF10B981),
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 14,
                                         ),
                                       ),
-                                      SizedBox(width: 6),
-                                      Icon(Icons.arrow_forward, size: 16),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _selectedCategory = val;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // CARD 2: TIMING & SCORING
+                    _buildSectionCard(
+                      title: 'Timing & Scoring',
+                      subtitle:
+                          'Set duration limit, total points, and penalty for wrong answers.',
+                      icon: Icons.timer_outlined,
+                      containerColor: containerColor,
+                      borderColor: borderColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      children: [
+                        // Duration
+                        _buildFieldLabel(
+                          'Exam Duration (Minutes) *',
+                          subtitleColor,
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _durationController,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: '60',
+                            suffixText: 'mins',
+                            prefixIcon: Icon(
+                              Icons.access_time_rounded,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
                           ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter duration in minutes';
+                            }
+                            final n = int.tryParse(val.trim());
+                            if (n == null || n <= 0) {
+                              return 'Enter a valid positive number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildQuickChip('30m', '30', _durationController),
+                            _buildQuickChip('45m', '45', _durationController),
+                            _buildQuickChip('60m', '60', _durationController),
+                            _buildQuickChip('90m', '90', _durationController),
+                            _buildQuickChip('120m', '120', _durationController),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Total Marks
+                        _buildFieldLabel('Total Exam Marks *', subtitleColor),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _marksController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: '50',
+                            suffixText: 'pts',
+                            prefixIcon: Icon(
+                              Icons.functions_rounded,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter total marks';
+                            }
+                            final n = double.tryParse(val.trim());
+                            if (n == null || n <= 0) {
+                              return 'Enter a valid positive score';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildQuickChip('25 pts', '25', _marksController),
+                            _buildQuickChip('50 pts', '50', _marksController),
+                            _buildQuickChip('100 pts', '100', _marksController),
+                            _buildQuickChip('200 pts', '200', _marksController),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Negative Marking
+                        _buildFieldLabel(
+                          'Negative Marking (per incorrect response)',
+                          subtitleColor,
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _negativeMarkingController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: '0.0',
+                            suffixText: 'pts',
+                            prefixIcon: Icon(
+                              Icons.remove_circle_outline,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildQuickChip(
+                              'None (0.0)',
+                              '0.0',
+                              _negativeMarkingController,
+                            ),
+                            _buildQuickChip(
+                              '-0.25',
+                              '0.25',
+                              _negativeMarkingController,
+                            ),
+                            _buildQuickChip(
+                              '-0.33',
+                              '0.33',
+                              _negativeMarkingController,
+                            ),
+                            _buildQuickChip(
+                              '-0.50',
+                              '0.50',
+                              _negativeMarkingController,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // CARD 3: EVALUATION & EXAM RULES
+                    _buildSectionCard(
+                      title: 'Evaluation & Rules',
+                      subtitle:
+                          'Configure passing percentage, anti-cheat shuffling, and score visibility.',
+                      icon: Icons.shield_outlined,
+                      containerColor: containerColor,
+                      borderColor: borderColor,
+                      textColor: textColor,
+                      subtitleColor: subtitleColor,
+                      children: [
+                        // Passing Score Percentage
+                        _buildFieldLabel(
+                          'Passing Score Percentage *',
+                          subtitleColor,
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _passingScoreController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: '50',
+                            suffixText: '%',
+                            prefixIcon: Icon(
+                              Icons.percent_rounded,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter passing score %';
+                            }
+                            final n = double.tryParse(val.trim());
+                            if (n == null || n < 0 || n > 100) {
+                              return 'Must be between 0 and 100';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildQuickChip(
+                              '40%',
+                              '40',
+                              _passingScoreController,
+                            ),
+                            _buildQuickChip(
+                              '50%',
+                              '50',
+                              _passingScoreController,
+                            ),
+                            _buildQuickChip(
+                              '60%',
+                              '60',
+                              _passingScoreController,
+                            ),
+                            _buildQuickChip(
+                              '75%',
+                              '75',
+                              _passingScoreController,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Shuffle Questions
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Shuffle Questions',
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Randomizes question sequence for each student to prevent screen peeking.',
+                                    style: TextStyle(
+                                      color: subtitleColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: _shuffleQuestions,
+                              activeColor: const Color(0xFF7C3AED),
+                              onChanged: (val) {
+                                setState(() => _shuffleQuestions = val);
+                              },
+                            ),
+                          ],
+                        ),
+                        Divider(color: borderColor, height: 24),
+
+                        // Show Results Immediately
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Show Results Immediately',
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Displays instant final score and review after student submits.',
+                                    style: TextStyle(
+                                      color: subtitleColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: _showResultsImmediately,
+                              activeColor: const Color(0xFF7C3AED),
+                              onChanged: (val) {
+                                setState(() => _showResultsImmediately = val);
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -909,6 +1103,152 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: containerColor,
+          border: Border(top: BorderSide(color: borderColor)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: OutlinedButton(
+                  onPressed: _handleCancel,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: borderColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleNext,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Next: Questions',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.arrow_forward_rounded, size: 16),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color containerColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required List<Widget> children,
+  }) {
+    return Material(
+      color: containerColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: borderColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: const Color(0xFF7C3AED), size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: subtitleColor,
+                          fontSize: 11.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...children,
           ],
         ),
       ),
@@ -918,7 +1258,50 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   Widget _buildFieldLabel(String label, Color color) {
     return Text(
       label,
-      style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600),
+      style: TextStyle(
+        color: color,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  Widget _buildQuickChip(
+    String label,
+    String value,
+    TextEditingController controller,
+  ) {
+    final isSelected = controller.text.trim() == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          controller.text = value;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF7C3AED).withOpacity(0.15)
+              : Colors.transparent,
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF7C3AED)
+                : Colors.grey.withOpacity(0.3),
+            width: isSelected ? 1.4 : 1.0,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? const Color(0xFF7C3AED) : Colors.grey,
+          ),
+        ),
+      ),
     );
   }
 
@@ -936,9 +1319,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       suffixText: suffixText,
       hintStyle: TextStyle(
         color: isDarkMode ? Colors.white38 : Colors.grey[400],
-        fontSize: 14,
+        fontSize: 13.5,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: borderColor),
@@ -955,46 +1338,6 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
       ),
-    );
-  }
-
-  Widget _buildStepItem(
-    String step,
-    String title,
-    bool isActive,
-    bool isCompleted,
-    bool isDarkMode,
-  ) {
-    Color bg = isCompleted
-        ? const Color(0xFF0D9488)
-        : (isActive ? const Color(0xFF7C3AED) : Colors.grey.shade400);
-
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 14,
-          backgroundColor: bg,
-          child: Text(
-            step,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          title,
-          style: TextStyle(
-            color: isActive
-                ? (isDarkMode ? Colors.white : Colors.black87)
-                : Colors.grey,
-            fontSize: 11,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ],
     );
   }
 }

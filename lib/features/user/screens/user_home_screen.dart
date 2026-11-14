@@ -30,6 +30,7 @@ class _HomeScreenState extends State<Userhomescreen> {
 
   String _assignedAdminId = '';
   String _instructorName = '';
+  String _studentClassroomId = '';
   bool _isLoadingUser = true;
 
   @override
@@ -60,6 +61,7 @@ class _HomeScreenState extends State<Userhomescreen> {
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+        _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
         if (_assignedAdminId.isNotEmpty) {
           final adminDoc = await FirebaseFirestore.instance
               .collection('users')
@@ -75,9 +77,10 @@ class _HomeScreenState extends State<Userhomescreen> {
       }
     } catch (_) {}
 
-    // Strictly scope published exams to the student's assigned instructor
+    // Strictly scope published exams to the student's assigned instructor and classroom
     _publishedExamsStream = _examService.getPublishedExamsStream(
       adminId: _assignedAdminId,
+      classroomId: _studentClassroomId,
       role: 'student',
     );
 

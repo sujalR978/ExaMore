@@ -96,16 +96,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Add a new subject to "${classroom.name}":',
+              'Add subject(s) to "${classroom.name}". Separate multiple subjects with commas for instant batch adding:',
               style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               autofocus: true,
+              maxLines: 2,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
-                hintText: 'e.g. Mathematics, Organic Chemistry',
+                hintText: 'e.g. Mathematics, Physics, Chemistry',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -121,19 +122,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               backgroundColor: const Color(0xFF7C3AED),
               foregroundColor: Colors.white,
             ),
-            onPressed: () async {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                await ClassroomService.addSubject(
-                  classroomId: classroom.id,
-                  subjectName: name,
-                );
-                if (mounted) {
+            onPressed: () {
+              final raw = controller.text.trim();
+              if (raw.isNotEmpty) {
+                final names = raw
+                    .split(RegExp(r'[,;\n]+'))
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty)
+                    .toList();
+
+                if (names.isNotEmpty) {
                   Navigator.pop(ctx);
+                  ClassroomService.addSubjects(
+                    classroomId: classroom.id,
+                    subjectNames: names,
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'Added subject "$name" to ${classroom.name}',
+                        'Added ${names.length} subject${names.length > 1 ? 's' : ''} to ${classroom.name}',
                       ),
                       backgroundColor: const Color(0xFF10B981),
                     ),
@@ -141,7 +148,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 }
               }
             },
-            child: const Text('Add'),
+            child: const Text('Add Subjects'),
           ),
         ],
       ),
@@ -537,19 +544,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       ),
                     ),
 
-                    // Quick Classroom Join Code Pill
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        child: _buildDefaultJoinCodeBanner(
-                          isDarkMode: isDarkMode,
-                        ),
-                      ),
-                    ),
-
                     // Section Title: "My Classrooms" + Quick Actions
                     SliverToBoxAdapter(
                       child: Padding(
@@ -643,6 +637,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   // -------------------------------------------------------------
+
+
+  // -------------------------------------------------------------
   // Compact 4-Segment Metrics Ribbon
   // -------------------------------------------------------------
   Widget _buildCompactMetricsRibbon({
@@ -655,18 +652,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     required Color borderColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: surfaceColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -675,7 +665,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             iconColor: const Color(0xFF3B82F6),
             value: '$totalClassrooms',
             label: 'Classes',
-            onTap: () => setState(() => _currentIndex = 0),
+            onTap: null,
           ),
           _buildRibbonDivider(borderColor),
           _buildRibbonItem(
@@ -683,7 +673,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             iconColor: const Color(0xFF10B981),
             value: '$totalStudents',
             label: 'Students',
-            onTap: () => setState(() => _currentIndex = 3),
+            onTap: null,
           ),
           _buildRibbonDivider(borderColor),
           _buildRibbonItem(
@@ -691,7 +681,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             iconColor: const Color(0xFFF59E0B),
             value: '$activeExams',
             label: 'Exams',
-            onTap: () => setState(() => _currentIndex = 1),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const Showexamesscreen(),
+                ),
+              );
+            },
           ),
           _buildRibbonDivider(borderColor),
           _buildRibbonItem(
@@ -699,7 +696,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             iconColor: const Color(0xFF8B5CF6),
             value: '$totalQuizzes',
             label: 'Questions',
-            onTap: () => setState(() => _currentIndex = 2),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QuestionBankScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -709,7 +713,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget _buildRibbonDivider(Color borderColor) {
     return Container(
       width: 1,
-      height: 32,
+      height: 28,
       color: borderColor,
       margin: const EdgeInsets.symmetric(horizontal: 4),
     );
@@ -726,7 +730,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 14, color: iconColor),
             const SizedBox(width: 4),
@@ -759,81 +763,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 child: content,
               ),
             ),
-    );
-  }
-
-  // -------------------------------------------------------------
-  // Default Join Code Strip (Compact)
-  // -------------------------------------------------------------
-  Widget _buildDefaultJoinCodeBanner({required bool isDarkMode}) {
-    final code = _classroomCode.isNotEmpty ? _classroomCode : _adminUid;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: isDarkMode
-            ? const Color(0xFF1E1B4B).withOpacity(0.5)
-            : const Color(0xFFF5F3FF),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.25)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.qr_code_rounded, size: 18, color: Color(0xFF7C3AED)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDarkMode ? Colors.white70 : const Color(0xFF4C1D95),
-                ),
-                children: [
-                  const TextSpan(text: 'Admin Join Code: '),
-                  TextSpan(
-                    text: code.isNotEmpty ? code : '...',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: () {
-              if (code.isNotEmpty) {
-                Clipboard.setData(ClipboardData(text: code));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Join code "$code" copied to clipboard!'),
-                    backgroundColor: const Color(0xFF7C3AED),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.all(4.0),
-              child: Row(
-                children: const [
-                  Icon(Icons.copy_rounded, size: 14, color: Color(0xFF7C3AED)),
-                  SizedBox(width: 4),
-                  Text(
-                    'Copy',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF7C3AED),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -973,14 +902,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         children: [
                           Text(
                             classroom.name,
-                            maxLines: 3,
-                            overflow: TextOverflow.fade,
-                            softWrap: true,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 13.5,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              height: 1.2,
+                              height: 1.25,
                               letterSpacing: -0.2,
                             ),
                           ),

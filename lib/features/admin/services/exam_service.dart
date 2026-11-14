@@ -166,6 +166,7 @@ class ExamService {
   Stream<List<ExamModel>> getPublishedExamsStream({
     String? category,
     String? adminId,
+    String? classroomId,
     String role = 'student',
   }) {
     Query query = _examsCollection.where('status', isEqualTo: 'Published');
@@ -182,6 +183,17 @@ class ExamService {
       final list = snapshot.docs
           .map((doc) => ExamModel.fromFirestore(doc))
           .toList();
+
+      // If student belongs to a classroom, filter out exams belonging to other classrooms
+      if (classroomId != null && classroomId.isNotEmpty) {
+        return list.where((e) {
+          if (e.classroomId != null && e.classroomId!.isNotEmpty) {
+            return e.classroomId == classroomId;
+          }
+          return true; // Global exam open to all
+        }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      }
+
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return list;
     });

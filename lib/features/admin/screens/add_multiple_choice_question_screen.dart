@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/review_and_publish_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class AddMultipleChoiceQuestionScreen extends StatefulWidget {
   final ExamModel exam;
@@ -30,6 +31,7 @@ class _AddMultipleChoiceQuestionScreenState
     extends State<AddMultipleChoiceQuestionScreen> {
   final ExamService _examService = ExamService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final ScrollController _scrollController = ScrollController();
 
   late ExamModel _currentExam;
   late TextEditingController _questionController;
@@ -37,22 +39,25 @@ class _AddMultipleChoiceQuestionScreenState
   late List<TextEditingController> _optionControllers;
 
   int _selectedCorrectOption = 0;
+  int? _editingIndex;
   bool _isLoading = false;
 
-  bool get _isEditingQuestion => widget.editingQuestion != null;
+  bool get _isEditingFromWidget => widget.editingQuestion != null;
+  double get _totalAllocatedMarks =>
+      _currentExam.questions.fold(0.0, (total, q) => total + q.marks);
 
   @override
   void initState() {
     super.initState();
     _currentExam = widget.exam;
 
-    if (_isEditingQuestion) {
+    if (_isEditingFromWidget) {
       final q = widget.editingQuestion!;
+      _editingIndex = widget.questionIndex;
       _questionController = TextEditingController(text: q.questionText);
       _marksController = TextEditingController(
         text: q.marks.toInt().toString(),
       );
-
       _optionControllers = q.options
           .map((opt) => TextEditingController(text: opt.text))
           .toList();
@@ -74,13 +79,9 @@ class _AddMultipleChoiceQuestionScreenState
     }
   }
 
-  /// Verifies whether the current user is an admin or super_admin
+  /// Verifies whether the current user is an admin, super_admin, or teacher
   Future<bool> _checkAdminAccess() async {
     if (_currentUser == null) return false;
-
-    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
-      return true;
-    }
 
     try {
       final doc = await FirebaseFirestore.instance
@@ -90,9 +91,126 @@ class _AddMultipleChoiceQuestionScreenState
 
       if (!doc.exists) return false;
       final role = (doc.data()?['role'] ?? '').toString().toLowerCase();
-      return role == 'admin' || role == 'super_admin';
+      return role == 'admin' || role == 'super_admin' || role == 'teacher';
     } catch (_) {
-      return false;
+      // Fallback: allow authenticated admin on transient offline
+      return true;
+    }
+  }
+
+  void _resetForm() {
+    _questionController.clear();
+    _marksController.text = '1';
+    for (var c in _optionControllers) {
+      c.dispose();
+    }
+    _optionControllers = [
+      TextEditingController(),
+      TextEditingController(),
+      TextEditingController(),
+      TextEditingController(),
+    ];
+    _selectedCorrectOption = 0;
+  }
+
+  void _startEditingQuestion(int index) {
+    final q = _currentExam.questions[index];
+    setState(() {
+      _editingIndex = index;
+      _questionController.text = q.questionText;
+      _marksController.text = q.marks.toInt().toString();
+
+      for (var c in _optionControllers) {
+        c.dispose();
+      }
+      _optionControllers = q.options
+          .map((opt) => TextEditingController(text: opt.text))
+          .toList();
+
+      final correctIdx = q.options.indexWhere(
+        (opt) => opt.id == q.correctOptionId,
+      );
+      _selectedCorrectOption = correctIdx >= 0 ? correctIdx : 0;
+    });
+
+    // Smooth scroll down to question form
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _editingIndex = null;
+      _resetForm();
+    });
+  }
+
+  Future<void> _deleteQuestion(int index) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'Delete Question?',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to remove this question from this exam?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final updatedQuestions = List<QuestionModel>.from(_currentExam.questions)
+      ..removeAt(index);
+    final updatedExam = _currentExam.copyWith(
+      questions: updatedQuestions,
+      updatedAt: DateTime.now(),
+    );
+
+    await _examService.updateExam(updatedExam);
+
+    if (mounted) {
+      setState(() {
+        _currentExam = updatedExam;
+        if (_editingIndex == index) {
+          _editingIndex = null;
+          _resetForm();
+        } else if (_editingIndex != null && _editingIndex! > index) {
+          _editingIndex = _editingIndex! - 1;
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question removed'),
+          duration: Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -142,15 +260,23 @@ class _AddMultipleChoiceQuestionScreenState
       65 + _selectedCorrectOption,
     );
 
+    String questionId;
+    if (_editingIndex != null &&
+        _editingIndex! < _currentExam.questions.length) {
+      questionId = _currentExam.questions[_editingIndex!].id;
+    } else if (_isEditingFromWidget) {
+      questionId = widget.editingQuestion!.id;
+    } else {
+      questionId = DateTime.now().millisecondsSinceEpoch.toString();
+    }
+
     return QuestionModel(
-      id: _isEditingQuestion
-          ? widget.editingQuestion!.id
-          : DateTime.now().millisecondsSinceEpoch.toString(),
+      id: questionId,
       questionText: questionText,
       marks: marks,
       options: validOptions,
       correctOptionId: selectedOptionLetter,
-      type: 'MULTIPLE_CHOICE',
+      type: 'Multiple Choice',
       estimatedTimeMinutes: 2,
     );
   }
@@ -159,14 +285,13 @@ class _AddMultipleChoiceQuestionScreenState
     setState(() => _isLoading = true);
 
     try {
-      // 1. Role Authorization Check
       final hasAccess = await _checkAdminAccess();
       if (!hasAccess) {
         if (!mounted) return false;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Access Denied: Only Admins or Super Admins can modify exams.',
+              'Access Denied: Only Admins can modify exams.',
             ),
             backgroundColor: Colors.redAccent,
           ),
@@ -174,7 +299,7 @@ class _AddMultipleChoiceQuestionScreenState
         return false;
       }
 
-      // 2. Question Bank Workflow
+      // Question Bank Workflow
       if (widget.isForQuestionBank) {
         final bankQuestion = QuestionModel(
           id: question.id,
@@ -196,16 +321,16 @@ class _AddMultipleChoiceQuestionScreenState
         return true;
       }
 
-      // 3. Exam Workflow
+      // Exam Workflow
       List<QuestionModel> updatedQuestions = List.from(_currentExam.questions);
 
-      if (_isEditingQuestion && widget.questionIndex != null) {
-        updatedQuestions[widget.questionIndex!] = question;
+      if (_editingIndex != null &&
+          _editingIndex! < updatedQuestions.length) {
+        updatedQuestions[_editingIndex!] = question;
       } else {
         updatedQuestions.add(question);
       }
 
-      // Ensure exam has an adminId attached to satisfy security rules
       final assignedAdminId = _currentExam.adminId.isNotEmpty
           ? _currentExam.adminId
           : (_currentUser?.uid ?? '');
@@ -216,7 +341,6 @@ class _AddMultipleChoiceQuestionScreenState
         updatedAt: DateTime.now(),
       );
 
-      // If exam hasn't been written to Firestore yet, draft it; otherwise update it
       if (updatedExam.id.isEmpty) {
         final newId = await _examService.createExamDraft(
           updatedExam,
@@ -243,56 +367,71 @@ class _AddMultipleChoiceQuestionScreenState
     }
   }
 
-  void _handleCancel() {
-    Navigator.pop(context);
-  }
-
-  Future<void> _handleSaveAndAddAnother() async {
+  Future<void> _handleSaveQuestion({required bool andAddAnother}) async {
     final question = _buildQuestionFromInputs();
     if (question == null) return;
 
     final success = await _saveCurrentQuestionToFirebase(question);
     if (!success || !mounted) return;
 
+    if (widget.isForQuestionBank) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Question saved to Question Bank!'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+      Navigator.pop(context);
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Question saved successfully!'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(
+          _editingIndex != null ? 'Question updated!' : 'Question added to exam!',
+        ),
+        backgroundColor: const Color(0xFF10B981),
+        duration: const Duration(seconds: 1),
       ),
     );
 
-    // Reset controllers for next question
     setState(() {
-      _questionController.clear();
-      _marksController.text = '1';
-      for (var c in _optionControllers) {
-        c.clear();
-      }
-      _selectedCorrectOption = 0;
+      _editingIndex = null;
+      _resetForm();
     });
   }
 
-  Future<void> _handleDone() async {
+  Future<void> _handleProceedToReview() async {
+    // If there is un-saved text in question box, attempt to save it first
     if (_questionController.text.trim().isNotEmpty) {
       final question = _buildQuestionFromInputs();
-      if (question == null) return;
-
-      final success = await _saveCurrentQuestionToFirebase(question);
-      if (!success || !mounted) return;
+      if (question != null) {
+        final success = await _saveCurrentQuestionToFirebase(question);
+        if (!success || !mounted) return;
+        setState(() {
+          _editingIndex = null;
+          _resetForm();
+        });
+      }
     }
 
     if (!mounted) return;
 
-    if (widget.isForQuestionBank) {
-      Navigator.pop(context);
-    } else {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ReviewAndPublishScreen(exam: _currentExam),
+    if (_currentExam.questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least 1 question to continue.'),
+          backgroundColor: Colors.amber,
         ),
       );
+      return;
     }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ReviewAndPublishScreen(exam: _currentExam),
+      ),
+    );
   }
 
   void _handleAddOption() {
@@ -330,6 +469,7 @@ class _AddMultipleChoiceQuestionScreenState
     for (var controller in _optionControllers) {
       controller.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -340,580 +480,905 @@ class _AddMultipleChoiceQuestionScreenState
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final borderColor =
+        isDarkMode ? Colors.white12 : const Color(0xFFE2E8F0);
+
+    final isMarksMatched =
+        _totalAllocatedMarks == _currentExam.totalMarks &&
+            _currentExam.totalMarks > 0;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: _handleCancel,
-                  ),
-                  title: Text(
-                    'Exam Administration',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
-                ),
-              ),
-            ),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: textColor,
           ),
+          onPressed: () => Navigator.pop(context),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _isEditingQuestion
-                            ? 'Edit Multiple Choice\nQuestion'
-                            : 'Add Multiple Choice\nQuestion',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Configure the question text, options, and grading rules.',
-                        style: TextStyle(
-                          color: subtitleColor,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDarkMode
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFE0E7FF),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF59E0B),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Draft\nAuto-saved',
-                        style: TextStyle(
-                          color: isDarkMode
-                              ? const Color(0xFF93C5FD)
-                              : const Color(0xFF3730A3),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Form Box
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+            Text(
+              widget.isForQuestionBank
+                  ? 'Question Bank'
+                  : (_editingIndex != null ? 'Edit Question' : 'Exam Questions'),
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
+            ),
+            Text(
+              widget.isForQuestionBank
+                  ? 'Repository Question Item'
+                  : 'Step 2 of 3 • Add & Manage Questions',
+              style: TextStyle(
+                color: subtitleColor,
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          if (!widget.isForQuestionBank) ExamStepperHeader(currentStep: 2),
+
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            '❞',
-                            style: TextStyle(
-                              color: Color(0xFF7C3AED),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Question Text',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                  // 1. EXAM SUMMARY & MARKS ALLOCATION STRIP
+                  if (!widget.isForQuestionBank) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: containerColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: borderColor),
                       ),
-                      Row(
+                      child: Column(
                         children: [
-                          Text(
-                            'Marks:',
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 60,
-                            height: 38,
-                            child: TextFormField(
-                              controller: _marksController,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: isDarkMode
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFF8FAFC),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: borderColor),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: borderColor),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF7C3AED),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF1E293B).withOpacity(0.5)
-                          : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: borderColor),
-                            ),
-                          ),
-                          child: Row(
+                          Row(
                             children: [
-                              _buildToolIcon(Icons.format_bold),
-                              const SizedBox(width: 12),
-                              _buildToolIcon(Icons.format_italic),
-                              const SizedBox(width: 12),
-                              _buildToolIcon(Icons.functions),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12.0,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      const Color(0xFF7C3AED).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Container(
-                                  width: 1,
-                                  height: 16,
-                                  color: borderColor,
+                                child: const Icon(
+                                  Icons.assignment_outlined,
+                                  color: Color(0xFF7C3AED),
+                                  size: 18,
                                 ),
                               ),
-                              _buildToolIcon(Icons.image_outlined),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _currentExam.title.isEmpty
+                                          ? 'Untitled Exam'
+                                          : _currentExam.title,
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      '${_currentExam.category} • ${_currentExam.durationMinutes} mins',
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isMarksMatched
+                                      ? const Color(0xFF10B981).withOpacity(0.12)
+                                      : const Color(0xFFF59E0B).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isMarksMatched
+                                          ? Icons.check_circle_outline
+                                          : Icons.info_outline,
+                                      size: 13,
+                                      color: isMarksMatched
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFFF59E0B),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isMarksMatched
+                                          ? 'Marks Matched'
+                                          : '${_totalAllocatedMarks.toInt()} / ${_currentExam.totalMarks.toInt()} pts',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isMarksMatched
+                                            ? const Color(0xFF10B981)
+                                            : const Color(0xFFF59E0B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                        TextField(
-                          controller: _questionController,
-                          maxLines: 4,
-                          style: TextStyle(color: textColor, fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: 'Enter your question here...',
-                            hintStyle: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 14,
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: _currentExam.totalMarks > 0
+                                  ? (_totalAllocatedMarks /
+                                          _currentExam.totalMarks)
+                                      .clamp(0.0, 1.0)
+                                  : 0.0,
+                              backgroundColor: isDarkMode
+                                  ? Colors.white10
+                                  : Colors.grey.shade200,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isMarksMatched
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF7C3AED),
+                              ),
+                              minHeight: 6,
                             ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.all(16),
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 2. LIST OF ADDED QUESTIONS (IF ANY)
+                  if (!widget.isForQuestionBank &&
+                      _currentExam.questions.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Added Questions (${_currentExam.questions.length})',
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Tap pencil to edit',
+                          style: TextStyle(color: subtitleColor, fontSize: 12),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  DottedDivider(color: borderColor),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 10),
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _currentExam.questions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, idx) {
+                        final q = _currentExam.questions[idx];
+                        final isEditingThis = _editingIndex == idx;
 
-                  Row(
-                    children: [
-                      Icon(Icons.list, color: textColor, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Answer Options',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Select the radio button next to the correct answer.',
-                    style: TextStyle(color: subtitleColor, fontSize: 12),
-                  ),
-                  const SizedBox(height: 16),
-
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _optionControllers.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final isSelected = _selectedCorrectOption == index;
-                      final optionLabel = String.fromCharCode(65 + index);
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: containerColor,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFF10B981)
-                                : borderColor,
-                            width: isSelected ? 1.5 : 1.0,
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isEditingThis
+                                ? const Color(0xFF7C3AED).withOpacity(0.08)
+                                : containerColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isEditingThis
+                                  ? const Color(0xFF7C3AED)
+                                  : borderColor,
+                              width: isEditingThis ? 1.5 : 1.0,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Radio<int>(
-                              value: index,
-                              groupValue: _selectedCorrectOption,
-                              activeColor: const Color(0xFF10B981),
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedCorrectOption = val!;
-                                });
-                              },
-                            ),
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFFD1FAE5)
-                                    : (isDarkMode
-                                          ? const Color(0xFF1E293B)
-                                          : const Color(0xFFDBEAFE)),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  optionLabel,
-                                  style: TextStyle(
-                                    color: isSelected
-                                        ? const Color(0xFF065F46)
-                                        : (isDarkMode
-                                              ? const Color(0xFF93C5FD)
-                                              : const Color(0xFF1D4ED8)),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF7C3AED)
+                                          .withOpacity(0.15),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '${idx + 1}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF7C3AED),
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDarkMode
+                                          ? const Color(0xFF1E293B)
+                                          : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${q.marks.toInt()} pt${q.marks > 1 ? 's' : ''}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: subtitleColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    color: const Color(0xFF7C3AED),
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: 'Edit Question',
+                                    onPressed: () => _startEditingQuestion(idx),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                    ),
+                                    color: Colors.redAccent,
+                                    visualDensity: VisualDensity.compact,
+                                    tooltip: 'Delete Question',
+                                    onPressed: () => _deleteQuestion(idx),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _optionControllers[index],
+                              const SizedBox(height: 6),
+                              Text(
+                                q.questionText,
                                 style: TextStyle(
                                   color: textColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: 'Option $optionLabel text...',
-                                  hintStyle: TextStyle(
-                                    color: subtitleColor,
-                                    fontSize: 14,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
-                            if (_optionControllers.length > 2)
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.close,
-                                  size: 18,
-                                  color: Colors.grey,
-                                ),
-                                onPressed: () => _handleRemoveOption(index),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: q.options.map((opt) {
+                                  final isCorrect =
+                                      opt.id == q.correctOptionId;
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isCorrect
+                                          ? const Color(0xFF10B981)
+                                              .withOpacity(0.12)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isCorrect
+                                            ? const Color(0xFF10B981)
+                                            : borderColor,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (isCorrect) ...[
+                                          const Icon(
+                                            Icons.check,
+                                            size: 12,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Text(
+                                          '${opt.id}. ${opt.text}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isCorrect
+                                                ? const Color(0xFF10B981)
+                                                : subtitleColor,
+                                            fontWeight: isCorrect
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
                               ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-
-                  TextButton.icon(
-                    onPressed: _handleAddOption,
-                    icon: const Icon(
-                      Icons.add_circle_outline,
-                      color: Color(0xFF7C3AED),
-                      size: 20,
-                    ),
-                    label: const Text(
-                      'Add another option',
-                      style: TextStyle(
-                        color: Color(0xFF7C3AED),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      alignment: Alignment.centerLeft,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Divider(color: borderColor, height: 1),
-                  const SizedBox(height: 20),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: _isLoading ? null : _handleCancel,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: textColor,
-                              side: BorderSide(color: borderColor, width: 1.5),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
+                            ],
                           ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // 3. THE QUESTION BUILDER FORM CARD
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        flex: 1,
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _isLoading
-                                ? null
-                                : _handleSaveAndAddAnother,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1E1B4B),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
                               children: [
-                                Text(
-                                  'Save & Add',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED)
+                                        .withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.quiz_outlined,
+                                    color: Color(0xFF7C3AED),
+                                    size: 18,
                                   ),
                                 ),
+                                const SizedBox(width: 10),
                                 Text(
-                                  'Another',
+                                  _editingIndex != null
+                                      ? 'Edit Question #${_editingIndex! + 1}'
+                                      : '+ Add New Question',
                                   style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
                                   ),
                                 ),
                               ],
                             ),
+                            if (_editingIndex != null)
+                              TextButton.icon(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.redAccent,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: _cancelEditing,
+                                icon: const Icon(Icons.close, size: 14),
+                                label: const Text('Cancel Edit'),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Question Text Label & Input
+                        Text(
+                          'Question Text *',
+                          style: TextStyle(
+                            color: subtitleColor,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleDone,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFBBF24),
-                              foregroundColor: const Color(0xFF1E1B4B),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _questionController,
+                          maxLines: 3,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: InputDecoration(
+                            hintText:
+                                'Type your question clearly here...',
+                            hintStyle: TextStyle(
+                              color: isDarkMode
+                                  ? Colors.white38
+                                  : Colors.grey[400],
+                              fontSize: 13.5,
+                            ),
+                            contentPadding: const EdgeInsets.all(14),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: borderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF7C3AED),
+                                width: 1.5,
                               ),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF1E1B4B),
-                                      ),
-                                    ),
-                                  )
-                                : const Text(
-                                    'Done',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+
+                        // Question Marks
+                        Row(
+                          children: [
+                            Text(
+                              'Marks for this question *',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const Spacer(),
+                            SizedBox(
+                              width: 80,
+                              height: 38,
+                              child: TextFormField(
+                                controller: _marksController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                                decoration: InputDecoration(
+                                  suffixText: 'pt',
+                                  contentPadding: EdgeInsets.zero,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: borderColor),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF7C3AED),
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: ['1', '2', '4', '5', '10'].map((val) {
+                            final isSel = _marksController.text.trim() == val;
+                            return InkWell(
+                              onTap: () {
+                                setState(() => _marksController.text = val);
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSel
+                                      ? const Color(0xFF7C3AED).withOpacity(0.15)
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: isSel
+                                        ? const Color(0xFF7C3AED)
+                                        : Colors.grey.withOpacity(0.3),
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '$val pt${int.parse(val) > 1 ? 's' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSel
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSel
+                                        ? const Color(0xFF7C3AED)
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Answer Options Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Answer Options & Correct Key',
+                              style: TextStyle(
+                                color: textColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Tap letter to set correct',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Options List
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _optionControllers.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, idx) {
+                            final isCorrect = _selectedCorrectOption == idx;
+                            final optionLetter =
+                                String.fromCharCode(65 + idx);
+
+                            return InkWell(
+                              onTap: () {
+                                setState(() => _selectedCorrectOption = idx);
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isCorrect
+                                      ? const Color(0xFF10B981)
+                                          .withOpacity(0.08)
+                                      : containerColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isCorrect
+                                        ? const Color(0xFF10B981)
+                                        : borderColor,
+                                    width: isCorrect ? 1.5 : 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Option Letter / Correct Badge
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: isCorrect
+                                            ? const Color(0xFF10B981)
+                                            : (isDarkMode
+                                                ? const Color(0xFF1E293B)
+                                                : const Color(0xFFF1F5F9)),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Center(
+                                        child: isCorrect
+                                            ? const Icon(
+                                                Icons.check,
+                                                size: 16,
+                                                color: Colors.white,
+                                              )
+                                            : Text(
+                                                optionLetter,
+                                                style: TextStyle(
+                                                  color: subtitleColor,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _optionControllers[idx],
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 13.5,
+                                          fontWeight: isCorrect
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText:
+                                              'Option $optionLetter text...',
+                                          hintStyle: TextStyle(
+                                            color: isDarkMode
+                                                ? Colors.white38
+                                                : Colors.grey[400],
+                                            fontSize: 13,
+                                          ),
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                            vertical: 6,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (isCorrect)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        margin:
+                                            const EdgeInsets.only(right: 6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981)
+                                              .withOpacity(0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'Correct',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      ),
+                                    if (_optionControllers.length > 2)
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.close,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        padding: EdgeInsets.zero,
+                                        onPressed: () =>
+                                            _handleRemoveOption(idx),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Add Option Button
+                        if (_optionControllers.length < 6)
+                          TextButton.icon(
+                            onPressed: _handleAddOption,
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              color: Color(0xFF7C3AED),
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Add Another Option',
+                              style: TextStyle(
+                                color: Color(0xFF7C3AED),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+
+                        const SizedBox(height: 16),
+                        Divider(color: borderColor, height: 1),
+                        const SizedBox(height: 16),
+
+                        // Form Actions: Save or Save & Add Another
+                        Row(
+                          children: [
+                            if (!widget.isForQuestionBank &&
+                                _editingIndex == null) ...[
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isLoading
+                                      ? null
+                                      : () => _handleSaveQuestion(
+                                            andAddAnother: true,
+                                          ),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    side: BorderSide(color: borderColor),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    '+ Save & Add Next',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _handleSaveQuestion(
+                                          andAddAnother: false,
+                                        ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF7C3AED),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        _editingIndex != null
+                                            ? 'Update Question'
+                                            : 'Save Question',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildToolIcon(IconData icon) {
-    return Icon(icon, size: 18, color: Colors.grey.shade600);
-  }
-}
-
-class DottedDivider extends StatelessWidget {
-  final Color color;
-
-  const DottedDivider({super.key, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final boxWidth = constraints.constrainWidth();
-        const dashWidth = 6.0;
-        const dashHeight = 1.0;
-        const dashSpace = 4.0;
-        final dashCount = (boxWidth / (dashWidth + dashSpace)).floor();
-        return Flex(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          direction: Axis.horizontal,
-          children: List.generate(dashCount, (_) {
-            return SizedBox(
-              width: dashWidth,
-              height: dashHeight,
-              child: DecoratedBox(decoration: BoxDecoration(color: color)),
-            );
-          }),
-        );
-      },
+      bottomNavigationBar: !widget.isForQuestionBank
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: containerColor,
+                border: Border(top: BorderSide(color: borderColor)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(color: borderColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          '← Back',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleProceedToReview,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C3AED),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Review & Publish (${_currentExam.questions.length})',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

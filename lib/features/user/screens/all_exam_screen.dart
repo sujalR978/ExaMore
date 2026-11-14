@@ -23,6 +23,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
   int _selectedCategoryIndex = 0;
   String _searchQuery = '';
   String _assignedAdminId = '';
+  String _studentClassroomId = '';
   bool _isLoadingUser = true;
 
   Stream<List<ExamModel>>? _publishedExamsStream;
@@ -65,6 +66,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+        _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
       }
     } catch (_) {}
 
@@ -77,7 +79,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
     }
   }
 
-  /// Updates the stream filtered by category and the student's assigned instructor
+  /// Updates the stream filtered by category, student's classroom, and assigned instructor
   void _updateExamsStream() {
     final selectedCategory = _selectedCategoryIndex == 0
         ? null
@@ -86,6 +88,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
     _publishedExamsStream = _examService.getPublishedExamsStream(
       category: selectedCategory,
       adminId: _assignedAdminId,
+      classroomId: _studentClassroomId,
       role: 'student',
     );
   }

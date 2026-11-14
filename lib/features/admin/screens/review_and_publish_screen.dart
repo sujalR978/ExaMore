@@ -1,9 +1,11 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
-import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class ReviewAndPublishScreen extends StatefulWidget {
   final ExamModel? exam;
@@ -25,6 +27,9 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
   bool _isSavingDraft = false;
   bool _isPublishing = false;
 
+  double get _totalAllocatedMarks =>
+      _currentExam.questions.fold(0.0, (total, q) => total + q.marks);
+
   @override
   void initState() {
     super.initState();
@@ -35,8 +40,8 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
           examCode: '',
           title: 'Sample Exam',
           category: 'General',
-          durationMinutes: 90,
-          totalMarks: 100,
+          durationMinutes: 60,
+          totalMarks: 50,
           passingScorePercentage: 50,
           questions: [],
         );
@@ -56,7 +61,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
     );
   }
 
-  // Opens an inline dialog to manually adjust the passing percentage
+  // Opens an inline dialog to adjust passing percentage
   Future<void> _handleEditPassingPercentage() async {
     final controller = TextEditingController(
       text: _passingScorePercentage.toInt().toString(),
@@ -126,8 +131,8 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFBBF24),
-                foregroundColor: const Color(0xFF1E1B4B),
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -169,13 +174,14 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Exam draft saved successfully!'),
-          backgroundColor: Colors.green,
+          backgroundColor: Color(0xFF10B981),
         ),
       );
 
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => const Showexamesscreen()));
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -208,8 +214,14 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Exam published successfully!'),
-          backgroundColor: Colors.green,
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Exam published live! Students can now access it.'),
+            ],
+          ),
+          backgroundColor: Color(0xFF10B981),
         ),
       );
 
@@ -287,779 +299,757 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final subtitleColor =
+        isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final borderColor =
+        isDarkMode ? Colors.white12 : const Color(0xFFE2E8F0);
+
+    final isMarksMatched =
+        _totalAllocatedMarks == _currentExam.totalMarks &&
+            _currentExam.totalMarks > 0;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDarkMode ? 0.2 : 0.05,
-                    ),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.menu_book,
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF1E1B4B),
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                  title: Text(
-                    'Examora',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  centerTitle: false,
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12.0),
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: const Color(0xFF1E1B4B),
-                        child: const Text(
-                          'AD',
-                          style: TextStyle(
-                            color: Color(0xFFFBBF24),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: textColor,
           ),
+          onPressed: () => Navigator.pop(context),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Back to questions navigation link
-            InkWell(
-              onTap: () => Navigator.pop(context),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.arrow_back,
-                    size: 14,
-                    color: isDarkMode
-                        ? const Color(0xFFFBBF24)
-                        : const Color(0xFF1E1B4B),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'BACK TO QUESTIONS',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
             Text(
               'Review & Publish',
               style: TextStyle(
                 color: textColor,
-                fontSize: 30,
                 fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
-            const SizedBox(height: 4),
             Text(
-              'Verify your question selection, scoring, and exam parameters before making this assessment live for students.',
-              style: TextStyle(color: subtitleColor, fontSize: 14, height: 1.4),
+              'Step 3 of 3 • Final Verification',
+              style: TextStyle(
+                color: subtitleColor,
+                fontSize: 12,
+                fontWeight: FontWeight.normal,
+              ),
             ),
-            const SizedBox(height: 20),
-
-            // Top Action Buttons Row
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isSavingDraft || _isPublishing
-                        ? null
-                        : _handleSaveDraft,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E1B4B),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: _isSavingDraft
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.save_outlined, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'Save Draft',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isSavingDraft || _isPublishing
-                        ? null
-                        : _handlePublishExam,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFBBF24),
-                      foregroundColor: const Color(0xFF1E1B4B),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: _isPublishing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF1E1B4B),
-                              ),
-                            ),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.bolt, size: 18),
-                              SizedBox(width: 6),
-                              Text(
-                                'Publish Exam',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Selected Questions Header Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Selected Questions',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDarkMode
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFE0E7FF),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    '${_currentExam.questions.length} Items',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFF93C5FD)
-                          : const Color(0xFF3730A3),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Dynamic Questions List
-            if (_currentExam.questions.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Center(
-                  child: Text(
-                    'No questions added yet.',
-                    style: TextStyle(color: subtitleColor, fontSize: 14),
-                  ),
-                ),
-              )
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _currentExam.questions.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 16),
-                itemBuilder: (context, index) {
-                  final question = _currentExam.questions[index];
-                  return Container(
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          ExamStepperHeader(currentStep: 3),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // CARD 1: EXAM OVERVIEW SUMMARY
+                  Container(
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: containerColor,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: borderColor),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(
-                            alpha: isDarkMode ? 0.2 : 0.02,
-                          ),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            left: BorderSide(
-                              color: Color(0xFF10B981),
-                              width: 5,
-                            ),
-                          ),
-                        ),
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        color: isDarkMode
-                                            ? const Color(0xFF1E293B)
-                                            : const Color(0xFFDBEAFE),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '${index + 1}',
-                                          style: TextStyle(
-                                            color: isDarkMode
-                                                ? const Color(0xFF93C5FD)
-                                                : const Color(0xFF1D4ED8),
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isDarkMode
-                                            ? const Color(0xFF1E293B)
-                                            : const Color(0xFFF1F5F9),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        question.type.replaceAll('_', ' '),
-                                        style: TextStyle(
-                                          color: subtitleColor,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.access_time,
-                                          size: 14,
-                                          color: subtitleColor,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${question.estimatedTimeMinutes}m',
-                                          style: TextStyle(
-                                            color: subtitleColor,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          question.marks.toStringAsFixed(1),
-                                          style: TextStyle(
-                                            color: textColor,
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'MARKS',
-                                          style: TextStyle(
-                                            color: subtitleColor,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 8),
-                                    PopupMenuButton<String>(
-                                      icon: Icon(
-                                        Icons.more_vert,
-                                        color: subtitleColor,
-                                        size: 20,
-                                      ),
-                                      onSelected: (value) {
-                                        if (value == 'edit') {
-                                          _handleEditQuestion(question, index);
-                                        } else if (value == 'delete') {
-                                          _handleDeleteQuestion(index);
-                                        }
-                                      },
-                                      itemBuilder: (context) => [
-                                        const PopupMenuItem(
-                                          value: 'edit',
-                                          child: Text('Edit Question'),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'delete',
-                                          child: Text(
-                                            'Delete Question',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.assignment_turned_in_outlined,
+                                color: Color(0xFF7C3AED),
+                                size: 24,
+                              ),
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              question.questionText,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                height: 1.4,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _currentExam.title.isEmpty
+                                        ? 'Untitled Exam'
+                                        : _currentExam.title,
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (_currentExam.classroomName != null &&
+                                          _currentExam.classroomName!.isNotEmpty)
+                                        _buildTag(
+                                          icon: Icons.school,
+                                          text: _currentExam.classroomName!,
+                                          color: const Color(0xFF7C3AED),
+                                        ),
+                                      _buildTag(
+                                        icon: Icons.menu_book,
+                                        text: _currentExam.category,
+                                        color: const Color(0xFF10B981),
+                                      ),
+                                      _buildTag(
+                                        icon: Icons.flag_outlined,
+                                        text: _currentExam.status,
+                                        color: const Color(0xFFF59E0B),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            const SizedBox(height: 16),
+                        const SizedBox(height: 16),
+                        Divider(color: borderColor, height: 1),
+                        const SizedBox(height: 14),
 
-            // Dashed Add Questions Button
-            GestureDetector(
-              onTap: _handleAddMoreQuestions,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
-                    width: 1.5,
+                        // 4-Segment Metric Ribbon
+                        Row(
+                          children: [
+                            _buildStatItem(
+                              title: 'DURATION',
+                              value: '${_currentExam.durationMinutes}m',
+                              icon: Icons.access_time_rounded,
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                            ),
+                            _buildVerticalDivider(borderColor),
+                            _buildStatItem(
+                              title: 'TOTAL MARKS',
+                              value: '${_currentExam.totalMarks.toInt()} pts',
+                              icon: Icons.functions_rounded,
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                            ),
+                            _buildVerticalDivider(borderColor),
+                            _buildStatItem(
+                              title: 'QUESTIONS',
+                              value: '${_currentExam.questions.length}',
+                              icon: Icons.quiz_outlined,
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                            ),
+                            _buildVerticalDivider(borderColor),
+                            _buildStatItem(
+                              title: 'PASS SCORE',
+                              value: '${_passingScorePercentage.toInt()}%',
+                              icon: Icons.percent_rounded,
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: isDarkMode
-                            ? const Color(0xFF1E293B)
-                            : const Color(0xFFF1F5F9),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.add, color: subtitleColor, size: 22),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Add Question',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
 
-            // Exam Configuration Summary Card
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDarkMode ? 0.2 : 0.02,
-                    ),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Exam Configuration',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                   const SizedBox(height: 16),
-                  Divider(color: borderColor, height: 1),
-                  const SizedBox(height: 16),
-                  Text(
-                    'TITLE',
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _currentExam.title.isEmpty
-                        ? 'Untitled Exam'
-                        : _currentExam.title,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
 
-                  // Total Marks & Duration Mini Cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDarkMode
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.functions,
-                                color: Color(0xFF7C3AED),
-                                size: 22,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                _currentExam.totalMarks.toInt().toString(),
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'TOTAL MARKS',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
+                  // CARD 2: EVALUATION RULES & ANTI-CHEAT SETTINGS
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: containerColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Evaluation Rules & Settings',
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
+                        const SizedBox(height: 14),
+
+                        // Passing Score Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Minimum Passing Score',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Score percentage required to pass',
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            InkWell(
+                              onTap: _handleEditPassingPercentage,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C3AED).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${_passingScorePercentage.toInt()}%',
+                                      style: const TextStyle(
+                                        color: Color(0xFF7C3AED),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const Icon(
+                                      Icons.edit,
+                                      size: 13,
+                                      color: Color(0xFF7C3AED),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        Divider(color: borderColor, height: 20),
+
+                        // Shuffle Questions Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Shuffle Question Order',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Randomizes questions per student',
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Switch.adaptive(
+                              value: _shuffleQuestions,
+                              activeColor: const Color(0xFF7C3AED),
+                              onChanged: (val) {
+                                setState(() => _shuffleQuestions = val);
+                              },
+                            ),
+                          ],
+                        ),
+
+                        Divider(color: borderColor, height: 20),
+
+                        // Show Results Immediately Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Instant Results Visibility',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  'Show score immediately upon submission',
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Switch.adaptive(
+                              value: _showResultsImmediately,
+                              activeColor: const Color(0xFF7C3AED),
+                              onChanged: (val) {
+                                setState(() => _showResultsImmediately = val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // CARD 3: QUESTIONS REVIEW LIST
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Questions (${_currentExam.questions.length})',
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDarkMode
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.access_time,
-                                color: Color(0xFFD97706),
-                                size: 22,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '${_currentExam.durationMinutes}m',
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'DURATION',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
-                          ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF7C3AED),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _handleAddMoreQuestions,
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add More',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  Divider(color: borderColor, height: 1),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 10),
 
-                  // Passing Score Row with Manual Edit Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  if (_currentExam.questions.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: containerColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: Column(
                         children: [
-                          Text(
-                            'Passing Score',
+                          Icon(
+                            Icons.quiz_outlined,
+                            size: 40,
+                            color: subtitleColor.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'No questions added yet',
                             style: TextStyle(
-                              color: textColor,
+                              fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
-                            'Score required to pass exam',
+                            'Please add at least 1 question to publish this exam.',
                             style: TextStyle(
                               color: subtitleColor,
-                              fontSize: 11,
+                              fontSize: 12,
                             ),
                           ),
                         ],
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDarkMode
-                                  ? const Color(0xFF1E293B)
-                                  : const Color(0xFFE0E7FF),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '${_passingScorePercentage.toInt()}%',
-                              style: TextStyle(
-                                color: isDarkMode
-                                    ? const Color(0xFF93C5FD)
-                                    : const Color(0xFF3730A3),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _currentExam.questions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, idx) {
+                        final q = _currentExam.questions[idx];
+
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: containerColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 26,
+                                    height: 26,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF7C3AED)
+                                          .withOpacity(0.12),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '${idx + 1}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF7C3AED),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isDarkMode
+                                          ? const Color(0xFF1E293B)
+                                          : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${q.marks.toInt()} pt${q.marks > 1 ? 's' : ''}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: subtitleColor,
+                                      ),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    color: const Color(0xFF7C3AED),
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        _handleEditQuestion(q, idx),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                    ),
+                                    color: Colors.redAccent,
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () =>
+                                        _handleDeleteQuestion(idx),
+                                  ),
+                                ],
                               ),
-                            ),
+                              const SizedBox(height: 8),
+                              Text(
+                                q.questionText,
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              ...q.options.map((opt) {
+                                final isCorrect =
+                                    opt.id == q.correctOptionId;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: isCorrect
+                                              ? const Color(0xFF10B981)
+                                              : (isDarkMode
+                                                  ? const Color(0xFF1E293B)
+                                                  : const Color(0xFFE2E8F0)),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: isCorrect
+                                              ? const Icon(
+                                                  Icons.check,
+                                                  size: 12,
+                                                  color: Colors.white,
+                                                )
+                                              : Text(
+                                                  opt.id,
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: subtitleColor,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          opt.text,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isCorrect
+                                                ? const Color(0xFF10B981)
+                                                : textColor,
+                                            fontWeight: isCorrect
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            color: const Color(0xFFFBBF24),
-                            tooltip: 'Change Passing Score',
-                            onPressed: _handleEditPassingPercentage,
+                        );
+                      },
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // Add Question Dashed Card
+                  InkWell(
+                    onTap: _handleAddMoreQuestions,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      decoration: BoxDecoration(
+                        color: containerColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF7C3AED).withOpacity(0.4),
+                          style: BorderStyle.solid,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline,
+                            size: 18,
+                            color: Color(0xFF7C3AED),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            '+ Add Another Question',
+                            style: TextStyle(
+                              color: Color(0xFF7C3AED),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Divider(color: borderColor, height: 1),
-                  const SizedBox(height: 12),
-
-                  // Shuffle Questions Switch Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Shuffle Questions',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Switch.adaptive(
-                        value: _shuffleQuestions,
-                        onChanged: (val) {
-                          setState(() {
-                            _shuffleQuestions = val;
-                          });
-                        },
-                        activeThumbColor: const Color(0xFFFBBF24),
-                        activeTrackColor: const Color(0xFF1E1B4B),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Divider(color: borderColor, height: 1),
-                  const SizedBox(height: 12),
-
-                  // Show Results Immediately Switch Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Show Results Immediately',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Switch.adaptive(
-                        value: _showResultsImmediately,
-                        onChanged: (val) {
-                          setState(() {
-                            _showResultsImmediately = val;
-                          });
-                        },
-                        activeThumbColor: const Color(0xFFFBBF24),
-                        activeTrackColor: const Color(0xFF1E1B4B),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: containerColor,
+          border: Border(top: BorderSide(color: borderColor)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
           ],
+        ),
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: OutlinedButton(
+                  onPressed: _isSavingDraft || _isPublishing
+                      ? null
+                      : _handleSaveDraft,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: borderColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isSavingDraft
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(
+                          'Save Draft',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: ElevatedButton(
+                  onPressed: _isSavingDraft || _isPublishing
+                      ? null
+                      : _handlePublishExam,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isPublishing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Publish Exam',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(Icons.rocket_launch_rounded, size: 16),
+                          ],
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildTag({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 200),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF7C3AED)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: subtitleColor,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVerticalDivider(Color borderColor) {
+    return Container(width: 1, height: 30, color: borderColor);
   }
 }
