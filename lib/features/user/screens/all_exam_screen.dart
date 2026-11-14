@@ -10,8 +10,15 @@ import 'package:prep_mate/features/user/widgets/exam_list_widget.dart';
 
 class AllExamsScreen extends StatefulWidget {
   final String? initialCategory;
+  final String? classroomId;
+  final String? classroomName;
 
-  const AllExamsScreen({super.key, this.initialCategory});
+  const AllExamsScreen({
+    super.key,
+    this.initialCategory,
+    this.classroomId,
+    this.classroomName,
+  });
 
   @override
   State<AllExamsScreen> createState() => _AllExamsScreenState();
@@ -65,7 +72,9 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
-        _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
+        _studentClassroomId = (widget.classroomId != null && widget.classroomId!.isNotEmpty)
+            ? widget.classroomId!
+            : (data['classroomId'] ?? '').toString().trim();
 
         if (_studentClassroomId.isNotEmpty) {
           final classDoc = await FirebaseFirestore.instance
@@ -186,7 +195,9 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
-                    'All Exams',
+                    widget.classroomName != null && widget.classroomName!.isNotEmpty
+                        ? widget.classroomName!
+                        : 'All Exams',
                     style: TextStyle(
                       color: textColor,
                       fontWeight: FontWeight.bold,

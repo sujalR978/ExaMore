@@ -334,7 +334,6 @@ class _SettingscreenState extends State<Settingscreen> {
             // Legal & Account Actions Card
             Material(
               color: containerColor,
-              borderRadius: BorderRadius.circular(24),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
                 side: BorderSide(color: borderColor),

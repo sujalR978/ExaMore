@@ -81,6 +81,30 @@ class ClassroomService {
     });
   }
 
+  /// Streams all classrooms where the student is enrolled (either in studentUids or directly assigned)
+  static Stream<List<ClassroomModel>> getStudentEnrolledClassroomsStream({
+    required String studentUid,
+    String? currentClassroomId,
+  }) {
+    if (studentUid.isEmpty) return Stream.value(<ClassroomModel>[]);
+
+    return _classroomsCollection.snapshots().map((snapshot) {
+      final list = <ClassroomModel>[];
+      for (var doc in snapshot.docs) {
+        final c = ClassroomModel.fromFirestore(doc);
+        final isEnrolled = c.studentUids.contains(studentUid);
+        final isCurrent = currentClassroomId != null &&
+            currentClassroomId.isNotEmpty &&
+            c.id == currentClassroomId;
+        if (isEnrolled || isCurrent) {
+          list.add(c);
+        }
+      }
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
+  }
+
   /// Updates classroom details (name, section, theme, etc.)
   static Future<void> updateClassroom(ClassroomModel classroom) async {
     await _classroomsCollection.doc(classroom.id).update({

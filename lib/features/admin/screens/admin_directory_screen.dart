@@ -349,7 +349,6 @@ class AdminDirectoryScreen extends StatelessWidget {
 
               return Material(
                 color: containerColor,
-                borderRadius: BorderRadius.circular(16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(color: borderColor),

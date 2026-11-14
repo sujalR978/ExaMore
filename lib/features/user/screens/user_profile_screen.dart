@@ -966,7 +966,6 @@ class _UserProfileState extends State<Userprofile> {
                 const SizedBox(height: 20),
                 Material(
                   color: containerColor,
-                  borderRadius: BorderRadius.circular(24),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                     side: BorderSide(color: borderColor),

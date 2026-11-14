@@ -11,9 +11,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
-import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
-import 'package:prep_mate/features/user/widgets/exam_card_widget.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 
 class Userhomescreen extends StatefulWidget {
@@ -27,26 +25,16 @@ class _HomeScreenState extends State<Userhomescreen> {
   final ExamService _examService = ExamService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  Stream<ClassroomModel?>? _classroomStream;
+  Stream<List<ClassroomModel>>? _enrolledClassroomsStream;
   Stream<List<Map<String, dynamic>>>? _userAttemptsStream;
-  Stream<List<ExamModel>>? _publishedExamsStream;
-  late final Stream<List> _savedExamsStream;
+  Stream<List<ExamModel>>? _allExamsStream;
 
-  String _assignedAdminId = '';
-  String _instructorName = '';
   String _studentClassroomId = '';
-  String _classroomName = '';
-  String _classroomSection = '';
-  List<String> _enrolledSubjects = [];
-  String? _selectedSubjectFilter;
   bool _isLoadingUser = true;
 
   @override
   void initState() {
     super.initState();
-    final uid = _currentUser?.uid ?? '';
-    _savedExamsStream = _examService.getSavedExamsStream(uid);
-
     _fetchStudentAdminAndInitStream();
   }
 
@@ -65,57 +53,20 @@ class _HomeScreenState extends State<Userhomescreen> {
 
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
-        _assignedAdminId = (data['adminId'] ?? '').toString().trim();
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
-
-        if (_assignedAdminId.isNotEmpty) {
-          final adminDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(_assignedAdminId)
-              .get();
-          if (adminDoc.exists) {
-            _instructorName =
-                (adminDoc.data()?['name'] ?? 'Instructor').toString();
-          }
-        } else {
-          _instructorName = '';
-        }
-
-        if (_studentClassroomId.isNotEmpty) {
-          final classDoc = await FirebaseFirestore.instance
-              .collection('classrooms')
-              .doc(_studentClassroomId)
-              .get();
-          if (classDoc.exists) {
-            final cData = classDoc.data() ?? {};
-            _classroomName = (cData['name'] ?? '').toString();
-            _classroomSection = (cData['section'] ?? '').toString();
-            _enrolledSubjects = List<String>.from(cData['subjects'] ?? []);
-          }
-        } else {
-          _classroomName = '';
-          _classroomSection = '';
-          _enrolledSubjects = [];
-        }
       }
     } catch (_) {}
+
+    _enrolledClassroomsStream =
+        ClassroomService.getStudentEnrolledClassroomsStream(
+      studentUid: _currentUser.uid,
+      currentClassroomId: _studentClassroomId,
+    );
 
     _userAttemptsStream =
         _examService.getUserExamAttemptsStream(_currentUser.uid);
 
-    if (_studentClassroomId.isNotEmpty) {
-      _classroomStream =
-          ClassroomService.getSingleClassroomStream(_studentClassroomId);
-      _publishedExamsStream = _examService.getPublishedExamsStream(
-        adminId: _assignedAdminId,
-        classroomId: _studentClassroomId,
-        enrolledSubjects: _enrolledSubjects,
-        role: 'student',
-      );
-    } else {
-      _classroomStream = Stream.value(null);
-      _publishedExamsStream = Stream.value(<ExamModel>[]);
-    }
+    _allExamsStream = _examService.getExamsStream(role: 'super_admin');
 
     if (mounted) {
       setState(() => _isLoadingUser = false);
@@ -231,72 +182,6 @@ class _HomeScreenState extends State<Userhomescreen> {
     );
   }
 
-  void _handleViewAll(BuildContext context, {String? initialCategory}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => AllExamsScreen(initialCategory: initialCategory),
-      ),
-    );
-  }
-
-  void _handleViewDetails(BuildContext context, ExamModel exam) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => ExamdetailPage(exam: exam)));
-  }
-
-  Future<void> _handleBookmarkToggle(ExamModel exam, String userId) async {
-    if (userId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to save exams.')),
-      );
-      return;
-    }
-
-    try {
-      final isSaved = await _examService.toggleSaveExam(
-        userId: userId,
-        exam: exam,
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isSaved ? 'Exam saved to bookmarks!' : 'Removed from bookmarks.',
-          ),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update bookmark: $e')));
-    }
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'science':
-      case 'physics':
-      case 'chemistry':
-      case 'biology':
-        return Icons.science_outlined;
-      case 'mathematics':
-      case 'math':
-        return Icons.calculate_outlined;
-      case 'history':
-        return Icons.history_edu_outlined;
-      case 'computer science':
-        return Icons.computer_outlined;
-      case 'literature':
-        return Icons.auto_stories_outlined;
-      default:
-        return Icons.assignment_outlined;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -313,11 +198,18 @@ class _HomeScreenState extends State<Userhomescreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    final userId = _currentUser?.uid ?? '';
     final displayName = _currentUser?.displayName ?? 'Student';
 
     return Scaffold(
       backgroundColor: backgroundColor,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'student_join_class_fab',
+        backgroundColor: const Color(0xFF7C3AED),
+        foregroundColor: Colors.white,
+        onPressed: () => _showJoinClassroomDialog(context),
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text('Join Classroom'),
+      ),
       appBar: AppBar(
         elevation: 0,
         scrolledUnderElevation: 0.5,
@@ -393,537 +285,191 @@ class _HomeScreenState extends State<Userhomescreen> {
           const SizedBox(width: 6),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              'Hi, $displayName!',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+      body: _isLoadingUser
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 36.0),
+                child: CircularProgressIndicator(),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Ready for your next challenge? Your assessments await.',
-              style: TextStyle(color: subtitleColor, fontSize: 13.5),
-            ),
-            const SizedBox(height: 16),
+            )
+          : StreamBuilder<List<ClassroomModel>>(
+              stream: _enrolledClassroomsStream,
+              builder: (context, classroomSnapshot) {
+                final classrooms = classroomSnapshot.data ?? [];
 
-            // Classroom Enrollment Status Card
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? const Color(0xFF1E1B4B)
-                    : const Color(0xFFEDE9FE),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFF7C3AED).withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.school_outlined,
-                      color: Color(0xFF7C3AED),
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _studentClassroomId.isNotEmpty
-                              ? (_classroomName.isNotEmpty
-                                  ? _classroomName
-                                  : 'Enrolled Classroom')
-                              : "No Classroom Linked",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? Colors.white
-                                : const Color(0xFF1E1B4B),
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _studentClassroomId.isNotEmpty
-                              ? "${_classroomSection.isNotEmpty ? '$_classroomSection • ' : ''}${_instructorName.isNotEmpty ? 'Teacher: $_instructorName' : 'Active Assessment Cohort'}"
-                              : "Enter a code or invite link to join your class.",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFFA78BFA)
-                                : const Color(0xFF6D28D9),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => _showJoinClassroomDialog(context),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF7C3AED),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                    ),
-                    child: Text(
-                      _studentClassroomId.isNotEmpty ? "Change" : "+ Join Class",
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+                return StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _userAttemptsStream,
+                  builder: (context, attemptsSnapshot) {
+                    final attempts = attemptsSnapshot.data ?? [];
 
-            // Real-time Enrolled Subjects & Scoped Exams
-            _isLoadingUser
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 36.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                : StreamBuilder<ClassroomModel?>(
-                    stream: _classroomStream,
-                    builder: (context, classroomSnapshot) {
-                      final classroom = classroomSnapshot.data;
-                      if (classroom != null) {
-                        _classroomName = classroom.name;
-                        _classroomSection = classroom.section;
-                        _enrolledSubjects = classroom.subjects;
-                      }
-                      final subjects = _enrolledSubjects;
-                      final isEnrolled =
-                          _studentClassroomId.isNotEmpty && subjects.isNotEmpty;
+                    return StreamBuilder<List<ExamModel>>(
+                      stream: _allExamsStream,
+                      builder: (context, examsSnapshot) {
+                        final allExams = examsSnapshot.data ?? [];
 
-                      return StreamBuilder<List<Map<String, dynamic>>>(
-                        stream: _userAttemptsStream,
-                        builder: (context, attemptsSnapshot) {
-                          final attempts = attemptsSnapshot.data ?? [];
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Greeting
+                              Text(
+                                'Hi, $displayName!',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Your enrolled classrooms & assessments.',
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
 
-                          return StreamBuilder<List<ExamModel>>(
-                            stream: _publishedExamsStream,
-                            builder: (context, examsSnapshot) {
-                              final allExams = examsSnapshot.data ?? [];
-
-                              // Strictly scope to enrolled subjects only
-                              final enrolledLower = subjects
-                                  .map((s) => s.trim().toLowerCase())
-                                  .toSet();
-                              final validEnrolledExams = isEnrolled
-                                  ? allExams
-                                      .where(
-                                        (e) => enrolledLower.contains(
-                                          e.category.trim().toLowerCase(),
-                                        ),
-                                      )
-                                      .toList()
-                                  : <ExamModel>[];
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              // Section Header
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  // 1. Enrolled Subjects Header
                                   Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Text(
-                                            'Enrolled Subjects',
-                                            style: TextStyle(
-                                              color: textColor,
-                                              fontSize: 20,
+                                      Text(
+                                        'Enrolled Classrooms',
+                                        style: TextStyle(
+                                          color: textColor,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (classrooms.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF7C3AED)
+                                                .withOpacity(0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(100),
+                                          ),
+                                          child: Text(
+                                            '${classrooms.length}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF7C3AED),
+                                              fontSize: 11.5,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                          if (subjects.isNotEmpty) ...[
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF7C3AED)
-                                                    .withOpacity(0.12),
-                                                borderRadius:
-                                                    BorderRadius.circular(100),
-                                              ),
-                                              child: Text(
-                                                '${subjects.length}',
-                                                style: const TextStyle(
-                                                  color: Color(0xFF7C3AED),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      if (_selectedSubjectFilter != null)
-                                        TextButton.icon(
-                                          style: TextButton.styleFrom(
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            padding: EdgeInsets.zero,
-                                            foregroundColor:
-                                                const Color(0xFF7C3AED),
-                                          ),
-                                          onPressed: () {
-                                            setState(() =>
-                                                _selectedSubjectFilter = null);
-                                          },
-                                          icon: const Icon(Icons.close,
-                                              size: 14),
-                                          label: const Text(
-                                            'Clear filter',
-                                            style: TextStyle(fontSize: 12),
-                                          ),
                                         ),
+                                      ],
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
-
-                                  // 2. Subject Cards Grid (styled same as Admin Google Classroom cards)
-                                  if (!isEnrolled)
-                                    _buildEmptyEnrolledSubjectsState(
-                                      isDarkMode: isDarkMode,
-                                      containerColor: containerColor,
-                                      borderColor: borderColor,
-                                      subtitleColor: subtitleColor,
-                                    )
-                                  else
-                                    GridView.builder(
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      shrinkWrap: true,
-                                      gridDelegate:
-                                          const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                        childAspectRatio: 1.05,
+                                  TextButton.icon(
+                                    onPressed: () =>
+                                        _showJoinClassroomDialog(context),
+                                    icon: const Icon(Icons.add, size: 16),
+                                    label: const Text(
+                                      'Join Class',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      itemCount: subjects.length,
-                                      itemBuilder: (context, index) {
-                                        final subject = subjects[index];
-                                        return _buildEnrolledSubjectCard(
-                                          subject: subject,
-                                          cardIndex: index,
-                                          classroomName: _classroomName,
-                                          classroomSection: _classroomSection,
-                                          allExams: validEnrolledExams,
-                                          attempts: attempts,
-                                          isSelected:
-                                              _selectedSubjectFilter == subject,
-                                          isDarkMode: isDarkMode,
-                                          surfaceColor: containerColor,
-                                          borderColor: borderColor,
-                                          textColor: textColor,
-                                          subtitleColor: subtitleColor,
-                                        );
-                                      },
                                     ),
-
-                                  const SizedBox(height: 26),
-
-                                  // 3. Available Exams Header
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            _selectedSubjectFilter != null
-                                                ? 'Exams in $_selectedSubjectFilter'
-                                                : 'Available Exams',
-                                            style: TextStyle(
-                                              color: textColor,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          if (_selectedSubjectFilter != null)
-                                            Text(
-                                              'Filtered by selected subject',
-                                              style: TextStyle(
-                                                color: subtitleColor,
-                                                fontSize: 11.5,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      if (isEnrolled &&
-                                          validEnrolledExams.isNotEmpty)
-                                        TextButton(
-                                          onPressed: () => _handleViewAll(
-                                            context,
-                                            initialCategory:
-                                                _selectedSubjectFilter,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Text(
-                                                'View All',
-                                                style: TextStyle(
-                                                  color: isDarkMode
-                                                      ? const Color(0xFFFBBF24)
-                                                      : const Color(0xFFB45309),
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Icon(
-                                                Icons.arrow_forward,
-                                                size: 16,
-                                                color: isDarkMode
-                                                    ? const Color(0xFFFBBF24)
-                                                    : const Color(0xFFB45309),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                    ],
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF7C3AED),
+                                    ),
                                   ),
-                                  const SizedBox(height: 12),
-
-                                  // 4. Exams List (Strictly obeys: Do not show exams without enrolling for that subject)
-                                  if (!isEnrolled)
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 24,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: containerColor,
-                                        borderRadius:
-                                            BorderRadius.circular(16),
-                                        border: Border.all(color: borderColor),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          'No exams available.\nYou must be enrolled in a classroom with subjects to view assessments.',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: subtitleColor,
-                                            fontSize: 13.5,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  else ...[
-                                    Builder(
-                                      builder: (context) {
-                                        final filteredExams =
-                                            _selectedSubjectFilter != null
-                                                ? validEnrolledExams
-                                                    .where(
-                                                      (e) =>
-                                                          e.category
-                                                              .trim()
-                                                              .toLowerCase() ==
-                                                          _selectedSubjectFilter!
-                                                              .trim()
-                                                              .toLowerCase(),
-                                                    )
-                                                    .toList()
-                                                : validEnrolledExams;
-
-                                        if (filteredExams.isEmpty) {
-                                          return Container(
-                                            width: double.infinity,
-                                            padding: const EdgeInsets.all(24),
-                                            decoration: BoxDecoration(
-                                              color: containerColor,
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                              border: Border.all(
-                                                  color: borderColor),
-                                            ),
-                                            child: Center(
-                                              child: Text(
-                                                _selectedSubjectFilter != null
-                                                    ? 'No published exams found for "$_selectedSubjectFilter".'
-                                                    : 'No exams published yet for your enrolled subjects.\nPlease check back later!',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  color: subtitleColor,
-                                                  fontSize: 13.5,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }
-
-                                        return StreamBuilder<List>(
-                                          stream: _savedExamsStream,
-                                          builder: (context, savedSnapshot) {
-                                            final savedIds =
-                                                (savedSnapshot.data ?? [])
-                                                    .map((item) =>
-                                                        (item['exam']
-                                                                as ExamModel)
-                                                            .id)
-                                                    .toSet();
-
-                                            final displayExams =
-                                                filteredExams.take(4).toList();
-
-                                            return ListView.separated(
-                                              shrinkWrap: true,
-                                              physics:
-                                                  const NeverScrollableScrollPhysics(),
-                                              itemCount: displayExams.length,
-                                              separatorBuilder: (_, __) =>
-                                                  const SizedBox(height: 14),
-                                              itemBuilder: (context, index) {
-                                                final exam =
-                                                    displayExams[index];
-                                                final isBookmarked =
-                                                    savedIds.contains(exam.id);
-
-                                                final isScience = exam.category
-                                                        .toLowerCase()
-                                                        .contains('sci') ||
-                                                    exam.category
-                                                        .toLowerCase()
-                                                        .contains('bio') ||
-                                                    exam.category
-                                                        .toLowerCase()
-                                                        .contains('chem');
-
-                                                final badgeBg = isScience
-                                                    ? (isDarkMode
-                                                        ? const Color(
-                                                            0xFF2E2A72)
-                                                        : const Color(
-                                                            0xFFDBEAFE))
-                                                    : (isDarkMode
-                                                        ? const Color(
-                                                            0xFF451A03)
-                                                        : const Color(
-                                                            0xFFFEF3C7));
-
-                                                final badgeText = isScience
-                                                    ? (isDarkMode
-                                                        ? const Color(
-                                                            0xFF93C5FD)
-                                                        : const Color(
-                                                            0xFF1D4ED8))
-                                                    : (isDarkMode
-                                                        ? const Color(
-                                                            0xFFFCD34D)
-                                                        : const Color(
-                                                            0xFFB45309));
-
-                                                return ExamCard(
-                                                  badgeText:
-                                                      exam.category.toUpperCase(),
-                                                  badgeColor: badgeBg,
-                                                  badgeTextColor: badgeText,
-                                                  title: exam.title,
-                                                  time:
-                                                      '${exam.durationMinutes} mins',
-                                                  mcqs:
-                                                      '${exam.questions.length} MCQs',
-                                                  icon: _getCategoryIcon(
-                                                      exam.category),
-                                                  isDarkMode: isDarkMode,
-                                                  containerColor: containerColor,
-                                                  textColor: textColor,
-                                                  subtitleColor: subtitleColor,
-                                                  borderColor: borderColor,
-                                                  isBookmarked: isBookmarked,
-                                                  onBookmarkToggle: () =>
-                                                      _handleBookmarkToggle(
-                                                          exam, userId),
-                                                  onViewDetails: () =>
-                                                      _handleViewDetails(
-                                                          context, exam),
-                                                );
-                                              },
-                                            );
-                                          },
-                                        );
-                                      },
-                                    ),
-                                  ],
                                 ],
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Enrolled Classrooms Grid (Google Classroom style, same as admin)
+                              if (classrooms.isEmpty)
+                                _buildEmptyEnrolledClassroomsState(
+                                  isDarkMode: isDarkMode,
+                                  containerColor: containerColor,
+                                  borderColor: borderColor,
+                                  subtitleColor: subtitleColor,
+                                )
+                              else
+                                GridView.builder(
+                                  physics:
+                                      const NeverScrollableScrollPhysics(),
+                                  shrinkWrap: true,
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                    childAspectRatio: 1.02,
+                                  ),
+                                  itemCount: classrooms.length,
+                                  itemBuilder: (context, index) {
+                                    final classroom = classrooms[index];
+                                    return _buildGoogleClassroomStudentCard(
+                                      classroom: classroom,
+                                      cardIndex: index,
+                                      allExams: allExams,
+                                      attempts: attempts,
+                                      isDarkMode: isDarkMode,
+                                      surfaceColor: containerColor,
+                                      borderColor: borderColor,
+                                      textColor: textColor,
+                                      subtitleColor: subtitleColor,
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 
-  /// Calculates points obtained, total possible points, and percentage for an enrolled subject
-  Map<String, dynamic> _computeSubjectMetrics({
-    required String subject,
+  /// Calculates points obtained, total possible points, and percentage for an enrolled classroom
+  Map<String, dynamic> _computeClassroomMetrics({
+    required ClassroomModel classroom,
     required List<ExamModel> allExams,
     required List<Map<String, dynamic>> attempts,
   }) {
-    final lowerSubject = subject.trim().toLowerCase();
+    // 1. Find all exams belonging to this classroom
+    final classroomExams = allExams.where((e) {
+      if (e.classroomId != null && e.classroomId!.isNotEmpty) {
+        return e.classroomId == classroom.id;
+      }
+      if (e.classroomName != null && e.classroomName!.isNotEmpty) {
+        return e.classroomName!.trim().toLowerCase() ==
+            classroom.name.trim().toLowerCase();
+      }
+      return false;
+    }).toList();
 
-    // 1. Find all exams belonging to this subject
-    final subjectExams = allExams.where(
-      (e) => e.category.trim().toLowerCase() == lowerSubject,
-    ).toList();
+    final classroomExamIds = classroomExams.map((e) => e.id).toSet();
 
-    final subjectExamIds = subjectExams.map((e) => e.id).toSet();
-
-    // 2. Find student's attempts for this subject
-    final subjectAttempts = attempts.where((att) {
+    // 2. Find student's attempts for these exams
+    final classroomAttempts = attempts.where((att) {
       final examId = (att['examId'] ?? '').toString();
-      if (examId.isNotEmpty && subjectExamIds.contains(examId)) return true;
-      final cat = (att['category'] ?? att['subject'] ?? '')
-          .toString()
-          .trim()
-          .toLowerCase();
-      if (cat.isNotEmpty && cat == lowerSubject) return true;
+      if (examId.isNotEmpty && classroomExamIds.contains(examId)) return true;
       final sub = att['submission'] as StudentSubmissionModel?;
-      if (sub != null && subjectExamIds.contains(sub.id)) return true;
+      if (sub != null && classroomExamIds.contains(sub.id)) return true;
       return false;
     }).toList();
 
     // 3. For each unique exam given, pick the student's best attempt
     final Map<String, StudentSubmissionModel> bestAttemptPerExam = {};
-    for (var att in subjectAttempts) {
+    for (var att in classroomAttempts) {
       final sub = att['submission'] as StudentSubmissionModel?;
       if (sub == null) continue;
       final examKey =
@@ -937,7 +483,7 @@ class _HomeScreenState extends State<Userhomescreen> {
     }
 
     final int givenExamsCount = bestAttemptPerExam.length;
-    final int totalSubjectExams = subjectExams.length;
+    final int totalClassroomExams = classroomExams.length;
 
     double totalMarksObtained = 0.0;
     double totalMarksPossible = 0.0;
@@ -955,7 +501,7 @@ class _HomeScreenState extends State<Userhomescreen> {
 
     return {
       'givenExamsCount': givenExamsCount,
-      'totalSubjectExams': totalSubjectExams,
+      'totalClassroomExams': totalClassroomExams,
       'marksObtained': totalMarksObtained,
       'totalMarks': totalMarksPossible,
       'percentage': percentage,
@@ -963,15 +509,12 @@ class _HomeScreenState extends State<Userhomescreen> {
     };
   }
 
-  /// Builds a Google Classroom style subject card with live % calculated from given exams & points
-  Widget _buildEnrolledSubjectCard({
-    required String subject,
+  /// Builds a Google Classroom square card with live % calculated from given exams & points
+  Widget _buildGoogleClassroomStudentCard({
+    required ClassroomModel classroom,
     required int cardIndex,
-    required String classroomName,
-    required String classroomSection,
     required List<ExamModel> allExams,
     required List<Map<String, dynamic>> attempts,
-    required bool isSelected,
     required bool isDarkMode,
     required Color surfaceColor,
     required Color borderColor,
@@ -979,16 +522,21 @@ class _HomeScreenState extends State<Userhomescreen> {
     required Color subtitleColor,
   }) {
     final gradients = CreateClassroomDialog.themeGradients;
-    final gradient = gradients[cardIndex % gradients.length];
-    final metrics = _computeSubjectMetrics(
-      subject: subject,
+    int themeIdx = classroom.themeIndex;
+    if (themeIdx <= 0) {
+      themeIdx = (classroom.id.hashCode.abs() + cardIndex) % gradients.length;
+    }
+    final gradient = gradients[themeIdx % gradients.length];
+
+    final metrics = _computeClassroomMetrics(
+      classroom: classroom,
       allExams: allExams,
       attempts: attempts,
     );
 
     final int percentage = metrics['percentage'] as int;
     final int givenExamsCount = metrics['givenExamsCount'] as int;
-    final int totalSubjectExams = metrics['totalSubjectExams'] as int;
+    final int totalClassroomExams = metrics['totalClassroomExams'] as int;
     final double marksObtained = metrics['marksObtained'] as double;
     final double totalMarks = metrics['totalMarks'] as double;
     final bool hasGivenExams = metrics['hasGivenExams'] as bool;
@@ -999,31 +547,25 @@ class _HomeScreenState extends State<Userhomescreen> {
 
     return InkWell(
       onTap: () {
-        setState(() {
-          if (_selectedSubjectFilter == subject) {
-            _selectedSubjectFilter = null;
-          } else {
-            _selectedSubjectFilter = subject;
-          }
-        });
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => AllExamsScreen(
+              classroomId: classroom.id,
+              classroomName: classroom.name,
+            ),
+          ),
+        );
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
           color: surfaceColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? (isDarkMode ? gradient[1] : gradient[0])
-                : borderColor,
-            width: isSelected ? 2 : 1,
-          ),
+          border: Border.all(color: borderColor),
           boxShadow: [
             BoxShadow(
-              color: isSelected
-                  ? gradient[0].withOpacity(0.25)
-                  : Colors.black.withOpacity(isDarkMode ? 0.25 : 0.04),
-              blurRadius: isSelected ? 8 : 6,
+              color: Colors.black.withOpacity(isDarkMode ? 0.25 : 0.04),
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -1051,9 +593,9 @@ class _HomeScreenState extends State<Userhomescreen> {
                       right: -4,
                       bottom: -4,
                       child: Icon(
-                        _getCategoryIcon(subject),
-                        color: Colors.white.withOpacity(0.2),
-                        size: 40,
+                        Icons.school_rounded,
+                        color: Colors.white.withOpacity(0.18),
+                        size: 38,
                       ),
                     ),
                     Column(
@@ -1061,22 +603,21 @@ class _HomeScreenState extends State<Userhomescreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          subject,
+                          classroom.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14.5,
                             fontWeight: FontWeight.bold,
-                            height: 1.2,
+                            height: 1.25,
+                            letterSpacing: -0.2,
                           ),
                         ),
-                        if (classroomName.isNotEmpty) ...[
+                        if (classroom.section.isNotEmpty) ...[
                           const SizedBox(height: 3),
                           Text(
-                            classroomSection.isNotEmpty
-                                ? '$classroomName • $classroomSection'
-                                : classroomName,
+                            classroom.section,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1088,23 +629,6 @@ class _HomeScreenState extends State<Userhomescreen> {
                         ],
                       ],
                     ),
-                    if (isSelected)
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.check,
-                            size: 12,
-                            color: gradient[0],
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -1129,7 +653,7 @@ class _HomeScreenState extends State<Userhomescreen> {
                           hasGivenExams ? '$percentage%' : '0%',
                           style: TextStyle(
                             color: isDarkMode ? gradient[1] : gradient[0],
-                            fontSize: 20,
+                            fontSize: 19,
                             fontWeight: FontWeight.bold,
                             letterSpacing: -0.5,
                           ),
@@ -1141,7 +665,7 @@ class _HomeScreenState extends State<Userhomescreen> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: subtitleColor,
-                              fontSize: 10.5,
+                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1165,22 +689,24 @@ class _HomeScreenState extends State<Userhomescreen> {
                       ),
                     ),
 
-                    // Exams count status
+                    // Exams count and subjects
                     Row(
                       children: [
                         Icon(
                           Icons.assignment_turned_in_outlined,
-                          size: 12,
+                          size: 11,
                           color: subtitleColor,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             hasGivenExams
-                                ? '$givenExamsCount of $totalSubjectExams given'
-                                : (totalSubjectExams > 0
-                                    ? '$totalSubjectExams exam${totalSubjectExams > 1 ? 's' : ''} available'
-                                    : 'No exams yet'),
+                                ? '$givenExamsCount of $totalClassroomExams exams given'
+                                : (totalClassroomExams > 0
+                                    ? '$totalClassroomExams exam${totalClassroomExams > 1 ? 's' : ''} available'
+                                    : (classroom.subjects.isNotEmpty
+                                        ? classroom.subjects.first
+                                        : 'No exams yet')),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -1202,8 +728,8 @@ class _HomeScreenState extends State<Userhomescreen> {
     );
   }
 
-  /// Empty state when student is not enrolled in any classroom or classroom has no subjects
-  Widget _buildEmptyEnrolledSubjectsState({
+  /// Empty state when student is not enrolled in any classroom
+  Widget _buildEmptyEnrolledClassroomsState({
     required bool isDarkMode,
     required Color containerColor,
     required Color borderColor,
@@ -1211,7 +737,7 @@ class _HomeScreenState extends State<Userhomescreen> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
       decoration: BoxDecoration(
         color: containerColor,
         borderRadius: BorderRadius.circular(16),
@@ -1220,40 +746,35 @@ class _HomeScreenState extends State<Userhomescreen> {
       child: Column(
         children: [
           Icon(
-            Icons.library_books_outlined,
-            size: 40,
+            Icons.school_outlined,
+            size: 44,
             color: isDarkMode ? Colors.white30 : Colors.grey.shade400,
           ),
-          const SizedBox(height: 10),
-          Text(
-            _studentClassroomId.isEmpty
-                ? 'No Classroom Joined'
-                : 'No Subjects Enrolled',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          const SizedBox(height: 12),
+          const Text(
+            'No Classrooms Joined',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            _studentClassroomId.isEmpty
-                ? 'Join a classroom with the code from your instructor to access your enrolled subjects and tests.'
-                : 'Your classroom instructor hasn\'t added any subjects yet.',
+            'Join a classroom with the code or invite link from your instructor to access your assessments.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: subtitleColor, fontSize: 13),
+            style: TextStyle(color: subtitleColor, fontSize: 13, height: 1.35),
           ),
-          if (_studentClassroomId.isEmpty) ...[
-            const SizedBox(height: 14),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              onPressed: () => _showJoinClassroomDialog(context),
-              icon: const Icon(Icons.login, size: 18),
-              label: const Text('Join Classroom'),
             ),
-          ],
+            onPressed: () => _showJoinClassroomDialog(context),
+            icon: const Icon(Icons.login, size: 18),
+            label: const Text('Join Classroom'),
+          ),
         ],
       ),
     );
