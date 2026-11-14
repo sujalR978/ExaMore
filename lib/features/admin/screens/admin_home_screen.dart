@@ -611,7 +611,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                         : 2,
                             mainAxisSpacing: 12,
                             crossAxisSpacing: 12,
-                            childAspectRatio: 0.95,
+                            childAspectRatio: 0.85,
                           ),
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
@@ -947,7 +947,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Theme Gradient Banner (~45% of height)
+            // Top Theme Gradient Banner (~48% of height)
             Expanded(
               flex: 5,
               child: Container(
@@ -960,145 +960,157 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     end: Alignment.bottomRight,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Stack(
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
+                    // Class name and section
+                    Padding(
+                      padding: const EdgeInsets.only(right: 22.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
                             classroom.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines: 3,
+                            overflow: TextOverflow.fade,
+                            softWrap: true,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 14,
+                              fontSize: 13.5,
                               fontWeight: FontWeight.bold,
-                              height: 1.15,
+                              height: 1.2,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                        ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(
-                            Icons.more_vert,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onSelected: (value) {
-                            if (value == 'open') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ClassroomDetailScreen(classroom: classroom),
-                                ),
-                              );
-                            } else if (value == 'edit') {
-                              _openCreateClassroomDialog(classroomToEdit: classroom);
-                            } else if (value == 'add_subject') {
-                              _showAddSubjectDialog(classroom);
-                            } else if (value == 'assign_student') {
-                              _showAssignStudentDialog(classroom);
-                            } else if (value == 'copy_code') {
-                              Clipboard.setData(ClipboardData(text: classroom.code));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Code "${classroom.code}" copied to clipboard!',
-                                  ),
-                                ),
-                              );
-                            } else if (value == 'delete') {
-                              _confirmDeleteClassroom(classroom);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'open',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.open_in_new, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Open'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit_outlined, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Edit'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'add_subject',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.library_books_outlined, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Add Subject'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'assign_student',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.person_add_outlined, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Assign Student'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'copy_code',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.copy_rounded, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Copy Code'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuDivider(),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                    color: Colors.redAccent,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.redAccent),
-                                  ),
-                                ],
+                          if (classroom.section.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              classroom.section,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
-                        ),
-                      ],
-                    ),
-                    if (classroom.section.isNotEmpty)
-                      Text(
-                        classroom.section,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 10.5,
-                        ),
+                        ],
                       ),
+                    ),
+
+                    // Top-right 3-dots popup menu
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: PopupMenuButton<String>(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onSelected: (value) {
+                          if (value == 'open') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ClassroomDetailScreen(classroom: classroom),
+                              ),
+                            );
+                          } else if (value == 'edit') {
+                            _openCreateClassroomDialog(classroomToEdit: classroom);
+                          } else if (value == 'add_subject') {
+                            _showAddSubjectDialog(classroom);
+                          } else if (value == 'assign_student') {
+                            _showAssignStudentDialog(classroom);
+                          } else if (value == 'copy_code') {
+                            Clipboard.setData(ClipboardData(text: classroom.code));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Code "${classroom.code}" copied to clipboard!',
+                                ),
+                              ),
+                            );
+                          } else if (value == 'delete') {
+                            _confirmDeleteClassroom(classroom);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'open',
+                            child: Row(
+                              children: [
+                                Icon(Icons.open_in_new, size: 18),
+                                SizedBox(width: 8),
+                                Text('Open'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'add_subject',
+                            child: Row(
+                              children: [
+                                Icon(Icons.library_books_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Add Subject'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'assign_student',
+                            child: Row(
+                              children: [
+                                Icon(Icons.person_add_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Assign Student'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'copy_code',
+                            child: Row(
+                              children: [
+                                Icon(Icons.copy_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text('Copy Code'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                  color: Colors.redAccent,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Delete',
+                                  style: TextStyle(color: Colors.redAccent),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
