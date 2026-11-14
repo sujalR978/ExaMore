@@ -167,8 +167,16 @@ class ExamService {
     String? category,
     String? adminId,
     String? classroomId,
+    List<String>? enrolledSubjects,
     String role = 'student',
   }) {
+    if (role == 'student') {
+      // Do not show exams without enrolling in a classroom / subjects
+      if (classroomId == null || classroomId.isEmpty) {
+        return Stream.value(<ExamModel>[]);
+      }
+    }
+
     Query query = _examsCollection.where('status', isEqualTo: 'Published');
     if (role != 'super_admin' && adminId != null && adminId.isNotEmpty) {
       query = query.where('adminId', isEqualTo: adminId);
@@ -184,14 +192,28 @@ class ExamService {
           .map((doc) => ExamModel.fromFirestore(doc))
           .toList();
 
-      // If student belongs to a classroom, filter out exams belonging to other classrooms
-      if (classroomId != null && classroomId.isNotEmpty) {
-        return list.where((e) {
+      if (role == 'student') {
+        // 1. Strictly isolate to student's enrolled classroom
+        var studentExams = list.where((e) {
           if (e.classroomId != null && e.classroomId!.isNotEmpty) {
             return e.classroomId == classroomId;
           }
-          return true; // Global exam open to all
-        }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return false;
+        }).toList();
+
+        // 2. Strictly filter to only enrolled subjects if provided
+        if (enrolledSubjects != null && enrolledSubjects.isNotEmpty) {
+          final validSubjects = enrolledSubjects
+              .map((s) => s.trim().toLowerCase())
+              .where((s) => s.isNotEmpty)
+              .toSet();
+          studentExams = studentExams.where((e) {
+            return validSubjects.contains(e.category.trim().toLowerCase());
+          }).toList();
+        }
+
+        studentExams.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return studentExams;
       }
 
       list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -375,6 +397,8 @@ class ExamService {
       'studentId': studentId,
       'adminId': exam.adminId,
       'examId': examId,
+      'category': exam.category,
+      'subject': exam.category,
       'attemptNumber': currentAttemptNumber,
       'studentName': submission.studentName,
       'studentImageUrl': submission.studentImageUrl,
@@ -425,6 +449,8 @@ class ExamService {
     data['studentId'] = user.uid;
     data['adminId'] = (examData['adminId'] ?? '').toString();
     data['examId'] = examId;
+    data['category'] = (examData['category'] ?? '').toString();
+    data['subject'] = (examData['category'] ?? '').toString();
     data['submittedAt'] = FieldValue.serverTimestamp();
     final batch = _firestore.batch();
     batch.set(examSubmissionRef, data);
@@ -640,6 +666,7 @@ class ExamService {
               final data = doc.data();
               list.add({
                 'examId': (data['examId'] ?? '').toString(),
+                'category': (data['category'] ?? data['subject'] ?? '').toString(),
                 'submission': StudentSubmissionModel.fromFirestore(doc),
                 'adminId': (data['adminId'] ?? '').toString(),
               });

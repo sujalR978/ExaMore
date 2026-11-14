@@ -32,6 +32,7 @@ class _ShowexamState extends State<Showexam> {
   List<String> _categories = [
     'All Subjects',
   ];
+  List<String> _enrolledSubjects = [];
 
   late final Stream<List<dynamic>> _savedExamsStream;
   Stream<List<ExamModel>>? _publishedExamsStream;
@@ -77,6 +78,7 @@ class _ShowexamState extends State<Showexam> {
           if (classDoc.exists) {
             final cData = classDoc.data() ?? {};
             final subs = List<String>.from(cData['subjects'] ?? []);
+            _enrolledSubjects = subs;
             if (subs.isNotEmpty) {
               _categories = ['All Subjects', ...subs];
             } else {
@@ -106,6 +108,7 @@ class _ShowexamState extends State<Showexam> {
       category: selectedCategory,
       adminId: _assignedAdminId,
       classroomId: _studentClassroomId,
+      enrolledSubjects: _enrolledSubjects,
       role: 'student',
     );
   }

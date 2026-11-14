@@ -9,7 +9,9 @@ import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
 import 'package:prep_mate/features/user/widgets/exam_list_widget.dart';
 
 class AllExamsScreen extends StatefulWidget {
-  const AllExamsScreen({super.key});
+  final String? initialCategory;
+
+  const AllExamsScreen({super.key, this.initialCategory});
 
   @override
   State<AllExamsScreen> createState() => _AllExamsScreenState();
@@ -31,6 +33,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
   List<String> _categories = [
     'All Subjects',
   ];
+  List<String> _enrolledSubjects = [];
 
   @override
   void initState() {
@@ -72,10 +75,21 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
           if (classDoc.exists) {
             final cData = classDoc.data() ?? {};
             final subs = List<String>.from(cData['subjects'] ?? []);
+            _enrolledSubjects = subs;
             if (subs.isNotEmpty) {
               _categories = ['All Subjects', ...subs];
             } else {
               _categories = ['All Subjects', 'General'];
+            }
+
+            if (widget.initialCategory != null) {
+              final target = widget.initialCategory!.trim().toLowerCase();
+              final idx = _categories.indexWhere(
+                (c) => c.trim().toLowerCase() == target,
+              );
+              if (idx != -1) {
+                _selectedCategoryIndex = idx;
+              }
             }
           }
         }
@@ -101,6 +115,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
       category: selectedCategory,
       adminId: _assignedAdminId,
       classroomId: _studentClassroomId,
+      enrolledSubjects: _enrolledSubjects,
       role: 'student',
     );
   }
