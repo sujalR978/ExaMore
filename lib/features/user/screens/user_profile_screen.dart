@@ -709,69 +709,67 @@ class _UserProfileState extends State<Userprofile> {
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(75),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: containerColor,
-                    borderRadius: BorderRadius.circular(100),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(
-                          isDarkMode ? 0.2 : 0.05,
-                        ),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0.5,
+            leading: Navigator.of(context).canPop()
+                ? IconButton(
+                    icon: Icon(Icons.arrow_back, color: textColor),
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.only(left: 16.0),
+                    child: Center(
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundImage: _getProfileImage(photoUrl),
                       ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: AppBar(
-                      backgroundColor: Colors.transparent,
-                      elevation: 0,
-                      scrolledUnderElevation: 0,
-                      leading: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: CircleAvatar(
-                          backgroundImage: _getProfileImage(photoUrl),
-                        ),
-                      ),
-                      title: Text(
-                        'Examora',
-                        style: TextStyle(
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFFB45309),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 22,
-                        ),
-                      ),
-                      centerTitle: true,
-                      actions: [
-                        IconButton(
-                          icon: Icon(Icons.settings_outlined, color: textColor),
-                          onPressed: () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const Settingscreen(),
-                              ),
-                            );
-                            _refreshProfile();
-                          },
-                        ),
-                      ],
                     ),
                   ),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.person_outline,
+                    color: Color(0xFF7C3AED),
+                    size: 18,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  'Profile',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 19,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
             ),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: Icon(Icons.settings_outlined, color: textColor),
+                tooltip: 'Settings',
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const Settingscreen(),
+                    ),
+                  );
+                  _refreshProfile();
+                },
+              ),
+              const SizedBox(width: 6),
+            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -813,7 +811,7 @@ class _UserProfileState extends State<Userprofile> {
                               ),
                               child: const Icon(
                                 Icons.verified,
-                                color: Colors.green,
+                                color: Color(0xFF10B981),
                                 size: 22,
                               ),
                             ),
@@ -1082,10 +1080,12 @@ class _UserProfileState extends State<Userprofile> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        color: isDarkMode
+            ? const Color(0xFF7C3AED).withOpacity(0.12)
+            : const Color(0xFF7C3AED).withOpacity(0.08),
         borderRadius: BorderRadius.circular(100),
         border: Border.all(
-          color: isDarkMode ? Colors.white12 : Colors.grey.shade300,
+          color: const Color(0xFF7C3AED).withOpacity(0.25),
         ),
       ),
       child: Row(
@@ -1094,19 +1094,15 @@ class _UserProfileState extends State<Userprofile> {
           Icon(
             icon,
             size: 14,
-            color: isDarkMode
-                ? const Color(0xFF93C5FD)
-                : const Color(0xFF1E1B4B),
+            color: const Color(0xFF7C3AED),
           ),
           const SizedBox(width: 6),
           Text(
             label,
-            style: TextStyle(
-              color: isDarkMode
-                  ? const Color(0xFF93C5FD)
-                  : const Color(0xFF1E1B4B),
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
+              color: Color(0xFF7C3AED),
             ),
           ),
         ],
@@ -1224,15 +1220,18 @@ class _UserProfileState extends State<Userprofile> {
     VoidCallback onTap, {
     String? subtitle,
   }) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFFEFF6FF),
+          color: const Color(0xFF7C3AED).withOpacity(isDarkMode ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: const Color(0xFF2563EB), size: 20),
+        child: Icon(icon, color: const Color(0xFF7C3AED), size: 20),
       ),
       title: Text(
         title,

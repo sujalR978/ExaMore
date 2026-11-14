@@ -217,8 +217,8 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFBBF24),
-                foregroundColor: const Color(0xFF1E1B4B),
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -251,63 +251,54 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  title: Text(
-                    'Exam Details',
-                    style: TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
-                  ),
-                  centerTitle: true,
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: IconButton(
-                        icon: Icon(
-                          _isSaved ? Icons.bookmark : Icons.bookmark_border,
-                          color: _isSaved ? const Color(0xFFFBBF24) : textColor,
-                          size: 24,
-                        ),
-                        onPressed: _handleToggleBookmark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: textColor),
+          onPressed: () => Navigator.pop(context),
         ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.assignment_outlined,
+                color: Color(0xFF7C3AED),
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Assessment Details',
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w800,
+                fontSize: 19,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: _isSaved ? const Color(0xFF7C3AED) : textColor,
+              size: 24,
+            ),
+            tooltip: _isSaved ? 'Remove Bookmark' : 'Save Assessment',
+            onPressed: _handleToggleBookmark,
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -352,19 +343,15 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: isDarkMode
-                              ? const Color(0xFF2E2A72)
-                              : const Color(0xFFDBEAFE),
+                          color: const Color(0xFF7C3AED).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           _exam.examCode.isNotEmpty
                               ? _exam.examCode
                               : _exam.category.toUpperCase(),
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFF93C5FD)
-                                : const Color(0xFF1D4ED8),
+                          style: const TextStyle(
+                            color: Color(0xFF7C3AED),
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -429,27 +416,23 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isDarkMode
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFEFF6FF),
+                          ? const Color(0xFF7C3AED).withOpacity(0.12)
+                          : const Color(0xFF7C3AED).withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.calendar_today_outlined,
                           size: 18,
-                          color: isDarkMode
-                              ? const Color(0xFF93C5FD)
-                              : const Color(0xFF2563EB),
+                          color: Color(0xFF7C3AED),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _formatScheduleDate(_exam.startDate),
-                            style: TextStyle(
-                              color: isDarkMode
-                                  ? const Color(0xFF93C5FD)
-                                  : const Color(0xFF1D4ED8),
+                            style: const TextStyle(
+                              color: Color(0xFF7C3AED),
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -472,9 +455,10 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     children: [
                       Expanded(
                         child: _buildStatItem(
-                          Icons.access_time,
+                          Icons.access_time_rounded,
                           '${_exam.durationMinutes}',
                           'MINS',
+                          const Color(0xFF7C3AED),
                           isDarkMode,
                           containerColor,
                           borderColor,
@@ -485,9 +469,10 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _buildStatItem(
-                          Icons.list_alt,
+                          Icons.quiz_outlined,
                           '${_exam.questions.length}',
                           'MCQS',
+                          const Color(0xFF10B981),
                           isDarkMode,
                           containerColor,
                           borderColor,
@@ -501,6 +486,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                           Icons.military_tech_outlined,
                           '${_exam.totalMarks.toInt()}',
                           'MARKS',
+                          const Color(0xFFF59E0B),
                           isDarkMode,
                           containerColor,
                           borderColor,
@@ -527,11 +513,9 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        Icons.rule,
-                        color: isDarkMode
-                            ? const Color(0xFFFBBF24)
-                            : const Color(0xFF1E1B4B),
+                      const Icon(
+                        Icons.rule_rounded,
+                        color: Color(0xFF7C3AED),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -624,11 +608,9 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.emoji_events_outlined,
-                            color: isDarkMode
-                                ? const Color(0xFFFBBF24)
-                                : const Color(0xFF1E1B4B),
+                            color: Color(0xFFF59E0B),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -690,11 +672,9 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.menu_book_outlined,
-                        color: isDarkMode
-                            ? const Color(0xFFFBBF24)
-                            : const Color(0xFF1E1B4B),
+                        color: Color(0xFF7C3AED),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -726,19 +706,19 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: isDarkMode
-                    ? const Color(0xFF1E293B)
-                    : const Color(0xFFF8FAFC),
+                    ? const Color(0xFF7C3AED).withOpacity(0.12)
+                    : const Color(0xFF7C3AED).withOpacity(0.06),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor),
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withOpacity(0.2),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.verified_user_outlined,
-                    color: isDarkMode
-                        ? const Color(0xFF93C5FD)
-                        : const Color(0xFF2563EB),
-                    size: 28,
+                    color: Color(0xFF7C3AED),
+                    size: 26,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -762,16 +742,18 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
               child: ElevatedButton(
                 onPressed: () => _handleStartExam(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFBBF24),
-                  foregroundColor: const Color(0xFF1E1B4B),
+                  backgroundColor: const Color(0xFF7C3AED),
+                  foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Icon(Icons.play_arrow_rounded, size: 22),
+                    SizedBox(width: 6),
                     Text(
                       'Start Exam',
                       style: TextStyle(
@@ -779,8 +761,6 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward, size: 18),
                   ],
                 ),
               ),
@@ -796,6 +776,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
     IconData icon,
     String value,
     String label,
+    Color iconColor,
     bool isDarkMode,
     Color containerBg,
     Color borderCol,
@@ -811,7 +792,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFFF59E0B), size: 22),
+          Icon(icon, color: iconColor, size: 22),
           const SizedBox(height: 8),
           Text(
             value,
@@ -844,7 +825,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.grey[500]),
+        Icon(icon, size: 20, color: const Color(0xFF7C3AED)),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -864,6 +845,19 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
     Color textCol,
     Color subTextCol,
   ) {
+    Color rankBg;
+    Color rankText;
+    if (rank == '1st') {
+      rankBg = const Color(0xFFF59E0B).withOpacity(0.15);
+      rankText = const Color(0xFFF59E0B);
+    } else if (rank == '2nd') {
+      rankBg = const Color(0xFF94A3B8).withOpacity(0.15);
+      rankText = const Color(0xFF94A3B8);
+    } else {
+      rankBg = const Color(0xFFD97706).withOpacity(0.15);
+      rankText = const Color(0xFFD97706);
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -873,18 +867,14 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: isDarkMode
-                    ? const Color(0xFF312E81)
-                    : const Color(0xFFFEF3C7),
+                color: rankBg,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                 child: Text(
                   rank,
                   style: TextStyle(
-                    color: isDarkMode
-                        ? const Color(0xFFFBBF24)
-                        : const Color(0xFFB45309),
+                    color: rankText,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
@@ -924,13 +914,16 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: isDarkMode ? const Color(0xFF064E3B) : const Color(0xFFD1FAE5),
+        color: const Color(0xFF7C3AED).withOpacity(isDarkMode ? 0.18 : 0.08),
         borderRadius: BorderRadius.circular(100),
+        border: Border.all(
+          color: const Color(0xFF7C3AED).withOpacity(0.25),
+        ),
       ),
       child: Text(
         label,
-        style: TextStyle(
-          color: isDarkMode ? const Color(0xFF34D399) : const Color(0xFF065F46),
+        style: const TextStyle(
+          color: Color(0xFF7C3AED),
           fontSize: 13,
           fontWeight: FontWeight.bold,
         ),

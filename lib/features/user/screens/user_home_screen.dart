@@ -11,6 +11,7 @@ import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
+import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 
 class Userhomescreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _HomeScreenState extends State<Userhomescreen> {
   Stream<List<ExamModel>>? _allExamsStream;
 
   String _studentClassroomId = '';
+  String _userName = '';
   bool _isLoadingUser = true;
 
   @override
@@ -53,6 +55,7 @@ class _HomeScreenState extends State<Userhomescreen> {
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
+        _userName = (data['name'] ?? data['fullName'] ?? '').toString().trim();
       }
     } catch (_) {}
 
@@ -197,7 +200,17 @@ class _HomeScreenState extends State<Userhomescreen> {
         : Colors.grey[600]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    final displayName = _currentUser?.displayName ?? 'Student';
+    final String displayName = _userName.isNotEmpty
+        ? _userName
+        : (_currentUser?.displayName?.isNotEmpty == true
+            ? _currentUser!.displayName!
+            : (_currentUser?.email?.isNotEmpty == true
+                ? _currentUser!.email!.split('@').first
+                : 'Student'));
+
+    final String firstLetter = displayName.isNotEmpty
+        ? displayName[0].toUpperCase()
+        : 'S';
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -220,22 +233,29 @@ class _HomeScreenState extends State<Userhomescreen> {
               builder: (context) {
                 final photoUrl = _currentUser?.photoURL;
                 final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-                return CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(0xFF7C3AED).withOpacity(0.15),
-                  backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                  child: !hasPhoto
-                      ? Text(
-                          displayName.isNotEmpty
-                              ? displayName[0].toUpperCase()
-                              : 'S',
-                          style: const TextStyle(
-                            color: Color(0xFF7C3AED),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        )
-                      : null,
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const Userprofile(),
+                      ),
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: const Color(0xFF7C3AED).withOpacity(0.15),
+                    backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+                    child: !hasPhoto
+                        ? Text(
+                            firstLetter,
+                            style: const TextStyle(
+                              color: Color(0xFF7C3AED),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          )
+                        : null,
+                  ),
                 );
               },
             ),
