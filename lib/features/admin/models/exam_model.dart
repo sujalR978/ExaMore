@@ -115,6 +115,8 @@ class ExamModel {
   final int enrolledCount;
   final int submissionsCount;
   final List<QuestionModel> questions;
+  final String? classroomId;
+  final String? classroomName;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -124,6 +126,8 @@ class ExamModel {
     required this.title,
     required this.category,
     this.adminId = '',
+    this.classroomId,
+    this.classroomName,
     required this.durationMinutes,
     required this.totalMarks,
     this.negativeMarking = 0.0,
@@ -147,6 +151,8 @@ class ExamModel {
       title: title,
       category: category,
       adminId: adminId,
+      classroomId: classroomId,
+      classroomName: classroomName,
       durationMinutes: durationMinutes,
       totalMarks: totalMarks,
       negativeMarking: negativeMarking,
@@ -170,6 +176,8 @@ class ExamModel {
       'title': title,
       'category': category,
       'adminId': adminId,
+      'classroomId': classroomId,
+      'classroomName': classroomName,
       'durationMinutes': durationMinutes,
       'totalMarks': totalMarks,
       'negativeMarking': negativeMarking,
@@ -195,6 +203,8 @@ class ExamModel {
       title: data['title'] ?? '',
       category: data['category'] ?? 'General',
       adminId: data['adminId'] ?? '',
+      classroomId: data['classroomId'] as String?,
+      classroomName: data['classroomName'] as String?,
       durationMinutes: (data['durationMinutes'] as num?)?.toInt() ?? 0,
       totalMarks: (data['totalMarks'] as num?)?.toDouble() ?? 0.0,
       negativeMarking: (data['negativeMarking'] as num?)?.toDouble() ?? 0.0,
@@ -220,6 +230,8 @@ class ExamModel {
     String? title,
     String? category,
     String? adminId,
+    String? classroomId,
+    String? classroomName,
     int? durationMinutes,
     double? totalMarks,
     double? negativeMarking,
@@ -240,6 +252,8 @@ class ExamModel {
       title: title ?? this.title,
       category: category ?? this.category,
       adminId: adminId ?? this.adminId,
+      classroomId: classroomId ?? this.classroomId,
+      classroomName: classroomName ?? this.classroomName,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       totalMarks: totalMarks ?? this.totalMarks,
       negativeMarking: negativeMarking ?? this.negativeMarking,

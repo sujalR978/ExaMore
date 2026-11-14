@@ -492,8 +492,11 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
       stream: _examService.getExamsStream(adminId: _classroom.adminId),
       builder: (context, snapshot) {
         final allExams = snapshot.data ?? [];
-        // Filter exams matching this classroom's subjects or general
+        // Filter exams matching this classroom by ID or subjects
         final classroomExams = allExams.where((e) {
+          if (e.classroomId != null && e.classroomId == _classroom.id) {
+            return true;
+          }
           if (_classroom.subjects.isEmpty) return true;
           return _classroom.subjects
               .any((sub) => e.category.toLowerCase() == sub.toLowerCase());
@@ -507,7 +510,9 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (context) => const ExamConfigurationScreen(),
+                  builder: (context) => ExamConfigurationScreen(
+                    classroom: _classroom,
+                  ),
                 ),
               );
             },
