@@ -202,7 +202,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 SliverAppBar(
-                  expandedHeight: 180,
+                  expandedHeight: 220,
                   pinned: true,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -314,66 +314,117 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                           end: Alignment.bottomRight,
                         ),
                       ),
-                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
+                      padding: const EdgeInsets.fromLTRB(20, 60, 20, 58),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Text(
                             _classroom.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
+                              height: 1.2,
                             ),
                           ),
-                          if (_classroom.section.isNotEmpty)
+                          if (_classroom.section.isNotEmpty) ...[
+                            const SizedBox(height: 3),
                             Text(
                               _classroom.section,
                               style: TextStyle(
                                 color: Colors.white.withOpacity(0.9),
                                 fontSize: 13,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
+                          ],
                           const SizedBox(height: 8),
                           Row(
                             children: [
+                              InkWell(
+                                onTap: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: _classroom.code),
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Class code "${_classroom.code}" copied!',
+                                      ),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(100),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black26,
+                                    borderRadius: BorderRadius.circular(100),
+                                    border: Border.all(color: Colors.white12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.vpn_key_outlined,
+                                        color: Colors.white,
+                                        size: 13,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'Code: ${_classroom.code}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11.5,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.copy_rounded,
+                                        color: Colors.white70,
+                                        size: 11,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
+                                  horizontal: 8,
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.black26,
+                                  color: Colors.black12,
                                   borderRadius: BorderRadius.circular(100),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(
-                                      Icons.vpn_key_outlined,
-                                      color: Colors.white,
-                                      size: 14,
+                                      Icons.people_outline,
+                                      color: Colors.white70,
+                                      size: 13,
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Code: ${_classroom.code}',
+                                      '${_classroom.studentUids.length} Students',
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        letterSpacing: 0.8,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '•  ${_classroom.studentUids.length} Students',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
                                 ),
                               ),
                             ],
@@ -382,16 +433,37 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                       ),
                     ),
                   ),
-                  bottom: TabBar(
-                    controller: _tabController,
-                    indicatorColor: Colors.white,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white60,
-                    tabs: const [
-                      Tab(text: 'Exams'),
-                      Tab(text: 'Subjects'),
-                      Tab(text: 'Students'),
-                    ],
+                  bottom: PreferredSize(
+                    preferredSize: const Size.fromHeight(48),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.18),
+                        border: const Border(
+                          bottom: BorderSide(color: Colors.white12, width: 0.8),
+                        ),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        indicatorColor: Colors.white,
+                        indicatorWeight: 3,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelColor: Colors.white,
+                        unselectedLabelColor: Colors.white60,
+                        labelStyle: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                        tabs: const [
+                          Tab(text: 'Exams'),
+                          Tab(text: 'Subjects'),
+                          Tab(text: 'Students'),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ];

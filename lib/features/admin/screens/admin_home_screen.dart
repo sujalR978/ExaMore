@@ -68,7 +68,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _openCreateClassroomDialog({ClassroomModel? classroomToEdit}) async {
+  Future<void> _openCreateClassroomDialog({
+    ClassroomModel? classroomToEdit,
+  }) async {
     if (_adminUid.isEmpty) return;
     await CreateClassroomDialog.show(
       context,
@@ -603,31 +605,31 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         sliver: SliverGrid(
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount:
-                                MediaQuery.of(context).size.width >= 900
+                                crossAxisCount:
+                                    MediaQuery.of(context).size.width >= 900
                                     ? 4
                                     : MediaQuery.of(context).size.width >= 600
-                                        ? 3
-                                        : 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 0.85,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final classroom = classrooms[index];
-                              return _buildGoogleClassroomSquareCard(
-                                classroom: classroom,
-                                cardIndex: index,
-                                isDarkMode: isDarkMode,
-                                surfaceColor: surfaceColor,
-                                borderColor: borderColor,
-                                textColor: textColor,
-                                subtitleColor: subtitleColor,
-                              );
-                            },
-                            childCount: classrooms.length,
-                          ),
+                                    ? 3
+                                    : 2,
+                                mainAxisSpacing: 12,
+                                crossAxisSpacing: 12,
+                                childAspectRatio: 0.85,
+                              ),
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final classroom = classrooms[index];
+                            return _buildGoogleClassroomSquareCard(
+                              classroom: classroom,
+                              cardIndex: index,
+                              isDarkMode: isDarkMode,
+                              surfaceColor: surfaceColor,
+                              borderColor: borderColor,
+                              textColor: textColor,
+                              subtitleColor: subtitleColor,
+                            );
+                          }, childCount: classrooms.length),
                         ),
                       ),
                   ],
@@ -1021,13 +1023,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                               ),
                             );
                           } else if (value == 'edit') {
-                            _openCreateClassroomDialog(classroomToEdit: classroom);
+                            _openCreateClassroomDialog(
+                              classroomToEdit: classroom,
+                            );
                           } else if (value == 'add_subject') {
                             _showAddSubjectDialog(classroom);
                           } else if (value == 'assign_student') {
                             _showAssignStudentDialog(classroom);
                           } else if (value == 'copy_code') {
-                            Clipboard.setData(ClipboardData(text: classroom.code));
+                            Clipboard.setData(
+                              ClipboardData(text: classroom.code),
+                            );
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -1149,9 +1155,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                 style: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w600,
-                                  color: isDarkMode
-                                      ? gradient[1]
-                                      : gradient[0],
+                                  color: isDarkMode ? gradient[1] : gradient[0],
                                 ),
                               ),
                             ),
