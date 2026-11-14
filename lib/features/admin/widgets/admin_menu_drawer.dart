@@ -1,9 +1,6 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
-import 'package:prep_mate/features/admin/screens/review_and_publish_screen.dart';
 import 'package:prep_mate/features/admin/screens/student_directory_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_directory_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
@@ -111,23 +108,7 @@ class AdminMenuDrawer extends StatelessWidget {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(
-              Icons.settings_applications_outlined,
-              color: Color(0xFFD97706),
-            ),
-            title: Text(
-              'Exam Configuration',
-              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-            ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ExamConfigurationScreen(),
-                ),
-              );
-            },
-          ),
+
           ListTile(
             leading: const Icon(
               Icons.layers_outlined,
@@ -145,23 +126,7 @@ class AdminMenuDrawer extends StatelessWidget {
               );
             },
           ),
-          ListTile(
-            leading: const Icon(
-              Icons.rate_review_outlined,
-              color: Color(0xFF7C3AED),
-            ),
-            title: Text(
-              'Review & Publish',
-              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-            ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const ReviewAndPublishScreen(),
-                ),
-              );
-            },
-          ),
+
           ListTile(
             leading: const Icon(Icons.people_outline, color: Color(0xFF2563EB)),
             title: Text(

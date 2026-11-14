@@ -26,14 +26,11 @@ class _ShowexamState extends State<Showexam> {
   String _searchQuery = '';
 
   String _assignedAdminId = '';
+  String _studentClassroomId = '';
   bool _isLoadingUser = true;
 
-  final List<String> _categories = [
+  List<String> _categories = [
     'All Subjects',
-    'Science',
-    'Mathematics',
-    'History',
-    'Computer Science',
   ];
 
   late final Stream<List<dynamic>> _savedExamsStream;
@@ -54,7 +51,7 @@ class _ShowexamState extends State<Showexam> {
     });
   }
 
-  /// Looks up the student's linked adminId from their Firestore profile
+  /// Looks up the student's linked adminId & classroom from their Firestore profile
   Future<void> _fetchStudentAdminAndInitStream() async {
     if (_currentUser == null) {
       if (mounted) setState(() => _isLoadingUser = false);
@@ -70,6 +67,23 @@ class _ShowexamState extends State<Showexam> {
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+        _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
+
+        if (_studentClassroomId.isNotEmpty) {
+          final classDoc = await FirebaseFirestore.instance
+              .collection('classrooms')
+              .doc(_studentClassroomId)
+              .get();
+          if (classDoc.exists) {
+            final cData = classDoc.data() ?? {};
+            final subs = List<String>.from(cData['subjects'] ?? []);
+            if (subs.isNotEmpty) {
+              _categories = ['All Subjects', ...subs];
+            } else {
+              _categories = ['All Subjects', 'General'];
+            }
+          }
+        }
       }
     } catch (_) {}
 
@@ -82,7 +96,7 @@ class _ShowexamState extends State<Showexam> {
     }
   }
 
-  /// Updates the stream scoped to the student's assigned instructor
+  /// Updates the stream scoped to the student's assigned instructor & classroom
   void _updatePublishedExamsStream() {
     final selectedCategory = _selectedCategoryIndex == 0
         ? null
@@ -91,6 +105,7 @@ class _ShowexamState extends State<Showexam> {
     _publishedExamsStream = _examService.getPublishedExamsStream(
       category: selectedCategory,
       adminId: _assignedAdminId,
+      classroomId: _studentClassroomId,
       role: 'student',
     );
   }

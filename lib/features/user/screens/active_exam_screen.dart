@@ -6,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
-import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'package:prep_mate/features/user/screens/exam_result_screen.dart';
 import 'package:prep_mate/features/user/services/exam_cache_service.dart';
 
@@ -27,6 +26,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
   late List<QuestionModel> _questions;
   int _currentIndex = 0;
   final Map<String, String> _selectedAnswers = {}; // { questionId: optionId }
+  final Set<String> _markedForReview = {}; // { questionId }
 
   late int _remainingSeconds;
   Timer? _timer;
@@ -207,70 +207,306 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
     }
   }
 
-  void _handleSubmitEarly(BuildContext context) {
+  void _showSubmissionConfirmationDialog(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final total = _questions.length;
+    final answered = _selectedAnswers.length;
+    final unanswered = total - answered;
+    final marked = _markedForReview.length;
+
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) {
-        final theme = Theme.of(context);
-        final isDarkMode = theme.brightness == Brightness.dark;
-
-        return AlertDialog(
-          backgroundColor: theme.colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Submit Exam Early?',
-            style: TextStyle(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.assignment_turned_in_outlined, color: Color(0xFF7C3AED)),
+            SizedBox(width: 10),
+            Text('Submit Assessment?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Review your summary before submitting. Answers cannot be modified after submission.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
-          ),
-          content: Text(
-            'Are you sure you want to finish and submit your exam before the timer runs out? You cannot change your answers after submission.',
-            style: TextStyle(
-              color: isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600],
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const MainNavigator()),
-              ),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: isDarkMode
-                      ? const Color(0xFF94A3B8)
-                      : Colors.grey[600],
-                  fontWeight: FontWeight.bold,
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDarkMode ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
                 ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                _submitExam();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFBBF24),
-                foregroundColor: const Color(0xFF1E1B4B),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                'Yes, Submit',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              child: Column(
+                children: [
+                  _buildSummaryRow('Total Questions', '$total', Icons.help_outline),
+                  const Divider(height: 10),
+                  _buildSummaryRow(
+                    'Answered',
+                    '$answered',
+                    Icons.check_circle_outline,
+                    color: const Color(0xFF10B981),
+                  ),
+                  const Divider(height: 10),
+                  _buildSummaryRow(
+                    'Unanswered',
+                    '$unanswered',
+                    Icons.radio_button_unchecked,
+                    color: Colors.grey,
+                  ),
+                  if (marked > 0) ...[
+                    const Divider(height: 10),
+                    _buildSummaryRow(
+                      'Marked for Review',
+                      '$marked',
+                      Icons.bookmark_outline,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                  ],
+                  const Divider(height: 10),
+                  _buildSummaryRow(
+                    'Remaining Time',
+                    _formatTimer(_remainingSeconds),
+                    Icons.access_time_outlined,
+                    color: const Color(0xFF7C3AED),
+                  ),
+                ],
               ),
             ),
           ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: const Text('Review Test'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(dialogCtx).pop();
+              _submitExam();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Confirm & Submit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, IconData icon, {Color? color}) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color ?? Colors.grey),
+        const SizedBox(width: 8),
+        Text(label, style: const TextStyle(fontSize: 13)),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showQuestionPallet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final theme = Theme.of(context);
+        final isDarkMode = theme.brightness == Brightness.dark;
+        final surfaceColor = theme.colorScheme.surface;
+        final textColor = theme.colorScheme.onSurface;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Question Pallet',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                      Text(
+                        '${_selectedAnswers.length}/${_questions.length} Answered',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Legend
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildLegendPill(
+                        color: const Color(0xFF10B981),
+                        label: 'Answered (${_selectedAnswers.length})',
+                      ),
+                      _buildLegendPill(
+                        color: const Color(0xFFF59E0B),
+                        label: 'Flagged (${_markedForReview.length})',
+                      ),
+                      _buildLegendPill(
+                        color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
+                        label: 'Skipped (${_questions.length - _selectedAnswers.length})',
+                        textColor: isDarkMode ? Colors.white70 : Colors.black87,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: GridView.builder(
+                      itemCount: _questions.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 1,
+                      ),
+                      itemBuilder: (gridCtx, idx) {
+                        final q = _questions[idx];
+                        final isAnswered = _selectedAnswers.containsKey(q.id);
+                        final isMarked = _markedForReview.contains(q.id);
+                        final isCurrent = idx == _currentIndex;
+
+                        Color bg = isDarkMode ? const Color(0xFF1E293B) : Colors.grey.shade100;
+                        Color textC = isDarkMode ? Colors.white70 : Colors.black87;
+                        if (isAnswered) {
+                          bg = const Color(0xFF10B981);
+                          textC = Colors.white;
+                        } else if (isMarked) {
+                          bg = const Color(0xFFF59E0B);
+                          textC = Colors.white;
+                        }
+
+                        return InkWell(
+                          onTap: () {
+                            setState(() => _currentIndex = idx);
+                            Navigator.pop(ctx);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: bg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isCurrent
+                                    ? const Color(0xFF7C3AED)
+                                    : (isMarked ? const Color(0xFFF59E0B) : Colors.transparent),
+                                width: isCurrent ? 2.5 : 1,
+                              ),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Text(
+                                  '${idx + 1}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: textC,
+                                  ),
+                                ),
+                                if (isMarked && isAnswered)
+                                  const Positioned(
+                                    top: 3,
+                                    right: 3,
+                                    child: Icon(
+                                      Icons.star,
+                                      size: 11,
+                                      color: Color(0xFFFBBF24),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildLegendPill({
+    required Color color,
+    required String label,
+    Color textColor = Colors.white,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
     );
   }
 
@@ -307,87 +543,100 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.close, color: textColor),
-                    onPressed: () => _handleSubmitEarly(context),
-                  ),
-                  title: Text(
-                    'Examora',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFFB45309),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: textColor),
+          tooltip: 'Exit Assessment',
+          onPressed: () => _showSubmissionConfirmationDialog(context),
+        ),
+        title: Text(
+          widget.exam.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        actions: [
+          // Question Pallet Button with answered badge
+          IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(Icons.grid_view_rounded, color: textColor, size: 22),
+                Positioned(
+                  top: -4,
+                  right: -4,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF7C3AED),
+                      shape: BoxShape.circle,
+                    ),
+                    constraints:
+                        const BoxConstraints(minWidth: 14, minHeight: 14),
+                    child: Text(
+                      '${_selectedAnswers.length}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  centerTitle: true,
-                  actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12.0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _remainingSeconds < 300
-                              ? Colors.red.withOpacity(0.2)
-                              : (isDarkMode
-                                    ? const Color(0xFF312E81)
-                                    : const Color(0xFFDBEAFE)),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time,
-                              size: 16,
-                              color: _remainingSeconds < 300
-                                  ? Colors.red
-                                  : const Color(0xFFF59E0B),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _formatTimer(_remainingSeconds),
-                              style: TextStyle(
-                                color: _remainingSeconds < 300
-                                    ? Colors.red
-                                    : (isDarkMode
-                                          ? const Color(0xFF93C5FD)
-                                          : const Color(0xFF1D4ED8)),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
+                ),
+              ],
+            ),
+            tooltip: 'Question Pallet',
+            onPressed: () => _showQuestionPallet(context),
+          ),
+          const SizedBox(width: 4),
+
+          // Timer Pill
+          Padding(
+            padding: const EdgeInsets.only(right: 14.0),
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _remainingSeconds < 300
+                      ? Colors.red.withOpacity(0.18)
+                      : (isDarkMode
+                            ? const Color(0xFF1E293B)
+                            : const Color(0xFFEDE9FE)),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(
+                    color: _remainingSeconds < 300
+                        ? Colors.redAccent
+                        : const Color(0xFF7C3AED).withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: _remainingSeconds < 300
+                          ? Colors.redAccent
+                          : const Color(0xFF7C3AED),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _formatTimer(_remainingSeconds),
+                      style: TextStyle(
+                        color: _remainingSeconds < 300
+                            ? Colors.redAccent
+                            : const Color(0xFF7C3AED),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5,
                       ),
                     ),
                   ],
@@ -395,14 +644,14 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
               ),
             ),
           ),
-        ),
+        ],
       ),
       body: _isSubmitting
           ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
+                  CircularProgressIndicator(color: Color(0xFF7C3AED)),
                   SizedBox(height: 16),
                   Text('Submitting and evaluating your responses...'),
                 ],
@@ -425,12 +674,68 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                           letterSpacing: 0.5,
                         ),
                       ),
-                      Text(
-                        '${(progressValue * 100).toInt()}% Completed',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                      // Flag Question Button
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            if (_markedForReview.contains(currentQuestion.id)) {
+                              _markedForReview.remove(currentQuestion.id);
+                            } else {
+                              _markedForReview.add(currentQuestion.id);
+                            }
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _markedForReview.contains(currentQuestion.id)
+                                ? const Color(0xFFF59E0B).withOpacity(0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color:
+                                  _markedForReview.contains(currentQuestion.id)
+                                  ? const Color(0xFFF59E0B)
+                                  : Colors.grey.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _markedForReview.contains(currentQuestion.id)
+                                    ? Icons.bookmark_rounded
+                                    : Icons.bookmark_border_rounded,
+                                size: 14,
+                                color:
+                                    _markedForReview.contains(
+                                      currentQuestion.id,
+                                    )
+                                    ? const Color(0xFFF59E0B)
+                                    : subtitleColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _markedForReview.contains(currentQuestion.id)
+                                    ? 'Flagged'
+                                    : 'Flag Question',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      _markedForReview.contains(
+                                        currentQuestion.id,
+                                      )
+                                      ? const Color(0xFFF59E0B)
+                                      : subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -586,14 +891,12 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                         child: ElevatedButton(
                           onPressed: _currentIndex < _questions.length - 1
                               ? _handleNext
-                              : () => _handleSubmitEarly(context),
+                              : () => _showSubmissionConfirmationDialog(context),
                           style: ElevatedButton.styleFrom(
                             backgroundColor:
                                 _currentIndex == _questions.length - 1
-                                ? const Color(0xFF10B981)
-                                : (isDarkMode
-                                      ? const Color(0xFF312E81)
-                                      : const Color(0xFF1E1B4B)),
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF7C3AED),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -617,7 +920,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                               Icon(
                                 _currentIndex < _questions.length - 1
                                     ? Icons.arrow_forward
-                                    : Icons.check,
+                                    : Icons.check_circle_outline,
                                 size: 18,
                               ),
                             ],
@@ -626,39 +929,27 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: () => _handleSubmitEarly(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFBBF24),
-                        foregroundColor: const Color(0xFF1E1B4B),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  if (_currentIndex < _questions.length - 1) ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => _showSubmissionConfirmationDialog(context),
+                        icon: const Icon(
+                          Icons.assignment_turned_in_outlined,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+                        label: const Text(
+                          'Submit Assessment Early',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Submit Exam Early',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
+                  ],
                   const SizedBox(height: 30),
                 ],
               ),

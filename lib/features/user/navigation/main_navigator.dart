@@ -38,7 +38,7 @@ class _MainNavigatorState extends State<MainNavigator> {
       bottomNavigationBar: CustomBottomNavBar(
         currentIndex: _currentIndex,
         onTap: _onItemTapped,
-        activeColor: const Color(0xFF2563EB),
+        activeColor: const Color(0xFF7C3AED),
         items: const [
           CustomBottomNavItem(
             activeIcon: Icons.dashboard_rounded,

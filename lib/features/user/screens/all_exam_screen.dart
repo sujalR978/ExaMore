@@ -28,12 +28,8 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
 
   Stream<List<ExamModel>>? _publishedExamsStream;
 
-  final List<String> _categories = [
+  List<String> _categories = [
     'All Subjects',
-    'Mathematics',
-    'Science',
-    'History',
-    'Computer Science',
   ];
 
   @override
@@ -50,7 +46,7 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
     });
   }
 
-  /// Retrieves the student's assigned instructor/admin ID from Firestore
+  /// Retrieves the student's assigned instructor/admin ID & classroom from Firestore
   Future<void> _fetchStudentAdminAndInitStream() async {
     if (_currentUser == null) {
       if (mounted) setState(() => _isLoadingUser = false);
@@ -67,6 +63,22 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
+
+        if (_studentClassroomId.isNotEmpty) {
+          final classDoc = await FirebaseFirestore.instance
+              .collection('classrooms')
+              .doc(_studentClassroomId)
+              .get();
+          if (classDoc.exists) {
+            final cData = classDoc.data() ?? {};
+            final subs = List<String>.from(cData['subjects'] ?? []);
+            if (subs.isNotEmpty) {
+              _categories = ['All Subjects', ...subs];
+            } else {
+              _categories = ['All Subjects', 'General'];
+            }
+          }
+        }
       }
     } catch (_) {}
 

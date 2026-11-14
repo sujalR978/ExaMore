@@ -32,6 +32,8 @@ class _HomeScreenState extends State<Userhomescreen> {
   String _assignedAdminId = '';
   String _instructorName = '';
   String _studentClassroomId = '';
+  String _classroomName = '';
+  String _classroomSection = '';
   bool _isLoadingUser = true;
 
   @override
@@ -46,7 +48,7 @@ class _HomeScreenState extends State<Userhomescreen> {
     _fetchStudentAdminAndInitStream();
   }
 
-  /// Looks up the student's assigned instructor/admin ID
+  /// Looks up the student's assigned instructor/admin ID & classroom details
   Future<void> _fetchStudentAdminAndInitStream() async {
     if (_currentUser == null) {
       if (mounted) setState(() => _isLoadingUser = false);
@@ -63,6 +65,7 @@ class _HomeScreenState extends State<Userhomescreen> {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
+
         if (_assignedAdminId.isNotEmpty) {
           final adminDoc = await FirebaseFirestore.instance
               .collection('users')
@@ -74,6 +77,21 @@ class _HomeScreenState extends State<Userhomescreen> {
           }
         } else {
           _instructorName = '';
+        }
+
+        if (_studentClassroomId.isNotEmpty) {
+          final classDoc = await FirebaseFirestore.instance
+              .collection('classrooms')
+              .doc(_studentClassroomId)
+              .get();
+          if (classDoc.exists) {
+            final cData = classDoc.data() ?? {};
+            _classroomName = (cData['name'] ?? '').toString();
+            _classroomSection = (cData['section'] ?? '').toString();
+          }
+        } else {
+          _classroomName = '';
+          _classroomSection = '';
         }
       }
     } catch (_) {}
@@ -284,72 +302,80 @@ class _HomeScreenState extends State<Userhomescreen> {
 
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: CircleAvatar(
-                      backgroundImage: NetworkImage(
-                        _currentUser?.photoURL ??
-                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    'Examora',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFFB45309),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                  ),
-                  centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.notifications_outlined,
-                        color: textColor,
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const Settingscreen(),
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: Colors.transparent,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16.0),
+          child: Center(
+            child: Builder(
+              builder: (context) {
+                final photoUrl = _currentUser?.photoURL;
+                final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+                return CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(0xFF7C3AED).withOpacity(0.15),
+                  backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+                  child: !hasPhoto
+                      ? Text(
+                          displayName.isNotEmpty
+                              ? displayName[0].toUpperCase()
+                              : 'S',
+                          style: const TextStyle(
+                            color: Color(0xFF7C3AED),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
+                        )
+                      : null,
+                );
+              },
             ),
           ),
         ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.school_rounded,
+                color: Color(0xFF7C3AED),
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'ExaMore',
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w800,
+                fontSize: 19,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_outlined, color: textColor),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const Settingscreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -361,14 +387,14 @@ class _HomeScreenState extends State<Userhomescreen> {
               'Hi, $displayName!',
               style: TextStyle(
                 color: textColor,
-                fontSize: 28,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'Ready for your next challenge? Your flow state awaits.',
-              style: TextStyle(color: subtitleColor, fontSize: 14),
+              'Ready for your next challenge? Your assessments await.',
+              style: TextStyle(color: subtitleColor, fontSize: 13.5),
             ),
             const SizedBox(height: 16),
 
@@ -386,10 +412,17 @@ class _HomeScreenState extends State<Userhomescreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.school_outlined,
-                    color: Color(0xFF7C3AED),
-                    size: 24,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.school_outlined,
+                      color: Color(0xFF7C3AED),
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -397,27 +430,34 @@ class _HomeScreenState extends State<Userhomescreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _assignedAdminId.isNotEmpty
-                              ? "Classroom: ${_instructorName.isNotEmpty ? _instructorName : 'Active'}"
+                          _studentClassroomId.isNotEmpty
+                              ? (_classroomName.isNotEmpty
+                                  ? _classroomName
+                                  : 'Enrolled Classroom')
                               : "No Classroom Linked",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: isDarkMode
                                 ? Colors.white
                                 : const Color(0xFF1E1B4B),
-                            fontSize: 14,
+                            fontSize: 14.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _assignedAdminId.isNotEmpty
-                              ? "You are receiving tests from this instructor."
-                              : "Enter a code to join your teacher's exams.",
+                          _studentClassroomId.isNotEmpty
+                              ? "${_classroomSection.isNotEmpty ? '$_classroomSection • ' : ''}${_instructorName.isNotEmpty ? 'Teacher: $_instructorName' : 'Active Assessment Cohort'}"
+                              : "Enter a code or invite link to join your class.",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: isDarkMode
                                 ? const Color(0xFFA78BFA)
                                 : const Color(0xFF6D28D9),
-                            fontSize: 11,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -427,11 +467,11 @@ class _HomeScreenState extends State<Userhomescreen> {
                     onPressed: () => _showJoinClassroomDialog(context),
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF7C3AED),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                     ),
                     child: Text(
-                      _assignedAdminId.isNotEmpty ? "Change" : "Join Code",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      _studentClassroomId.isNotEmpty ? "Change" : "+ Join Class",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
                 ],
