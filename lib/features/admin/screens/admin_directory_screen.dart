@@ -347,19 +347,14 @@ class AdminDirectoryScreen extends StatelessWidget {
               final email = data['email'] ?? 'No email';
               final adminUid = doc.id;
 
-              return Container(
-                decoration: BoxDecoration(
-                  color: containerColor,
+              return Material(
+                color: containerColor,
+                borderRadius: BorderRadius.circular(16),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+                  side: BorderSide(color: borderColor),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,

@@ -964,12 +964,14 @@ class _UserProfileState extends State<Userprofile> {
                   },
                 ),
                 const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(
-                    color: containerColor,
+                Material(
+                  color: containerColor,
+                  borderRadius: BorderRadius.circular(24),
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: borderColor),
+                    side: BorderSide(color: borderColor),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
                       _buildMenuRow(

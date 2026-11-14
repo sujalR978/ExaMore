@@ -332,21 +332,14 @@ class _SettingscreenState extends State<Settingscreen> {
             ),
 
             // Legal & Account Actions Card
-            Container(
-              decoration: BoxDecoration(
-                color: containerColor,
+            Material(
+              color: containerColor,
+              borderRadius: BorderRadius.circular(24),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDarkMode ? 0.2 : 0.02,
-                    ),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
+                side: BorderSide(color: borderColor),
               ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   ListTile(
