@@ -35,11 +35,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   String _adminUid = '';
   String _classroomCode = '';
 
+  Stream<List<ClassroomModel>>? _classroomsStream;
+  Stream<Map<String, dynamic>>? _metricsStream;
+
   @override
   void initState() {
     super.initState();
     _adminUid = _currentUser?.uid ?? '';
+    _initDashboardStreams();
     _fetchUserRole();
+  }
+
+  void _initDashboardStreams() {
+    if (_adminUid.isNotEmpty) {
+      _classroomsStream = ClassroomService.getClassroomsStream(_adminUid);
+      _metricsStream = _examService.getDashboardMetricsStream(
+        adminId: _adminUid,
+        role: _userRole,
+      );
+    }
   }
 
   Future<void> _fetchUserRole() async {
@@ -51,17 +65,30 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           .get();
       if (doc.exists && mounted) {
         final data = doc.data() ?? {};
-        setState(() {
-          _userRole = (data['role'] ?? 'admin').toString().toLowerCase();
-          _classroomCode = (data['classroomCode'] ?? '').toString();
-        });
+        final newRole = (data['role'] ?? 'admin').toString().toLowerCase();
+        final code = (data['classroomCode'] ?? '').toString();
+
+        bool shouldUpdateMetrics = newRole != _userRole;
+        _userRole = newRole;
+        _classroomCode = code;
+
+        if (shouldUpdateMetrics && _adminUid.isNotEmpty) {
+          _metricsStream = _examService.getDashboardMetricsStream(
+            adminId: _adminUid,
+            role: _userRole,
+          );
+        }
+
+        if (mounted) {
+          setState(() {});
+        }
       }
 
       if (_classroomCode.isEmpty) {
         final code = await ClassroomService.getOrCreateClassroomCode(
           _currentUser.uid,
         );
-        if (mounted) {
+        if (mounted && code != _classroomCode) {
           setState(() => _classroomCode = code);
         }
       }
@@ -493,20 +520,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         ),
       ),
       body: StreamBuilder<Map<String, dynamic>>(
-        stream: _examService.getDashboardMetricsStream(
-          adminId: _adminUid,
-          role: isSuperAdmin ? 'super_admin' : _userRole,
-        ),
+        stream: _metricsStream,
         builder: (context, metricSnapshot) {
           final metrics =
               metricSnapshot.data ??
               {'totalStudents': 0, 'activeExams': 0, 'totalQuizzesBank': 0};
 
           return StreamBuilder<List<ClassroomModel>>(
-            stream: ClassroomService.getClassroomsStream(_adminUid),
+            stream: _classroomsStream,
             builder: (context, classroomSnapshot) {
               final classrooms = classroomSnapshot.data ?? [];
               final totalClassrooms = classrooms.length;
+              // Calculate unique students enrolled across all of this admin's classrooms
+              final totalStudents = classrooms.fold<Set<String>>(
+                {},
+                (set, c) => set..addAll(c.studentUids),
+              ).length;
+              final isLoading =
+                  classroomSnapshot.connectionState ==
+                      ConnectionState.waiting &&
+                  !classroomSnapshot.hasData;
 
               return RefreshIndicator(
                 onRefresh: () async {
@@ -530,8 +563,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                         child: _buildCompactMetricsRibbon(
                           totalClassrooms: totalClassrooms,
-                          totalStudents:
-                              (metrics['totalStudents'] as num?)?.toInt() ?? 0,
+                          totalStudents: totalStudents,
                           activeExams:
                               (metrics['activeExams'] as num?)?.toInt() ?? 0,
                           totalQuizzes:
@@ -584,8 +616,32 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       ),
                     ),
 
-                    // Classrooms Grid / List or Empty State
-                    if (classrooms.isEmpty)
+                    // Classrooms Grid / List or Loading or Empty State
+                    if (isLoading)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Color(0xFF7C3AED),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                'Loading classrooms...',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: subtitleColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (classrooms.isEmpty)
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: _buildEmptyClassroomState(
@@ -607,7 +663,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                     : 2,
                                 mainAxisSpacing: 12,
                                 crossAxisSpacing: 12,
-                                childAspectRatio: 0.85,
+                                childAspectRatio:
+                                    MediaQuery.of(context).size.width >= 600
+                                    ? 0.95
+                                    : 0.88,
                               ),
                           delegate: SliverChildBuilderDelegate((
                             context,
@@ -950,6 +1009,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                     ClassroomDetailScreen(classroom: classroom),
                               ),
                             );
+                          } else if (value == 'share') {
+                            ClassroomService.shareClassroomInvite(classroom);
                           } else if (value == 'edit') {
                             _openCreateClassroomDialog(
                               classroomToEdit: classroom,
@@ -981,6 +1042,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                 Icon(Icons.open_in_new, size: 18),
                                 SizedBox(width: 8),
                                 Text('Open'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'share',
+                            child: Row(
+                              children: [
+                                Icon(Icons.share_outlined, size: 18, color: Color(0xFF7C3AED)),
+                                SizedBox(width: 8),
+                                Text('Share Invite Link'),
                               ],
                             ),
                           ),

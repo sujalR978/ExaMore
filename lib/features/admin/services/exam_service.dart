@@ -513,30 +513,22 @@ class ExamService {
                 'published',
           )
           .length;
-      int studentCount = 0;
-      try {
-        Query usersQuery = _firestore
-            .collection('users')
-            .where('role', isEqualTo: 'student');
-        if (role != 'super_admin' && adminId != null && adminId.isNotEmpty) {
-          usersQuery = usersQuery.where('adminId', isEqualTo: adminId);
-        }
-        studentCount = (await usersQuery.get()).docs.length;
-      } catch (_) {
-        studentCount = 0;
-      }
+
       int bankCount = 0;
       try {
         Query bankQuery = _firestore.collection('question_bank');
         if (role != 'super_admin' && adminId != null && adminId.isNotEmpty) {
           bankQuery = bankQuery.where('adminId', isEqualTo: adminId);
         }
-        bankCount = (await bankQuery.get()).docs.length;
+        final bankSnap =
+            await bankQuery.get(const GetOptions(source: Source.serverAndCache));
+        bankCount = bankSnap.docs.length;
       } catch (_) {
         bankCount = 0;
       }
+
       return {
-        'totalStudents': studentCount,
+        'totalStudents': 0,
         'activeExams': activeExamsCount,
         'totalQuizzesBank': bankCount,
       };

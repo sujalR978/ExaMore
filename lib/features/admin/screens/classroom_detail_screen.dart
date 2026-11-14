@@ -501,17 +501,8 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                             const Spacer(),
                             IconButton(
                               icon: const Icon(Icons.share_outlined, color: Colors.white),
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: _classroom.code));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Classroom Code (${_classroom.code}) copied to clipboard!',
-                                    ),
-                                    backgroundColor: const Color(0xFF7C3AED),
-                                  ),
-                                );
-                              },
+                              tooltip: 'Share Invitation Link',
+                              onPressed: () => ClassroomService.shareClassroomInvite(_classroom),
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, color: Colors.white),
@@ -530,7 +521,9 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                             PopupMenuButton<String>(
                               icon: const Icon(Icons.more_vert, color: Colors.white),
                               onSelected: (val) async {
-                                if (val == 'edit') {
+                                if (val == 'share') {
+                                  ClassroomService.shareClassroomInvite(_classroom);
+                                } else if (val == 'edit') {
                                   final updated = await CreateClassroomDialog.show(
                                     context,
                                     adminId: _classroom.adminId,
@@ -569,6 +562,16 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                 }
                               },
                               itemBuilder: (ctx) => [
+                                const PopupMenuItem(
+                                  value: 'share',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.share_outlined, size: 18, color: Color(0xFF7C3AED)),
+                                      SizedBox(width: 8),
+                                      Text('Share Invite Link'),
+                                    ],
+                                  ),
+                                ),
                                 const PopupMenuItem(
                                   value: 'edit',
                                   child: Row(

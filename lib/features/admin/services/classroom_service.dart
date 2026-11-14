@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/auth/models/user_model.dart';
 
@@ -249,19 +250,63 @@ class ClassroomService {
     return students;
   }
 
-  /// Student Join Classroom by Code (Classroom Code or Instructor Code/Email)
+  /// Shares classroom invitation with link and code to WhatsApp, Telegram, etc.
+  static Future<void> shareClassroomInvite(ClassroomModel classroom) async {
+    final code = classroom.code;
+    final name = classroom.name;
+    final joinUrl = 'https://examore.web.app/join?code=$code';
+
+    final message = '''🎓 You're invited to join "$name" on ExaMore!
+
+Classroom Code: $code
+
+📲 Tap to join directly:
+$joinUrl
+
+Or open the ExaMore app and enter code: $code''';
+
+    await Share.share(
+      message,
+      subject: 'Invite: Join $name on ExaMore',
+    );
+  }
+
+  /// Student Join Classroom by Code (Classroom Code, URL Link, or Instructor Email)
   static Future<Map<String, String>> joinClassroom({
     required String studentUid,
     required String inputQuery,
   }) async {
-    final query = inputQuery.trim();
+    String query = inputQuery.trim();
     if (query.isEmpty) {
-      throw Exception('Please enter a Classroom Code or Email.');
+      throw Exception('Please enter a Classroom Code or Invitation Link.');
     }
+
+    // 1. Extract code if full URL or invitation link was passed (e.g. ?code=CLA-198 or examore://join?code=CLA-198)
+    if (query.contains('code=')) {
+      final uri = Uri.tryParse(query);
+      if (uri != null && uri.queryParameters.containsKey('code')) {
+        query = uri.queryParameters['code']!;
+      } else {
+        final match = RegExp(r'code=([A-Za-z0-9_-]+)', caseSensitive: false)
+            .firstMatch(query);
+        if (match != null) {
+          query = match.group(1)!;
+        }
+      }
+    } else {
+      // 2. Extract code pattern like CLA-123 or EXM-123 if whole message is pasted
+      final match = RegExp(r'\b(CLA-\d+|EXM-\d+)\b', caseSensitive: false)
+          .firstMatch(query);
+      if (match != null) {
+        query = match.group(1)!;
+      }
+    }
+
+    query = query.trim().toUpperCase();
 
     // 1. First, check if code matches a Classroom document directly
     final classroomQuery = await _classroomsCollection
-        .where('code', isEqualTo: query.toUpperCase())
+        .where('code', isEqualTo: query)
         .limit(1)
         .get();
 

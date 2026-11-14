@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
@@ -89,9 +90,23 @@ class _HomeScreenState extends State<Userhomescreen> {
     }
   }
 
-  void _showJoinClassroomDialog(BuildContext context) {
+  void _showJoinClassroomDialog(BuildContext context) async {
     final codeController = TextEditingController();
     bool isSubmitting = false;
+
+    // Auto-detect invitation link or code from clipboard
+    try {
+      final clip = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = clip?.text?.trim() ?? '';
+      if (text.isNotEmpty &&
+          (text.contains('CLA-') ||
+              text.contains('code=') ||
+              text.contains('EXM-'))) {
+        codeController.text = text;
+      }
+    } catch (_) {}
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -110,7 +125,7 @@ class _HomeScreenState extends State<Userhomescreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Enter the 6-character Classroom Code or Email provided by your teacher.',
+                'Enter the Classroom Code or paste the invite link/message shared by your teacher.',
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 16),
@@ -118,7 +133,7 @@ class _HomeScreenState extends State<Userhomescreen> {
                 controller: codeController,
                 textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  hintText: 'e.g. EXM-784 or teacher@school.edu',
+                  hintText: 'e.g. CLA-198 or paste invite link',
                   prefixIcon: const Icon(Icons.vpn_key_outlined),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
