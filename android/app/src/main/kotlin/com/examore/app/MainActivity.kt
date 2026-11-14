@@ -1,5 +1,6 @@
-package com.example.prep_mate
+package com.examore.app
 
 import io.flutter.embedding.android.FlutterActivity
 
 class MainActivity : FlutterActivity()
+

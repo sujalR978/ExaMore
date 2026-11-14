@@ -46,6 +46,7 @@ dependencies:
   file_picker: ^8.1.2
   flutter_json: ^0.1.0
   csv: ^8.0.0
+  shared_preferences: ^2.5.6
 
 
 

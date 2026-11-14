@@ -2,11 +2,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/services/csv_export_service.dart';
 
 class ExamAnalyticsDetailScreen extends StatefulWidget {
   final ExamModel? exam;
@@ -97,6 +99,59 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
     return parts[0][0].toUpperCase();
+  }
+
+  void _handleExportCsv(
+    BuildContext context,
+    ExamModel exam,
+    List<StudentSubmissionModel> submissions,
+  ) {
+    final csvString = CsvExportService.generateExamSubmissionsCsv(
+      exam: exam,
+      submissions: submissions,
+    );
+    Clipboard.setData(ClipboardData(text: csvString));
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.table_chart_outlined, color: Color(0xFF7C3AED)),
+            SizedBox(width: 10),
+            Text('Marksheet Exported'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${submissions.length} student submission records successfully converted to CSV and copied to clipboard!',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'Columns Included:\nRank, Student Name, Student ID, Score %, Marks Obtained, Total Marks, Correct, Incorrect, Unattempted, Status, Timestamp',
+                style: TextStyle(fontSize: 11, fontFamily: 'monospace'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -577,35 +632,60 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF10B981,
-                                  ).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 3,
-                                      backgroundColor: Color(0xFF10B981),
-                                    ),
-                                    SizedBox(width: 5),
-                                    Text(
-                                      'Live Sync',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF10B981),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (submissions.isNotEmpty)
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        _handleExportCsv(context, currentExam, submissions);
+                                      },
+                                      icon: const Icon(
+                                        Icons.file_download_outlined,
+                                        size: 18,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                      label: const Text(
+                                        'Export CSV',
+                                        style: TextStyle(
+                                          color: Color(0xFF7C3AED),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(
+                                        0xFF10B981,
+                                      ).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 3,
+                                          backgroundColor: Color(0xFF10B981),
+                                        ),
+                                        SizedBox(width: 5),
+                                        Text(
+                                          'Live Sync',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

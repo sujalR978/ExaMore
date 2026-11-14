@@ -44,6 +44,23 @@ class QuestionModel {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  QuestionModel sanitizeForStudent() {
+    return QuestionModel(
+      id: id,
+      questionText: questionText,
+      marks: marks,
+      options: options,
+      correctOptionId: '', // Stripped to prevent client-side answer key inspection
+      type: type,
+      category: category,
+      difficulty: difficulty,
+      adminId: adminId,
+      views: views,
+      estimatedTimeMinutes: estimatedTimeMinutes,
+      createdAt: createdAt,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -122,6 +139,29 @@ class ExamModel {
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
+
+  ExamModel sanitizeForStudent() {
+    return ExamModel(
+      id: id,
+      examCode: examCode,
+      title: title,
+      category: category,
+      adminId: adminId,
+      durationMinutes: durationMinutes,
+      totalMarks: totalMarks,
+      negativeMarking: negativeMarking,
+      passingScorePercentage: passingScorePercentage,
+      shuffleQuestions: shuffleQuestions,
+      showResultsImmediately: showResultsImmediately,
+      status: status,
+      startDate: startDate,
+      enrolledCount: enrolledCount,
+      submissionsCount: submissionsCount,
+      questions: questions.map((q) => q.sanitizeForStudent()).toList(),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {

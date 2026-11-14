@@ -4,13 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prep_mate/core/widgets/custom_bottom_nav_bar.dart';
+import 'package:prep_mate/features/admin/models/classroom_model.dart';
+import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
+import 'package:prep_mate/features/admin/screens/classroom_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/screens/student_directory_screen.dart';
-import 'package:prep_mate/features/admin/screens/admin_directory_screen.dart';
-import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/screens/question_bank_screen.dart';
 import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/services/classroom_service.dart';
+import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -24,8 +30,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   final ExamService _examService = ExamService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
+  int _currentIndex = 0;
   String _userRole = 'admin';
   String _adminUid = '';
+  String _classroomCode = '';
 
   @override
   void initState() {
@@ -42,126 +50,440 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           .doc(_currentUser.uid)
           .get();
       if (doc.exists && mounted) {
+        final data = doc.data() ?? {};
         setState(() {
-          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole = (data['role'] ?? 'admin').toString().toLowerCase();
+          _classroomCode = (data['classroomCode'] ?? '').toString();
         });
+      }
+
+      if (_classroomCode.isEmpty) {
+        final code = await ClassroomService.getOrCreateClassroomCode(
+          _currentUser.uid,
+        );
+        if (mounted) {
+          setState(() => _classroomCode = code);
+        }
       }
     } catch (_) {}
   }
 
-  void _handleBoxTap(String boxTitle) {
-    if (boxTitle == 'Total Students') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const StudentDirectoryScreen()),
-      );
-    }
-    if (boxTitle == 'Active Exams') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => const Showexamesscreen()));
-    }
-    if (boxTitle == 'Total Quizzes Bank') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const QuestionBankScreen()),
-      );
-    }
-    if (boxTitle == 'Registered Admins') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const AdminDirectoryScreen()),
-      );
-    }
-  }
-
-  void _handleCreateNewExam() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const ExamConfigurationScreen()),
+  Future<void> _openCreateClassroomDialog({ClassroomModel? classroomToEdit}) async {
+    if (_adminUid.isEmpty) return;
+    await CreateClassroomDialog.show(
+      context,
+      adminId: _adminUid,
+      classroomToEdit: classroomToEdit,
     );
   }
 
-  void _handleQuestionBank() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const QuestionBankScreen()));
+  void _showAddSubjectDialog(ClassroomModel classroom) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.library_books_outlined, color: Color(0xFF7C3AED)),
+            SizedBox(width: 8),
+            Text('Add Subject'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Add a new subject to "${classroom.name}":',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Mathematics, Organic Chemistry',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                await ClassroomService.addSubject(
+                  classroomId: classroom.id,
+                  subjectName: name,
+                );
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Added subject "$name" to ${classroom.name}',
+                      ),
+                      backgroundColor: const Color(0xFF10B981),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 
-  String _formatTimeAgo(DateTime date) {
-    final diff = DateTime.now().difference(date);
-    if (diff.inDays > 0) return '${diff.inDays}d ago';
-    if (diff.inHours > 0) return '${diff.inHours}h ago';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-    return 'Just now';
+  void _showAssignStudentDialog(ClassroomModel classroom) {
+    final emailController = TextEditingController();
+    bool isAssigning = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.person_add_outlined, color: Color(0xFF7C3AED)),
+              SizedBox(width: 8),
+              Text('Assign Student'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enroll student into "${classroom.name}":',
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailController,
+                autofocus: true,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  hintText: 'student@example.com',
+                  prefixIcon: Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: isAssigning
+                  ? null
+                  : () async {
+                      final email = emailController.text.trim();
+                      if (email.isEmpty) return;
+
+                      setDialogState(() => isAssigning = true);
+                      try {
+                        final student =
+                            await ClassroomService.assignStudentByEmail(
+                              classroomId: classroom.id,
+                              studentEmail: email,
+                            );
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Enrolled ${student.name.isNotEmpty ? student.name : student.email} successfully!',
+                              ),
+                              backgroundColor: const Color(0xFF10B981),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isAssigning = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              e.toString().replaceAll('Exception: ', ''),
+                            ),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+              child: isAssigning
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Assign'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteClassroom(ClassroomModel classroom) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Classroom?'),
+        content: Text(
+          'Are you sure you want to delete "${classroom.name}"? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ClassroomService.deleteClassroom(classroom.id);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Classroom "${classroom.name}" deleted.'),
+                  ),
+                );
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildFloatingActionButton() {
+    if (_currentIndex == 0) {
+      return FloatingActionButton.extended(
+        heroTag: 'admin_home_create_classroom_fab',
+        backgroundColor: const Color(0xFF7C3AED),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text(
+          'Classroom',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        onPressed: _openCreateClassroomDialog,
+      );
+    } else if (_currentIndex == 1) {
+      return FloatingActionButton.extended(
+        heroTag: 'admin_home_create_exam_fab',
+        backgroundColor: const Color(0xFF7C3AED),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text(
+          'New Exam',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ExamConfigurationScreen(),
+            ),
+          );
+        },
+      );
+    } else if (_currentIndex == 2) {
+      return FloatingActionButton.extended(
+        heroTag: 'admin_home_create_question_fab',
+        backgroundColor: const Color(0xFF7C3AED),
+        foregroundColor: Colors.white,
+        elevation: 3,
+        icon: const Icon(Icons.add, size: 20),
+        label: const Text(
+          'Add Question',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+        onPressed: () {
+          final tempExam = ExamModel(
+            id: '',
+            examCode: '',
+            title: 'Question Bank Entry',
+            category: 'General',
+            adminId: _adminUid,
+            durationMinutes: 60,
+            totalMarks: 100,
+          );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddMultipleChoiceQuestionScreen(
+                exam: tempExam,
+                isForQuestionBank: true,
+              ),
+            ),
+          );
+        },
+      );
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-
-    final containerColor = theme.colorScheme.surface;
-    final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
-
     final isSuperAdmin =
         _userRole == 'super_admin' ||
         _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
 
+    final surfaceColor = theme.colorScheme.surface;
+    final textColor = theme.colorScheme.onSurface;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey.shade600;
+    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      drawer: const AdminMenuDrawer(),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          _buildClassroomsDashboard(
+            theme: theme,
+            isDarkMode: isDarkMode,
+            isSuperAdmin: isSuperAdmin,
+            surfaceColor: surfaceColor,
+            textColor: textColor,
+            subtitleColor: subtitleColor,
+            borderColor: borderColor,
+          ),
+          const Showexamesscreen(),
+          const QuestionBankScreen(),
+          const StudentDirectoryScreen(),
+        ],
+      ),
+      bottomNavigationBar: CustomBottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        activeColor: const Color(0xFF7C3AED),
+        items: const [
+          CustomBottomNavItem(
+            activeIcon: Icons.school_rounded,
+            inactiveIcon: Icons.school_outlined,
+            label: 'Classes',
+          ),
+          CustomBottomNavItem(
+            activeIcon: Icons.assignment_rounded,
+            inactiveIcon: Icons.assignment_outlined,
+            label: 'Exams',
+          ),
+          CustomBottomNavItem(
+            activeIcon: Icons.layers_rounded,
+            inactiveIcon: Icons.layers_outlined,
+            label: 'Questions',
+          ),
+          CustomBottomNavItem(
+            activeIcon: Icons.people_rounded,
+            inactiveIcon: Icons.people_outline_rounded,
+            label: 'Students',
+          ),
+        ],
+      ),
+      floatingActionButton: _buildFloatingActionButton(),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Google Classroom Primary Dashboard (Tab 0)
+  // -------------------------------------------------------------
+  Widget _buildClassroomsDashboard({
+    required ThemeData theme,
+    required bool isDarkMode,
+    required bool isSuperAdmin,
+    required Color surfaceColor,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color borderColor,
+  }) {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        backgroundColor: surfaceColor,
+        leading: IconButton(
+          icon: Icon(Icons.menu, color: textColor),
+          tooltip: 'Menu',
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                color: const Color(0xFF7C3AED).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
-                    },
-                  ),
-                  title: Text(
-                    isSuperAdmin ? 'Super Admin Portal' : 'Exam Administration',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
-                ),
+              child: const Icon(
+                Icons.school_rounded,
+                color: Color(0xFF7C3AED),
+                size: 20,
               ),
             ),
-          ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'ExaMore',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                Text(
+                  isSuperAdmin ? 'Super Admin Portal' : 'Classroom Dashboard',
+                  style: TextStyle(
+                    color: subtitleColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-      body: StreamBuilder(
+      body: StreamBuilder<Map<String, dynamic>>(
         stream: _examService.getDashboardMetricsStream(
           adminId: _adminUid,
           role: isSuperAdmin ? 'super_admin' : _userRole,
@@ -171,566 +493,773 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               metricSnapshot.data ??
               {'totalStudents': 0, 'activeExams': 0, 'totalQuizzesBank': 0};
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. SUPER ADMIN KEY BANNER (Share with teachers to let them register)
-                if (isSuperAdmin && _adminUid.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF312E81), Color(0xFF4338CA)],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF312E81).withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+          return StreamBuilder<List<ClassroomModel>>(
+            stream: ClassroomService.getClassroomsStream(_adminUid),
+            builder: (context, classroomSnapshot) {
+              final classrooms = classroomSnapshot.data ?? [];
+              final totalClassrooms = classrooms.length;
+
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await _fetchUserRole();
+                },
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    // Top Super Admin Key (if applicable)
+                    if (isSuperAdmin && _adminUid.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: _buildSuperAdminKeyBanner(),
                         ),
-                      ],
+                      ),
+
+                    // Compact Horizontal Status Strip
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: _buildCompactMetricsRibbon(
+                          totalClassrooms: totalClassrooms,
+                          totalStudents:
+                              (metrics['totalStudents'] as num?)?.toInt() ?? 0,
+                          activeExams:
+                              (metrics['activeExams'] as num?)?.toInt() ?? 0,
+                          totalQuizzes:
+                              (metrics['totalQuizzesBank'] as num?)?.toInt() ??
+                              0,
+                          isDarkMode: isDarkMode,
+                          surfaceColor: surfaceColor,
+                          borderColor: borderColor,
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+
+                    // Quick Classroom Join Code Pill
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
+                        child: _buildDefaultJoinCodeBanner(
+                          isDarkMode: isDarkMode,
+                        ),
+                      ),
+                    ),
+
+                    // Section Title: "My Classrooms" + Quick Actions
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        child: Row(
                           children: [
-                            const Icon(
-                              Icons.shield_outlined,
-                              color: Color(0xFFFBBF24),
-                              size: 20,
+                            Text(
+                              'My Classrooms',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              "SUPER ADMIN AUTHORIZATION KEY",
-                              style: TextStyle(
-                                color: Color(0xFFFBBF24),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                letterSpacing: 0.5,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF7C3AED,
+                                ).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$totalClassrooms',
+                                style: const TextStyle(
+                                  color: Color(0xFF7C3AED),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          "Teachers need this Key to register new Admin accounts:",
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: SelectableText(
-                                  _adminUid,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontFamily: 'monospace',
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                constraints: const BoxConstraints(),
-                                padding: EdgeInsets.zero,
-                                icon: const Icon(
-                                  Icons.copy_rounded,
-                                  color: Color(0xFFFBBF24),
-                                  size: 18,
-                                ),
-                                onPressed: () {
-                                  Clipboard.setData(
-                                    ClipboardData(text: _adminUid),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Super Admin Key copied to clipboard!',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // 2. INSTRUCTOR CODE CARD (Only visible for sub-admins)
-                if (!isSuperAdmin && _adminUid.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF1E1B4B)
-                          : const Color(0xFFEDE9FE),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF7C3AED).withOpacity(0.4),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.vpn_key_outlined,
-                          color: Color(0xFF7C3AED),
-                          size: 22,
+
+                    // Classrooms Grid / List or Empty State
+                    if (classrooms.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _buildEmptyClassroomState(
+                          isDarkMode: isDarkMode,
+                          subtitleColor: subtitleColor,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Your Instructor Code (UID):",
-                                style: TextStyle(
-                                  color: isDarkMode
-                                      ? const Color(0xFFA78BFA)
-                                      : const Color(0xFF5B21B6),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              SelectableText(
-                                _adminUid,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 12,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                        sliver: SliverGrid(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount:
+                                MediaQuery.of(context).size.width >= 900
+                                    ? 4
+                                    : MediaQuery.of(context).size.width >= 600
+                                        ? 3
+                                        : 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 0.95,
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.copy_rounded,
-                            size: 18,
-                            color: Color(0xFF7C3AED),
-                          ),
-                          onPressed: () {
-                            Clipboard.setData(ClipboardData(text: _adminUid));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Instructor Code copied to clipboard!',
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Welcome Admin Banner Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E1B4B),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isSuperAdmin
-                            ? 'Welcome, Super Admin'
-                            : 'Welcome back, Admin',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        isSuperAdmin
-                            ? 'Full platform oversight: manage all registered instructors and monitor global activity.'
-                            : 'Cohort status: ${metrics['activeExams']} of your exams are currently active.',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _handleCreateNewExam,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFBBF24),
-                                foregroundColor: const Color(0xFF1E1B4B),
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.add_circle_outline, size: 18),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Create New Exam',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: _handleQuestionBank,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(
-                              color: Colors.white54,
-                              width: 1.5,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.layers_outlined,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Question Bank',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 3. REGISTERED ADMINS CARD (Super Admin Only)
-                if (isSuperAdmin) ...[
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .where('role', isEqualTo: 'admin')
-                        .snapshots(),
-                    builder: (context, adminSnap) {
-                      final adminCount = adminSnap.data?.docs.length ?? 0;
-                      return _buildClickableStatCard(
-                        title: 'Registered Instructors',
-                        value: '$adminCount',
-                        badgeText: 'tap to manage exams & info',
-                        isPositive: true,
-                        icon: Icons.supervisor_account,
-                        containerColor: containerColor,
-                        textColor: textColor,
-                        borderColor: borderColor,
-                        isDarkMode: isDarkMode,
-                        onTap: () => _handleBoxTap('Registered Admins'),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Stat Card 1: Total Students
-                _buildClickableStatCard(
-                  title: isSuperAdmin ? 'Total System Students' : 'My Students',
-                  value: '${metrics['totalStudents']}',
-                  badgeText: isSuperAdmin
-                      ? 'across platform'
-                      : 'assigned to you',
-                  isPositive: true,
-                  icon: Icons.people_outline,
-                  containerColor: containerColor,
-                  textColor: textColor,
-                  borderColor: borderColor,
-                  isDarkMode: isDarkMode,
-                  onTap: () => _handleBoxTap('Total Students'),
-                ),
-                const SizedBox(height: 16),
-
-                // Stat Card 2: Active Exams
-                _buildClickableStatCard(
-                  title: isSuperAdmin ? 'All Active Exams' : 'My Active Exams',
-                  value: '${metrics['activeExams']}',
-                  badgeText: 'published & live',
-                  isPositive: false,
-                  icon: Icons.assignment_outlined,
-                  containerColor: containerColor,
-                  textColor: textColor,
-                  borderColor: borderColor,
-                  isDarkMode: isDarkMode,
-                  onTap: () => _handleBoxTap('Active Exams'),
-                ),
-                const SizedBox(height: 16),
-
-                // Stat Card 3: Total Quizzes Bank
-                // Stat Card 3: Total Quizzes Bank
-                _buildClickableStatCard(
-                  title: isSuperAdmin
-                      ? 'Global Question Bank'
-                      : 'My Question Bank',
-                  value: '${metrics['totalQuizzesBank']}',
-                  badgeText: isSuperAdmin
-                      ? 'all platform questions'
-                      : 'your curated questions',
-                  isPositive: true,
-                  icon: Icons.help_outline,
-                  containerColor: containerColor,
-                  textColor: textColor,
-                  borderColor: borderColor,
-                  isDarkMode: isDarkMode,
-                  onTap: () => _handleBoxTap('Total Quizzes Bank'),
-                ),
-                const SizedBox(height: 24),
-
-                // Recent Activity Box
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: containerColor,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: borderColor),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(
-                          isDarkMode ? 0.2 : 0.02,
-                        ),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Recent Activity',
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      StreamBuilder<List>(
-                        stream: _examService.getRecentActivitiesStream(),
-                        builder: (context, actSnapshot) {
-                          final activities = actSnapshot.data ?? [];
-
-                          if (activities.isEmpty) {
-                            return Column(
-                              children: [
-                                _buildActivityItem(
-                                  icon: Icons.arrow_upward,
-                                  iconBg: const Color(0xFFD1FAE5),
-                                  iconColor: const Color(0xFF059669),
-                                  title: 'Role Partitioning Synchronized',
-                                  description: isSuperAdmin
-                                      ? 'Super Admin oversight active.'
-                                      : 'Exams and submissions scoped to your Admin ID.',
-                                  time: 'Just now',
-                                  textColor: textColor,
-                                  subtitleColor: subtitleColor,
-                                  isDarkMode: isDarkMode,
-                                ),
-                              ],
-                            );
-                          }
-
-                          return ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: activities.length,
-                            separatorBuilder: (context, index) =>
-                                const Divider(height: 24),
-                            itemBuilder: (context, index) {
-                              final item = activities[index];
-                              final time = item['timestamp'] != null
-                                  ? _formatTimeAgo(
-                                      (item['timestamp'] as Timestamp).toDate(),
-                                    )
-                                  : 'Recently';
-
-                              return _buildActivityItem(
-                                icon: Icons.notifications_active_outlined,
-                                iconBg: const Color(0xFFDBEAFE),
-                                iconColor: const Color(0xFF2563EB),
-                                title: item['title'] ?? 'System Event',
-                                description: item['description'] ?? '',
-                                time: time,
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final classroom = classrooms[index];
+                              return _buildGoogleClassroomSquareCard(
+                                classroom: classroom,
+                                cardIndex: index,
+                                isDarkMode: isDarkMode,
+                                surfaceColor: surfaceColor,
+                                borderColor: borderColor,
                                 textColor: textColor,
                                 subtitleColor: subtitleColor,
-                                isDarkMode: isDarkMode,
                               );
                             },
-                          );
-                        },
+                            childCount: classrooms.length,
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 30),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildClickableStatCard({
-    required String title,
-    required String value,
-    required String badgeText,
-    required bool isPositive,
-    required IconData icon,
-    required Color containerColor,
-    required Color textColor,
-    required Color borderColor,
+  // -------------------------------------------------------------
+  // Compact 4-Segment Metrics Ribbon
+  // -------------------------------------------------------------
+  Widget _buildCompactMetricsRibbon({
+    required int totalClassrooms,
+    required int totalStudents,
+    required int activeExams,
+    required int totalQuizzes,
     required bool isDarkMode,
-    required VoidCallback onTap,
+    required Color surfaceColor,
+    required Color borderColor,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: containerColor,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: borderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _buildRibbonItem(
+            icon: Icons.school_outlined,
+            iconColor: const Color(0xFF3B82F6),
+            value: '$totalClassrooms',
+            label: 'Classes',
+            onTap: () => setState(() => _currentIndex = 0),
+          ),
+          _buildRibbonDivider(borderColor),
+          _buildRibbonItem(
+            icon: Icons.people_outline,
+            iconColor: const Color(0xFF10B981),
+            value: '$totalStudents',
+            label: 'Students',
+            onTap: () => setState(() => _currentIndex = 3),
+          ),
+          _buildRibbonDivider(borderColor),
+          _buildRibbonItem(
+            icon: Icons.assignment_outlined,
+            iconColor: const Color(0xFFF59E0B),
+            value: '$activeExams',
+            label: 'Exams',
+            onTap: () => setState(() => _currentIndex = 1),
+          ),
+          _buildRibbonDivider(borderColor),
+          _buildRibbonItem(
+            icon: Icons.help_outline,
+            iconColor: const Color(0xFF8B5CF6),
+            value: '$totalQuizzes',
+            label: 'Questions',
+            onTap: () => setState(() => _currentIndex = 2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRibbonDivider(Color borderColor) {
+    return Container(
+      width: 1,
+      height: 32,
+      color: borderColor,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+    );
+  }
+
+  Widget _buildRibbonItem({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+    required VoidCallback? onTap,
+  }) {
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+
+    return Expanded(
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: content,
+              ),
+            ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Default Join Code Strip (Compact)
+  // -------------------------------------------------------------
+  Widget _buildDefaultJoinCodeBanner({required bool isDarkMode}) {
+    final code = _classroomCode.isNotEmpty ? _classroomCode : _adminUid;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? const Color(0xFF1E1B4B).withOpacity(0.5)
+            : const Color(0xFFF5F3FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.qr_code_rounded, size: 18, color: Color(0xFF7C3AED)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDarkMode ? Colors.white70 : const Color(0xFF4C1D95),
+                ),
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDarkMode
-                          ? const Color(0xFF312E81)
-                          : const Color(0xFFDBEAFE),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: isDarkMode
-                          ? const Color(0xFF93C5FD)
-                          : const Color(0xFF1D4ED8),
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFF94A3B8)
-                          : Colors.grey[600],
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 32,
+                  const TextSpan(text: 'Admin Join Code: '),
+                  TextSpan(
+                    text: code.isNotEmpty ? code : '...',
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    badgeText,
-                    style: TextStyle(
-                      color: isPositive
-                          ? const Color(0xFF10B981)
-                          : (isDarkMode
-                                ? const Color(0xFF94A3B8)
-                                : Colors.grey[600]),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: isDarkMode ? Colors.white24 : Colors.grey.shade400,
-              size: 24,
+          ),
+          InkWell(
+            onTap: () {
+              if (code.isNotEmpty) {
+                Clipboard.setData(ClipboardData(text: code));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Join code "$code" copied to clipboard!'),
+                    backgroundColor: const Color(0xFF7C3AED),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.all(4.0),
+              child: Row(
+                children: const [
+                  Icon(Icons.copy_rounded, size: 14, color: Color(0xFF7C3AED)),
+                  SizedBox(width: 4),
+                  Text(
+                    'Copy',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF7C3AED),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Super Admin Authorization Key Banner
+  // -------------------------------------------------------------
+  Widget _buildSuperAdminKeyBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF312E81), Color(0xFF4338CA)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.shield_outlined, color: Color(0xFFFBBF24), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'SUPER ADMIN AUTHORIZATION KEY',
+                  style: TextStyle(
+                    color: Color(0xFFFBBF24),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _adminUid,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            constraints: const BoxConstraints(),
+            padding: EdgeInsets.zero,
+            icon: const Icon(
+              Icons.copy_rounded,
+              color: Color(0xFFFBBF24),
+              size: 16,
+            ),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _adminUid));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Super Admin Key copied to clipboard!'),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // Google Classroom-Style Compact Square Card (Responsive Grid)
+  // -------------------------------------------------------------
+  Widget _buildGoogleClassroomSquareCard({
+    required ClassroomModel classroom,
+    required int cardIndex,
+    required bool isDarkMode,
+    required Color surfaceColor,
+    required Color borderColor,
+    required Color textColor,
+    required Color subtitleColor,
+  }) {
+    final gradients = CreateClassroomDialog.themeGradients;
+    int themeIdx = classroom.themeIndex;
+    if (themeIdx <= 0) {
+      themeIdx = (classroom.id.hashCode.abs() + cardIndex) % gradients.length;
+    }
+    final gradient = gradients[themeIdx % gradients.length];
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ClassroomDetailScreen(classroom: classroom),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.25 : 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Theme Gradient Banner (~45% of height)
+            Expanded(
+              flex: 5,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            classroom.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              height: 1.15,
+                            ),
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onSelected: (value) {
+                            if (value == 'open') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ClassroomDetailScreen(classroom: classroom),
+                                ),
+                              );
+                            } else if (value == 'edit') {
+                              _openCreateClassroomDialog(classroomToEdit: classroom);
+                            } else if (value == 'add_subject') {
+                              _showAddSubjectDialog(classroom);
+                            } else if (value == 'assign_student') {
+                              _showAssignStudentDialog(classroom);
+                            } else if (value == 'copy_code') {
+                              Clipboard.setData(ClipboardData(text: classroom.code));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Code "${classroom.code}" copied to clipboard!',
+                                  ),
+                                ),
+                              );
+                            } else if (value == 'delete') {
+                              _confirmDeleteClassroom(classroom);
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'open',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.open_in_new, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Open'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Edit'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'add_subject',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.library_books_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Add Subject'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'assign_student',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.person_add_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Assign Student'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'copy_code',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.copy_rounded, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Copy Code'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                    color: Colors.redAccent,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.redAccent),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (classroom.section.isNotEmpty)
+                      Text(
+                        classroom.section,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Card Body (Lower ~55% of height)
+            Expanded(
+              flex: 5,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Subjects Tag
+                    if (classroom.subjects.isNotEmpty)
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: gradient[0].withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: gradient[0].withOpacity(0.2),
+                                ),
+                              ),
+                              child: Text(
+                                classroom.subjects.first,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDarkMode
+                                      ? gradient[1]
+                                      : gradient[0],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (classroom.subjects.length > 1) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              '+${classroom.subjects.length - 1}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: subtitleColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      )
+                    else
+                      InkWell(
+                        onTap: () => _showAddSubjectDialog(classroom),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.add,
+                              size: 12,
+                              color: isDarkMode
+                                  ? const Color(0xFFA78BFA)
+                                  : const Color(0xFF7C3AED),
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Subject',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDarkMode
+                                    ? const Color(0xFFA78BFA)
+                                    : const Color(0xFF7C3AED),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // Bottom Row: Students & Join Code Pill
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 12,
+                          color: subtitleColor,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${classroom.studentUids.length}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: subtitleColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(
+                              ClipboardData(text: classroom.code),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Class code "${classroom.code}" copied!',
+                                ),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDarkMode
+                                  ? Colors.white10
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: isDarkMode
+                                    ? Colors.white12
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  classroom.code,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                                const SizedBox(width: 3),
+                                Icon(
+                                  Icons.copy_rounded,
+                                  size: 10,
+                                  color: subtitleColor,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -738,66 +1267,45 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  Widget _buildActivityItem({
-    required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
-    required String title,
-    required String description,
-    required String time,
-    required Color textColor,
-    required Color subtitleColor,
+  // -------------------------------------------------------------
+  // Clean Minimal Empty State
+  // -------------------------------------------------------------
+  Widget _buildEmptyClassroomState({
     required bool isDarkMode,
+    required Color subtitleColor,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isDarkMode ? const Color(0xFF1E293B) : iconBg,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: isDarkMode ? const Color(0xFFFBBF24) : iconColor,
-            size: 20,
-          ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 48),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.school_outlined,
+                size: 52,
+                color: Color(0xFF7C3AED),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'No Classrooms Yet',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create a classroom to organize subjects, enroll students, and schedule tailored exams.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: subtitleColor, height: 1.4),
+            ),
+          ],
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  color: subtitleColor,
-                  fontSize: 13,
-                  height: 1.3,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                time,
-                style: TextStyle(
-                  color: subtitleColor.withOpacity(0.7),
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -211,7 +211,8 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                 Navigator.of(dialogContext).pop();
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => ActiveExamScreen(exam: _exam),
+                    builder: (context) =>
+                        ActiveExamScreen(exam: _exam.sanitizeForStudent()),
                   ),
                 );
               },

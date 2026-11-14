@@ -11,6 +11,7 @@ import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
 import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
 import 'package:prep_mate/features/user/widgets/exam_card_widget.dart';
+import 'package:prep_mate/features/admin/services/classroom_service.dart';
 
 class Userhomescreen extends StatefulWidget {
   const Userhomescreen({super.key});
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<Userhomescreen> {
   late final Stream<Map<String, dynamic>> _performanceMetricsStream;
 
   String _assignedAdminId = '';
+  String _instructorName = '';
   bool _isLoadingUser = true;
 
   @override
@@ -58,6 +60,18 @@ class _HomeScreenState extends State<Userhomescreen> {
       if (userDoc.exists) {
         final data = userDoc.data() ?? {};
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+        if (_assignedAdminId.isNotEmpty) {
+          final adminDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_assignedAdminId)
+              .get();
+          if (adminDoc.exists) {
+            _instructorName =
+                (adminDoc.data()?['name'] ?? 'Instructor').toString();
+          }
+        } else {
+          _instructorName = '';
+        }
       }
     } catch (_) {}
 
@@ -70,6 +84,101 @@ class _HomeScreenState extends State<Userhomescreen> {
     if (mounted) {
       setState(() => _isLoadingUser = false);
     }
+  }
+
+  void _showJoinClassroomDialog(BuildContext context) {
+    final codeController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: const [
+              Icon(Icons.school_outlined, color: Color(0xFF7C3AED)),
+              SizedBox(width: 10),
+              Text('Join a Classroom'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter the 6-character Classroom Code or Email provided by your teacher.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: codeController,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText: 'e.g. EXM-784 or teacher@school.edu',
+                  prefixIcon: const Icon(Icons.vpn_key_outlined),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final input = codeController.text.trim();
+                      if (input.isEmpty) return;
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        final result = await ClassroomService.joinClassroom(
+                          studentUid: _currentUser!.uid,
+                          inputQuery: input,
+                        );
+                        if (!mounted) return;
+                        Navigator.of(dialogCtx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Successfully joined ${result['adminName']}\'s classroom!',
+                            ),
+                            backgroundColor: const Color(0xFF10B981),
+                          ),
+                        );
+                        _fetchStudentAdminAndInitStream();
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(e.toString().replaceAll('Exception: ', '')),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C3AED),
+                foregroundColor: Colors.white,
+              ),
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Join'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _handleViewAll(BuildContext context) {
@@ -242,6 +351,73 @@ class _HomeScreenState extends State<Userhomescreen> {
             Text(
               'Ready for your next challenge? Your flow state awaits.',
               style: TextStyle(color: subtitleColor, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+
+            // Classroom Enrollment Status Card
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? const Color(0xFF1E1B4B)
+                    : const Color(0xFFEDE9FE),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.school_outlined,
+                    color: Color(0xFF7C3AED),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _assignedAdminId.isNotEmpty
+                              ? "Classroom: ${_instructorName.isNotEmpty ? _instructorName : 'Active'}"
+                              : "No Classroom Linked",
+                          style: TextStyle(
+                            color: isDarkMode
+                                ? Colors.white
+                                : const Color(0xFF1E1B4B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _assignedAdminId.isNotEmpty
+                              ? "You are receiving tests from this instructor."
+                              : "Enter a code to join your teacher's exams.",
+                          style: TextStyle(
+                            color: isDarkMode
+                                ? const Color(0xFFA78BFA)
+                                : const Color(0xFF6D28D9),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _showJoinClassroomDialog(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF7C3AED),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(
+                      _assignedAdminId.isNotEmpty ? "Change" : "Join Code",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
 

@@ -307,9 +307,15 @@ class ExamService {
     }
     final int currentAttemptNumber = existingAttemptsQuery.docs.length + 1;
 
+    // Fetch authoritative exam document for secure server-side scoring
+    final authoritativeDoc = await examDocRef.get();
+    final authoritativeExam = authoritativeDoc.exists
+        ? ExamModel.fromFirestore(authoritativeDoc)
+        : exam;
+
     int correctCount = 0, incorrectCount = 0, unattemptedCount = 0;
     double totalMarksObtained = 0.0;
-    for (var question in exam.questions) {
+    for (var question in authoritativeExam.questions) {
       final chosenOption = selectedAnswers[question.id];
       if (chosenOption == null || chosenOption.isEmpty) {
         unattemptedCount++;
@@ -318,7 +324,7 @@ class ExamService {
         totalMarksObtained += question.marks;
       } else {
         incorrectCount++;
-        totalMarksObtained -= exam.negativeMarking;
+        totalMarksObtained -= authoritativeExam.negativeMarking;
       }
     }
     if (totalMarksObtained < 0) totalMarksObtained = 0;

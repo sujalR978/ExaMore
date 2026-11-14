@@ -8,6 +8,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'package:prep_mate/features/user/screens/exam_result_screen.dart';
+import 'package:prep_mate/features/user/services/exam_cache_service.dart';
 
 class ActiveExamScreen extends StatefulWidget {
   final ExamModel exam;
@@ -18,7 +19,8 @@ class ActiveExamScreen extends StatefulWidget {
   State<ActiveExamScreen> createState() => _ActiveExamScreenState();
 }
 
-class _ActiveExamScreenState extends State<ActiveExamScreen> {
+class _ActiveExamScreenState extends State<ActiveExamScreen>
+    with WidgetsBindingObserver {
   final ExamService _examService = ExamService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
@@ -30,9 +32,13 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
   Timer? _timer;
   bool _isSubmitting = false;
 
+  int _appSwitchCount = 0;
+  static const int maxAllowedSwitches = 3;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _questions = List.from(widget.exam.questions);
 
     // Shuffle if enabled by admin
@@ -41,13 +47,78 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
     }
 
     _remainingSeconds = widget.exam.durationMinutes * 60;
+    _restoreCachedProgress();
+  }
+
+  Future<void> _restoreCachedProgress() async {
+    final cached = await ExamCacheService.getExamState(widget.exam.id);
+    if (cached != null && mounted) {
+      if (cached['isExpired'] == true) {
+        _submitExam(isAutoSubmit: true);
+        return;
+      }
+      setState(() {
+        _remainingSeconds = cached['remainingSeconds'] as int;
+        _selectedAnswers.addAll(cached['selectedAnswers'] as Map<String, String>);
+        _appSwitchCount = cached['switchCount'] as int;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Resumed in-progress exam from saved session.'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.teal,
+        ),
+      );
+    }
     _startTimer();
+  }
+
+  void _persistProgress() {
+    ExamCacheService.saveExamState(
+      examId: widget.exam.id,
+      remainingSeconds: _remainingSeconds,
+      selectedAnswers: _selectedAnswers,
+      switchCount: _appSwitchCount,
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _appSwitchCount++;
+      _persistProgress();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_appSwitchCount >= maxAllowedSwitches) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Maximum screen switch limit exceeded. Exam auto-submitting...',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        _submitExam(isAutoSubmit: true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Warning: Leaving the exam is recorded. Screen switch count: $_appSwitchCount / $maxAllowedSwitches',
+            ),
+            backgroundColor: Colors.amber.shade900,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() => _remainingSeconds--);
+        if (_remainingSeconds % 5 == 0) {
+          _persistProgress();
+        }
       } else {
         _timer?.cancel();
         _submitExam(isAutoSubmit: true);
@@ -66,6 +137,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
     setState(() {
       _selectedAnswers[_questions[_currentIndex].id] = optionId;
     });
+    _persistProgress();
   }
 
   void _handlePrevious() {
@@ -85,6 +157,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
 
     _timer?.cancel();
     setState(() => _isSubmitting = true);
+    await ExamCacheService.clearExamState(widget.exam.id);
 
     try {
       final studentId =
@@ -203,6 +276,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }

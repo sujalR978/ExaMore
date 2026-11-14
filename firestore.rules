@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Classrooms collection (Google Classroom Multi-Classrooms & Subjects)
+    match /classrooms/{classroomId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Users and subcollections (Profiles, Attempts, Saved Exams)
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+
+      match /saved_exams/{examId} {
+        allow read, write: if request.auth != null;
+      }
+      match /attempts/{attemptId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Exams and student submissions
+    match /exams/{examId} {
+      allow read, write: if request.auth != null;
+
+      match /submissions/{subId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // Question Bank
+    match /question_bank/{questionId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Admin Activities & Notifications
+    match /admin_activities/{activityId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
