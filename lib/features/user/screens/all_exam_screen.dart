@@ -7,8 +7,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
-import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
-import 'package:prep_mate/features/user/widgets/exam_list_widget.dart';
+import 'package:prep_mate/features/user/screens/subject_tests_screen.dart';
 
 class AllExamsScreen extends StatefulWidget {
   final String? initialCategory;
@@ -141,161 +140,6 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
     };
   }
 
-  void _showSubjectExamsModal({
-    required BuildContext context,
-    required String subjectName,
-    required List<ExamModel> subjectExams,
-    required List<Color> gradient,
-    required bool isDarkMode,
-    required Color containerColor,
-    required Color textColor,
-    required Color subtitleColor,
-    required Color borderColor,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.75,
-          ),
-          decoration: BoxDecoration(
-            color: containerColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.white24 : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Header Row
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: gradient,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.library_books_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            subjectName,
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '${subjectExams.length} Assessment${subjectExams.length == 1 ? '' : 's'} Available',
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: subtitleColor),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-              ),
-              Divider(color: borderColor, height: 24),
-
-              // Exams List
-              Flexible(
-                child: subjectExams.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 36,
-                          horizontal: 24,
-                        ),
-                        child: Center(
-                          child: Text(
-                            'No published assessments available for $subjectName yet.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 13.5,
-                            ),
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                        shrinkWrap: true,
-                        itemCount: subjectExams.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final exam = subjectExams[index];
-                          final difficulty = _calculateDifficulty(exam);
-                          return ExamListItemWidget(
-                            title: exam.title,
-                            category: exam.category,
-                            time: '${exam.durationMinutes} mins',
-                            mcqs: '${exam.questions.length} MCQs',
-                            difficulty: difficulty,
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ExamdetailPage(exam: exam),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _calculateDifficulty(ExamModel exam) {
-    if (exam.passingScorePercentage >= 75 || exam.durationMinutes >= 120) {
-      return 'Hard';
-    } else if (exam.passingScorePercentage >= 50) {
-      return 'Medium';
-    }
-    return 'Easy';
-  }
-
   /// Builds a Subject Card styled identically to the Home Screen Google Classroom card
   Widget _buildSubjectCard({
     required BuildContext context,
@@ -325,16 +169,18 @@ class _AllExamsScreenState extends State<AllExamsScreen> {
 
     return InkWell(
       onTap: () {
-        _showSubjectExamsModal(
-          context: context,
-          subjectName: subjectName,
-          subjectExams: subjectExams,
-          gradient: gradient,
-          isDarkMode: isDarkMode,
-          containerColor: surfaceColor,
-          textColor: textColor,
-          subtitleColor: subtitleColor,
-          borderColor: borderColor,
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => SubjectTestsScreen(
+              subjectName: subjectName,
+              classroomId: metrics['classroomId'] ?? widget.classroomId,
+              classroomName: subSectionText.isNotEmpty
+                  ? subSectionText
+                  : widget.classroomName,
+              initialExams: subjectExams,
+              gradient: gradient,
+            ),
+          ),
         );
       },
       borderRadius: BorderRadius.circular(16),
