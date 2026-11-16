@@ -203,10 +203,10 @@ class _HomeScreenState extends State<Userhomescreen> {
     final String displayName = _userName.isNotEmpty
         ? _userName
         : (_currentUser?.displayName?.isNotEmpty == true
-            ? _currentUser!.displayName!
-            : (_currentUser?.email?.isNotEmpty == true
-                ? _currentUser!.email!.split('@').first
-                : 'Student'));
+              ? _currentUser!.displayName!
+              : (_currentUser?.email?.isNotEmpty == true
+                    ? _currentUser!.email!.split('@').first
+                    : 'Student'));
 
     final String firstLetter = displayName.isNotEmpty
         ? displayName[0].toUpperCase()
@@ -353,15 +353,6 @@ class _HomeScreenState extends State<Userhomescreen> {
                                 ),
                               ),
                               const SizedBox(height: 3),
-                              Text(
-                                'Your enrolled classrooms & assessments.',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-
                               // Section Header
                               Row(
                                 mainAxisAlignment:
@@ -412,11 +403,11 @@ class _HomeScreenState extends State<Userhomescreen> {
                                 shrinkWrap: true,
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: 1.02,
-                                ),
+                                      crossAxisCount: 2,
+                                      crossAxisSpacing: 12,
+                                      mainAxisSpacing: 12,
+                                      childAspectRatio: 1.02,
+                                    ),
                                 itemCount: classrooms.length,
                                 itemBuilder: (context, index) {
                                   final classroom = classrooms[index];
