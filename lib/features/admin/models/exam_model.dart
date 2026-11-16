@@ -3,15 +3,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class QuestionOption {
   final String id;
   final String text;
+  final String? imageUrl;
 
-  QuestionOption({required this.id, required this.text});
+  QuestionOption({required this.id, required this.text, this.imageUrl});
 
   Map<String, dynamic> toMap() {
-    return {'id': id, 'text': text};
+    return {'id': id, 'text': text, 'imageUrl': imageUrl};
   }
 
   factory QuestionOption.fromMap(Map<String, dynamic> map) {
-    return QuestionOption(id: map['id'] ?? '', text: map['text'] ?? '');
+    return QuestionOption(
+      id: map['id'] ?? '',
+      text: map['text'] ?? '',
+      imageUrl: map['imageUrl'] as String?,
+    );
   }
 }
 
@@ -28,6 +33,7 @@ class QuestionModel {
   final int views;
   final int estimatedTimeMinutes;
   final DateTime createdAt;
+  final String? imageUrl; // Question image (base64 or URL)
 
   QuestionModel({
     required this.id,
@@ -41,6 +47,7 @@ class QuestionModel {
     this.adminId = '',
     this.views = 0,
     this.estimatedTimeMinutes = 2,
+    this.imageUrl,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -57,6 +64,7 @@ class QuestionModel {
       adminId: adminId,
       views: views,
       estimatedTimeMinutes: estimatedTimeMinutes,
+      imageUrl: imageUrl,
       createdAt: createdAt,
     );
   }
@@ -74,6 +82,7 @@ class QuestionModel {
       'adminId': adminId,
       'views': views,
       'estimatedTimeMinutes': estimatedTimeMinutes,
+      'imageUrl': imageUrl,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -93,6 +102,7 @@ class QuestionModel {
       adminId: map['adminId'] ?? '',
       views: (map['views'] as num?)?.toInt() ?? 0,
       estimatedTimeMinutes: (map['estimatedTimeMinutes'] as num?)?.toInt() ?? 2,
+      imageUrl: map['imageUrl'] as String?,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -111,6 +121,7 @@ class ExamModel {
   final bool shuffleQuestions;
   final bool showResultsImmediately;
   final String status; // 'Draft' or 'Published'
+  final int allowedAttempts; // 1, 2, 3...
   final DateTime? startDate;
   final int enrolledCount;
   final int submissionsCount;
@@ -135,6 +146,7 @@ class ExamModel {
     this.shuffleQuestions = false,
     this.showResultsImmediately = false,
     this.status = 'Draft',
+    this.allowedAttempts = 1,
     this.startDate,
     this.enrolledCount = 0,
     this.submissionsCount = 0,
@@ -160,6 +172,7 @@ class ExamModel {
       shuffleQuestions: shuffleQuestions,
       showResultsImmediately: showResultsImmediately,
       status: status,
+      allowedAttempts: allowedAttempts,
       startDate: startDate,
       enrolledCount: enrolledCount,
       submissionsCount: submissionsCount,
@@ -185,6 +198,7 @@ class ExamModel {
       'shuffleQuestions': shuffleQuestions,
       'showResultsImmediately': showResultsImmediately,
       'status': status,
+      'allowedAttempts': allowedAttempts,
       'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
       'enrolledCount': enrolledCount,
       'submissionsCount': submissionsCount,
@@ -213,6 +227,7 @@ class ExamModel {
       shuffleQuestions: data['shuffleQuestions'] ?? false,
       showResultsImmediately: data['showResultsImmediately'] ?? false,
       status: data['status'] ?? 'Draft',
+      allowedAttempts: (data['allowedAttempts'] as num?)?.toInt() ?? 1,
       startDate: (data['startDate'] as Timestamp?)?.toDate(),
       enrolledCount: (data['enrolledCount'] as num?)?.toInt() ?? 0,
       submissionsCount: (data['submissionsCount'] as num?)?.toInt() ?? 0,
@@ -239,6 +254,7 @@ class ExamModel {
     bool? shuffleQuestions,
     bool? showResultsImmediately,
     String? status,
+    int? allowedAttempts,
     DateTime? startDate,
     int? enrolledCount,
     int? submissionsCount,
@@ -263,6 +279,7 @@ class ExamModel {
       showResultsImmediately:
           showResultsImmediately ?? this.showResultsImmediately,
       status: status ?? this.status,
+      allowedAttempts: allowedAttempts ?? this.allowedAttempts,
       startDate: startDate ?? this.startDate,
       enrolledCount: enrolledCount ?? this.enrolledCount,
       submissionsCount: submissionsCount ?? this.submissionsCount,

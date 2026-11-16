@@ -1,8 +1,12 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/review_and_publish_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
@@ -38,6 +42,10 @@ class _AddMultipleChoiceQuestionScreenState
   late TextEditingController _marksController;
   late List<TextEditingController> _optionControllers;
 
+  String _questionType = 'Multiple Choice';
+  String? _questionImage;
+  List<String?> _optionImages = [null, null, null, null];
+
   int _selectedCorrectOption = 0;
   int? _editingIndex;
   bool _isLoading = false;
@@ -54,6 +62,8 @@ class _AddMultipleChoiceQuestionScreenState
     if (_isEditingFromWidget) {
       final q = widget.editingQuestion!;
       _editingIndex = widget.questionIndex;
+      _questionType = q.type.isNotEmpty ? q.type : 'Multiple Choice';
+      _questionImage = q.imageUrl;
       _questionController = TextEditingController(text: q.questionText);
       _marksController = TextEditingController(
         text: q.marks.toInt().toString(),
@@ -61,6 +71,10 @@ class _AddMultipleChoiceQuestionScreenState
       _optionControllers = q.options
           .map((opt) => TextEditingController(text: opt.text))
           .toList();
+      _optionImages = q.options.map((opt) => opt.imageUrl).toList();
+      while (_optionImages.length < _optionControllers.length) {
+        _optionImages.add(null);
+      }
 
       final correctIdx = q.options.indexWhere(
         (opt) => opt.id == q.correctOptionId,
@@ -75,7 +89,61 @@ class _AddMultipleChoiceQuestionScreenState
         TextEditingController(),
         TextEditingController(),
       ];
+      _optionImages = [null, null, null, null];
       _selectedCorrectOption = 0;
+      _questionType = 'Multiple Choice';
+      _questionImage = null;
+    }
+  }
+
+  Future<void> _pickQuestionImage() async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 900,
+        maxHeight: 900,
+      );
+      if (picked != null) {
+        final bytes = await File(picked.path).readAsBytes();
+        setState(() {
+          _questionImage = base64Encode(bytes);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick question image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickOptionImage(int index) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 65,
+        maxWidth: 600,
+        maxHeight: 600,
+      );
+      if (picked != null) {
+        final bytes = await File(picked.path).readAsBytes();
+        setState(() {
+          while (_optionImages.length <= index) {
+            _optionImages.add(null);
+          }
+          _optionImages[index] = base64Encode(bytes);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick option image: $e')),
+        );
+      }
     }
   }
 
@@ -110,13 +178,18 @@ class _AddMultipleChoiceQuestionScreenState
       TextEditingController(),
       TextEditingController(),
     ];
+    _optionImages = [null, null, null, null];
     _selectedCorrectOption = 0;
+    _questionType = 'Multiple Choice';
+    _questionImage = null;
   }
 
   void _startEditingQuestion(int index) {
     final q = _currentExam.questions[index];
     setState(() {
       _editingIndex = index;
+      _questionType = q.type.isNotEmpty ? q.type : 'Multiple Choice';
+      _questionImage = q.imageUrl;
       _questionController.text = q.questionText;
       _marksController.text = q.marks.toInt().toString();
 
@@ -126,6 +199,10 @@ class _AddMultipleChoiceQuestionScreenState
       _optionControllers = q.options
           .map((opt) => TextEditingController(text: opt.text))
           .toList();
+      _optionImages = q.options.map((opt) => opt.imageUrl).toList();
+      while (_optionImages.length < _optionControllers.length) {
+        _optionImages.add(null);
+      }
 
       final correctIdx = q.options.indexWhere(
         (opt) => opt.id == q.correctOptionId,
@@ -226,39 +303,7 @@ class _AddMultipleChoiceQuestionScreenState
       return null;
     }
 
-    final validOptions = <QuestionOption>[];
-    for (int i = 0; i < _optionControllers.length; i++) {
-      final text = _optionControllers[i].text.trim();
-      if (text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Please enter text for Option ${String.fromCharCode(65 + i)}',
-            ),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return null;
-      }
-      validOptions.add(
-        QuestionOption(id: String.fromCharCode(65 + i), text: text),
-      );
-    }
-
-    if (validOptions.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('At least 2 options are required'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return null;
-    }
-
     final marks = double.tryParse(_marksController.text.trim()) ?? 1.0;
-    final selectedOptionLetter = String.fromCharCode(
-      65 + _selectedCorrectOption,
-    );
 
     String questionId;
     if (_editingIndex != null &&
@@ -270,6 +315,59 @@ class _AddMultipleChoiceQuestionScreenState
       questionId = DateTime.now().millisecondsSinceEpoch.toString();
     }
 
+    if (_questionType == 'Descriptive') {
+      return QuestionModel(
+        id: questionId,
+        questionText: questionText,
+        marks: marks,
+        options: [],
+        correctOptionId: '',
+        type: 'Descriptive',
+        category: _currentExam.category,
+        imageUrl: _questionImage,
+        estimatedTimeMinutes: 3,
+      );
+    }
+
+    final validOptions = <QuestionOption>[];
+    for (int i = 0; i < _optionControllers.length; i++) {
+      final text = _optionControllers[i].text.trim();
+      final optionImg = i < _optionImages.length ? _optionImages[i] : null;
+
+      if (text.isEmpty && (optionImg == null || optionImg.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Please enter text or an image for Option ${String.fromCharCode(65 + i)}',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return null;
+      }
+      validOptions.add(
+        QuestionOption(
+          id: String.fromCharCode(65 + i),
+          text: text,
+          imageUrl: optionImg,
+        ),
+      );
+    }
+
+    if (validOptions.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('At least 2 options are required for multiple choice'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return null;
+    }
+
+    final selectedOptionLetter = String.fromCharCode(
+      65 + _selectedCorrectOption,
+    );
+
     return QuestionModel(
       id: questionId,
       questionText: questionText,
@@ -277,6 +375,8 @@ class _AddMultipleChoiceQuestionScreenState
       options: validOptions,
       correctOptionId: selectedOptionLetter,
       type: 'Multiple Choice',
+      category: _currentExam.category,
+      imageUrl: _questionImage,
       estimatedTimeMinutes: 2,
     );
   }
@@ -443,6 +543,7 @@ class _AddMultipleChoiceQuestionScreenState
     }
     setState(() {
       _optionControllers.add(TextEditingController());
+      _optionImages.add(null);
     });
   }
 
@@ -456,6 +557,9 @@ class _AddMultipleChoiceQuestionScreenState
     setState(() {
       _optionControllers[index].dispose();
       _optionControllers.removeAt(index);
+      if (index < _optionImages.length) {
+        _optionImages.removeAt(index);
+      }
       if (_selectedCorrectOption >= _optionControllers.length) {
         _selectedCorrectOption = _optionControllers.length - 1;
       }
@@ -749,6 +853,62 @@ class _AddMultipleChoiceQuestionScreenState
                                       ),
                                     ),
                                   ),
+                                  if (q.type == 'Descriptive') ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED)
+                                            .withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Text(
+                                        'Descriptive',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF7C3AED),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (q.imageUrl != null &&
+                                      q.imageUrl!.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0EA5E9)
+                                            .withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.image,
+                                            size: 11,
+                                            color: Color(0xFF0EA5E9),
+                                          ),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            'Image',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0EA5E9),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                   const Spacer(),
                                   IconButton(
                                     icon: const Icon(
@@ -782,57 +942,79 @@ class _AddMultipleChoiceQuestionScreenState
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: q.options.map((opt) {
-                                  final isCorrect =
-                                      opt.id == q.correctOptionId;
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
+                              if (q.type == 'Descriptive')
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode
+                                        ? const Color(0xFF1E293B)
+                                        : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Descriptive: Student writes text response during assessment',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontStyle: FontStyle.italic,
+                                      color: subtitleColor,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: isCorrect
-                                          ? const Color(0xFF10B981)
-                                              .withOpacity(0.12)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
+                                  ),
+                                )
+                              else
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: q.options.map((opt) {
+                                    final isCorrect =
+                                        opt.id == q.correctOptionId;
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: isCorrect
                                             ? const Color(0xFF10B981)
-                                            : borderColor,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (isCorrect) ...[
-                                          const Icon(
-                                            Icons.check,
-                                            size: 12,
-                                            color: Color(0xFF10B981),
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Text(
-                                          '${opt.id}. ${opt.text}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isCorrect
-                                                ? const Color(0xFF10B981)
-                                                : subtitleColor,
-                                            fontWeight: isCorrect
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                          ),
+                                                .withOpacity(0.12)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isCorrect
+                                              ? const Color(0xFF10B981)
+                                              : borderColor,
                                         ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (isCorrect) ...[
+                                            const Icon(
+                                              Icons.check,
+                                              size: 12,
+                                              color: Color(0xFF10B981),
+                                            ),
+                                            const SizedBox(width: 4),
+                                          ],
+                                          Text(
+                                            '${opt.id}. ${opt.text}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isCorrect
+                                                  ? const Color(0xFF10B981)
+                                                  : subtitleColor,
+                                              fontWeight: isCorrect
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                             ],
                           ),
                         );
@@ -904,6 +1086,126 @@ class _AddMultipleChoiceQuestionScreenState
                           ],
                         ),
                         const SizedBox(height: 16),
+
+                        // Question Type Switcher
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            Text(
+                              'Type:',
+                              style: TextStyle(
+                                color: subtitleColor,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            ChoiceChip(
+                              label: const Text('Multiple Choice'),
+                              selected: _questionType == 'Multiple Choice',
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setState(() => _questionType = 'Multiple Choice');
+                                }
+                              },
+                              selectedColor:
+                                  const Color(0xFF7C3AED).withOpacity(0.18),
+                              labelStyle: TextStyle(
+                                color: _questionType == 'Multiple Choice'
+                                    ? const Color(0xFF7C3AED)
+                                    : subtitleColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            ChoiceChip(
+                              label: const Text('Descriptive / Text Answer'),
+                              selected: _questionType == 'Descriptive',
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setState(() => _questionType = 'Descriptive');
+                                }
+                              },
+                              selectedColor:
+                                  const Color(0xFF7C3AED).withOpacity(0.18),
+                              labelStyle: TextStyle(
+                                color: _questionType == 'Descriptive'
+                                    ? const Color(0xFF7C3AED)
+                                    : subtitleColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Question Image Upload
+                        if (_questionImage != null &&
+                            _questionImage!.isNotEmpty) ...[
+                          Stack(
+                            children: [
+                              Container(
+                                height: 160,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: AppImageView(
+                                  imageSource: _questionImage,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: Colors.black54,
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    icon: const Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                    onPressed: () =>
+                                        setState(() => _questionImage = null),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                        ] else ...[
+                          OutlinedButton.icon(
+                            onPressed: _pickQuestionImage,
+                            icon: const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Upload Question Image (e.g. describe image / diagram)',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF7C3AED),
+                              side: BorderSide(
+                                color: const Color(0xFF7C3AED).withOpacity(0.4),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
 
                         // Question Text Label & Input
                         Text(
@@ -1034,189 +1336,306 @@ class _AddMultipleChoiceQuestionScreenState
                         ),
                         const SizedBox(height: 20),
 
-                        // Answer Options Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Answer Options & Correct Key',
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                        // Answer Options Section
+                        if (_questionType == 'Descriptive') ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFF7C3AED).withOpacity(0.25),
                               ),
                             ),
-                            Text(
-                              'Tap letter to set correct',
-                              style: TextStyle(
-                                color: subtitleColor,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-
-                        // Options List
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _optionControllers.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, idx) {
-                            final isCorrect = _selectedCorrectOption == idx;
-                            final optionLetter =
-                                String.fromCharCode(65 + idx);
-
-                            return InkWell(
-                              onTap: () {
-                                setState(() => _selectedCorrectOption = idx);
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.edit_note_rounded,
+                                  color: Color(0xFF7C3AED),
+                                  size: 24,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: isCorrect
-                                      ? const Color(0xFF10B981)
-                                          .withOpacity(0.08)
-                                      : containerColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isCorrect
-                                        ? const Color(0xFF10B981)
-                                        : borderColor,
-                                    width: isCorrect ? 1.5 : 1.0,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    // Option Letter / Correct Badge
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: isCorrect
-                                            ? const Color(0xFF10B981)
-                                            : (isDarkMode
-                                                ? const Color(0xFF1E293B)
-                                                : const Color(0xFFF1F5F9)),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Center(
-                                        child: isCorrect
-                                            ? const Icon(
-                                                Icons.check,
-                                                size: 16,
-                                                color: Colors.white,
-                                              )
-                                            : Text(
-                                                optionLetter,
-                                                style: TextStyle(
-                                                  color: subtitleColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _optionControllers[idx],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Descriptive Answer Mode',
                                         style: TextStyle(
                                           color: textColor,
-                                          fontSize: 13.5,
-                                          fontWeight: isCorrect
-                                              ? FontWeight.w600
-                                              : FontWeight.normal,
-                                        ),
-                                        decoration: InputDecoration(
-                                          hintText:
-                                              'Option $optionLetter text...',
-                                          hintStyle: TextStyle(
-                                            color: isDarkMode
-                                                ? Colors.white38
-                                                : Colors.grey[400],
-                                            fontSize: 13,
-                                          ),
-                                          border: InputBorder.none,
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                            vertical: 6,
-                                          ),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
                                         ),
                                       ),
-                                    ),
-                                    if (isCorrect)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        margin:
-                                            const EdgeInsets.only(right: 6),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF10B981)
-                                              .withOpacity(0.15),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                        ),
-                                        child: const Text(
-                                          'Correct',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF10B981),
-                                          ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Students will answer this question using an adaptive multi-line textfield (e.g. describing the uploaded image, explaining steps, or writing short answers). No multiple choice options are required.',
+                                        style: TextStyle(
+                                          color: subtitleColor,
+                                          fontSize: 12.5,
+                                          height: 1.4,
                                         ),
                                       ),
-                                    if (_optionControllers.length > 2)
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.close,
-                                          size: 16,
-                                          color: Colors.grey,
-                                        ),
-                                        visualDensity: VisualDensity.compact,
-                                        padding: EdgeInsets.zero,
-                                        onPressed: () =>
-                                            _handleRemoveOption(idx),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-
-                        // Add Option Button
-                        if (_optionControllers.length < 6)
-                          TextButton.icon(
-                            onPressed: _handleAddOption,
-                            icon: const Icon(
-                              Icons.add_circle_outline,
-                              color: Color(0xFF7C3AED),
-                              size: 18,
-                            ),
-                            label: const Text(
-                              'Add Another Option',
-                              style: TextStyle(
-                                color: Color(0xFF7C3AED),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
+                              ],
                             ),
                           ),
+                        ] else ...[
+                          // Answer Options Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Answer Options & Correct Key',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Tap letter to set correct',
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Options List
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _optionControllers.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, idx) {
+                              final isCorrect = _selectedCorrectOption == idx;
+                              final optionLetter =
+                                  String.fromCharCode(65 + idx);
+                              final hasOptionImg = idx < _optionImages.length &&
+                                  _optionImages[idx] != null &&
+                                  _optionImages[idx]!.isNotEmpty;
+
+                              return InkWell(
+                                onTap: () {
+                                  setState(() => _selectedCorrectOption = idx);
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isCorrect
+                                        ? const Color(0xFF10B981)
+                                            .withOpacity(0.08)
+                                        : containerColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: isCorrect
+                                          ? const Color(0xFF10B981)
+                                          : borderColor,
+                                      width: isCorrect ? 1.5 : 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Option Letter / Correct Badge
+                                      Container(
+                                        width: 32,
+                                        height: 32,
+                                        decoration: BoxDecoration(
+                                          color: isCorrect
+                                              ? const Color(0xFF10B981)
+                                              : (isDarkMode
+                                                  ? const Color(0xFF1E293B)
+                                                  : const Color(0xFFF1F5F9)),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Center(
+                                          child: isCorrect
+                                              ? const Icon(
+                                                  Icons.check,
+                                                  size: 16,
+                                                  color: Colors.white,
+                                                )
+                                              : Text(
+                                                  optionLetter,
+                                                  style: TextStyle(
+                                                    color: subtitleColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _optionControllers[idx],
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontSize: 13.5,
+                                            fontWeight: isCorrect
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                          ),
+                                          decoration: InputDecoration(
+                                            hintText:
+                                                'Option $optionLetter text...',
+                                            hintStyle: TextStyle(
+                                              color: isDarkMode
+                                                  ? Colors.white38
+                                                  : Colors.grey[400],
+                                              fontSize: 13,
+                                            ),
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                              vertical: 6,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Option Image thumbnail or picker
+                                      if (hasOptionImg) ...[
+                                        const SizedBox(width: 6),
+                                        Stack(
+                                          clipBehavior: Clip.none,
+                                          children: [
+                                            Container(
+                                              width: 34,
+                                              height: 34,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: borderColor,
+                                                ),
+                                              ),
+                                              clipBehavior: Clip.antiAlias,
+                                              child: AppImageView(
+                                                imageSource:
+                                                    _optionImages[idx],
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                            Positioned(
+                                              top: -6,
+                                              right: -6,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _optionImages[idx] = null;
+                                                  });
+                                                },
+                                                child: const CircleAvatar(
+                                                  radius: 8,
+                                                  backgroundColor:
+                                                      Colors.black87,
+                                                  child: Icon(
+                                                    Icons.close,
+                                                    size: 10,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ] else ...[
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            size: 18,
+                                          ),
+                                          color: subtitleColor,
+                                          tooltip: 'Attach image to this option',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () =>
+                                              _pickOptionImage(idx),
+                                        ),
+                                      ],
+
+                                      if (isCorrect)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          margin: const EdgeInsets.only(
+                                            left: 4,
+                                            right: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981)
+                                                .withOpacity(0.15),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'Correct',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF10B981),
+                                            ),
+                                          ),
+                                        ),
+                                      if (_optionControllers.length > 2)
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.close,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () =>
+                                              _handleRemoveOption(idx),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Add Option Button
+                          if (_optionControllers.length < 6)
+                            TextButton.icon(
+                              onPressed: _handleAddOption,
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                color: Color(0xFF7C3AED),
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Add Another Option',
+                                style: TextStyle(
+                                  color: Color(0xFF7C3AED),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                        ],
 
                         const SizedBox(height: 16),
                         Divider(color: borderColor, height: 1),

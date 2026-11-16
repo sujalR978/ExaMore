@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/screens/exam_result_screen.dart';
@@ -163,17 +164,36 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
       final studentId =
           _currentUser?.uid ??
           'STU-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-      final studentName = _currentUser?.displayName ?? 'Student User';
-      final studentPhoto = _currentUser?.photoURL;
+      String studentName = _currentUser?.displayName ?? '';
+      String? studentPhoto = _currentUser?.photoURL;
 
-      // Fetch student's assigned adminId from Firestore
+      // Fetch student's real profile name and assigned adminId from Firestore
       String? studentAdminId;
       if (_currentUser?.uid != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_currentUser!.uid)
-            .get();
-        studentAdminId = userDoc.data()?['adminId'];
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_currentUser!.uid)
+              .get();
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            if (data != null) {
+              studentAdminId = data['adminId'];
+              final dbName = (data['name'] ?? '').toString().trim();
+              if (dbName.isNotEmpty) {
+                studentName = dbName;
+              }
+              final dbPhoto = (data['photoUrl'] ?? '').toString().trim();
+              if (dbPhoto.isNotEmpty) {
+                studentPhoto = dbPhoto;
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (studentName.isEmpty) {
+        studentName = _currentUser?.email?.split('@').first ?? 'Student';
       }
 
       final submission = await _examService.submitExamAttempt(
@@ -812,6 +832,25 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                         ),
                         const SizedBox(height: 16),
 
+                        // Question Image (if attached)
+                        if (currentQuestion.imageUrl != null &&
+                            currentQuestion.imageUrl!.isNotEmpty) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            width: double.infinity,
+                            constraints: const BoxConstraints(maxHeight: 250),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: borderColor),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: AppImageView(
+                              imageSource: currentQuestion.imageUrl,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
+
                         Text(
                           currentQuestion.questionText,
                           style: TextStyle(
@@ -823,29 +862,91 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                         ),
                         const SizedBox(height: 24),
 
-                        ...currentQuestion.options.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final option = entry.value;
-                          final isSelected = selectedOptionId == option.id;
-
-                          final String optionLetter = String.fromCharCode(
-                            65 + index,
-                          );
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: _buildOptionItem(
-                              optionLetter: optionLetter,
-                              text: option.text,
-                              isSelected: isSelected,
-                              isDarkMode: isDarkMode,
-                              containerColor: containerColor,
-                              textColor: textColor,
-                              borderColor: borderColor,
-                              onSelect: () => _handleOptionSelect(option.id),
+                        // Render based on Question Type: Descriptive textfield or MCQ options
+                        if (currentQuestion.type == 'Descriptive' ||
+                            currentQuestion.options.isEmpty) ...[
+                          Text(
+                            'Your Descriptive Answer:',
+                            style: TextStyle(
+                              color: subtitleColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
                             ),
-                          );
-                        }),
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            initialValue:
+                                _selectedAnswers[currentQuestion.id] ?? '',
+                            key: ValueKey('desc_${currentQuestion.id}'),
+                            maxLines: 6,
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                            decoration: InputDecoration(
+                              hintText:
+                                  'Type your answer or describe the image here...',
+                              hintStyle: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white38
+                                    : Colors.grey[400],
+                                fontSize: 14,
+                              ),
+                              filled: true,
+                              fillColor: isDarkMode
+                                  ? const Color(0xFF1E293B).withOpacity(0.5)
+                                  : const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.all(16),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: borderColor),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF7C3AED),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                            onChanged: (text) {
+                              setState(() {
+                                if (text.trim().isEmpty) {
+                                  _selectedAnswers.remove(currentQuestion.id);
+                                } else {
+                                  _selectedAnswers[currentQuestion.id] =
+                                      text.trim();
+                                }
+                              });
+                            },
+                          ),
+                        ] else ...[
+                          ...currentQuestion.options.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final option = entry.value;
+                            final isSelected = selectedOptionId == option.id;
+
+                            final String optionLetter = String.fromCharCode(
+                              65 + index,
+                            );
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: _buildOptionItem(
+                                optionLetter: optionLetter,
+                                text: option.text,
+                                imageUrl: option.imageUrl,
+                                isSelected: isSelected,
+                                isDarkMode: isDarkMode,
+                                containerColor: containerColor,
+                                textColor: textColor,
+                                borderColor: borderColor,
+                                onSelect: () => _handleOptionSelect(option.id),
+                              ),
+                            );
+                          }),
+                        ],
                       ],
                     ),
                   ),
@@ -960,6 +1061,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
   Widget _buildOptionItem({
     required String optionLetter,
     required String text,
+    String? imageUrl,
     required bool isSelected,
     required bool isDarkMode,
     required Color containerColor,
@@ -974,14 +1076,14 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC))
+              ? (isDarkMode
+                    ? const Color(0xFF7C3AED).withOpacity(0.18)
+                    : const Color(0xFF7C3AED).withOpacity(0.08))
               : containerColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected
-                ? (isDarkMode
-                      ? const Color(0xFFFBBF24)
-                      : const Color(0xFF1E1B4B))
+                ? const Color(0xFF7C3AED)
                 : borderColor,
             width: isSelected ? 1.5 : 1.0,
           ),
@@ -995,18 +1097,14 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isSelected
-                      ? (isDarkMode
-                            ? const Color(0xFFFBBF24)
-                            : const Color(0xFF1E1B4B))
+                      ? const Color(0xFF7C3AED)
                       : (isDarkMode
                             ? const Color(0xFF94A3B8)
                             : Colors.grey.shade400),
                   width: 1.5,
                 ),
                 color: isSelected
-                    ? (isDarkMode
-                          ? const Color(0xFF312E81)
-                          : const Color(0xFF1E1B4B))
+                    ? const Color(0xFF7C3AED)
                     : Colors.transparent,
               ),
               child: Center(
@@ -1024,13 +1122,29 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
+            if (imageUrl != null && imageUrl.isNotEmpty) ...[
+              Container(
+                width: 48,
+                height: 48,
+                margin: const EdgeInsets.only(right: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: AppImageView(
+                  imageSource: imageUrl,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ],
             Expanded(
               child: Text(
                 text,
                 style: TextStyle(
                   color: textColor,
-                  fontSize: 16,
+                  fontSize: 15.5,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

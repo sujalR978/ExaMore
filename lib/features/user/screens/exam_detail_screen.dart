@@ -90,6 +90,45 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
         );
         return;
       }
+
+      // Check Allowed Attempts limit
+      final int maxAttempts = _exam.allowedAttempts > 0 ? _exam.allowedAttempts : 1;
+      final existingAttempts = await FirebaseFirestore.instance
+          .collection('exams')
+          .doc(_exam.id)
+          .collection('submissions')
+          .where('userId', isEqualTo: uid)
+          .get();
+
+      if (existingAttempts.docs.length >= maxAttempts) {
+        if (!context.mounted) return;
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.lock_clock_outlined, color: Color(0xFF7C3AED)),
+                SizedBox(width: 10),
+                Text('Attempt Limit Reached'),
+              ],
+            ),
+            content: Text(
+              'You have already given this exam $maxAttempts out of $maxAttempts allowed time${maxAttempts > 1 ? 's' : ''}.\n\nYour highest score has been saved as your final score.',
+              style: const TextStyle(height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
     } catch (_) {}
 
     if (!context.mounted) return;
@@ -349,6 +388,13 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                     _exam.negativeMarking > 0
                         ? '${_exam.negativeMarking} pts per wrong answer'
                         : 'No negative marking',
+                    textColor,
+                    subtitleColor,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Allowed attempts:',
+                    '${_exam.allowedAttempts} ${_exam.allowedAttempts == 1 ? 'attempt' : 'attempts'} (Highest score counts)',
                     textColor,
                     subtitleColor,
                   ),

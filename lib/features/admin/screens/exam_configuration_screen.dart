@@ -29,6 +29,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   late TextEditingController _marksController;
   late TextEditingController _negativeMarkingController;
   late TextEditingController _passingScoreController;
+  late TextEditingController _allowedAttemptsController;
 
   bool _shuffleQuestions = false;
   bool _showResultsImmediately = false;
@@ -65,6 +66,11 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       text: widget.exam != null
           ? widget.exam!.passingScorePercentage.toInt().toString()
           : '50',
+    );
+    _allowedAttemptsController = TextEditingController(
+      text: widget.exam != null
+          ? widget.exam!.allowedAttempts.toString()
+          : '1',
     );
 
     _shuffleQuestions = widget.exam?.shuffleQuestions ?? false;
@@ -279,6 +285,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           double.tryParse(_negativeMarkingController.text.trim()) ?? 0.0;
       final passingPercentage =
           double.tryParse(_passingScoreController.text.trim()) ?? 50.0;
+      final allowedAttempts =
+          int.tryParse(_allowedAttemptsController.text.trim()) ?? 1;
 
       // Ensure valid adminId is assigned
       final String assignedAdminId = (widget.exam?.adminId.isNotEmpty ?? false)
@@ -298,6 +306,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           totalMarks: totalMarks,
           negativeMarking: negativeMarking,
           passingScorePercentage: passingPercentage,
+          allowedAttempts: allowedAttempts,
           shuffleQuestions: _shuffleQuestions,
           showResultsImmediately: _showResultsImmediately,
           updatedAt: DateTime.now(),
@@ -316,6 +325,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           totalMarks: totalMarks,
           negativeMarking: negativeMarking,
           passingScorePercentage: passingPercentage,
+          allowedAttempts: allowedAttempts,
           shuffleQuestions: _shuffleQuestions,
           showResultsImmediately: _showResultsImmediately,
           status: 'Draft',
@@ -360,6 +370,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     _marksController.dispose();
     _negativeMarkingController.dispose();
     _passingScoreController.dispose();
+    _allowedAttemptsController.dispose();
     super.dispose();
   }
 
@@ -1018,6 +1029,67 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                               '75%',
                               '75',
                               _passingScoreController,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Allowed Attempts
+                        _buildFieldLabel(
+                          'Allowed Attempts *',
+                          subtitleColor,
+                        ),
+                        const SizedBox(height: 6),
+                        TextFormField(
+                          controller: _allowedAttemptsController,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(color: textColor, fontSize: 14),
+                          decoration: _inputDecoration(
+                            hint: '1',
+                            suffixText: 'attempts',
+                            prefixIcon: Icon(
+                              Icons.replay_rounded,
+                              color: subtitleColor,
+                              size: 20,
+                            ),
+                            subtitleColor: subtitleColor,
+                            borderColor: borderColor,
+                            isDarkMode: isDarkMode,
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Please enter allowed attempts';
+                            }
+                            final n = int.tryParse(val.trim());
+                            if (n == null || n <= 0) {
+                              return 'Enter a valid positive number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _buildQuickChip(
+                              '1 Attempt',
+                              '1',
+                              _allowedAttemptsController,
+                            ),
+                            _buildQuickChip(
+                              '2 Attempts',
+                              '2',
+                              _allowedAttemptsController,
+                            ),
+                            _buildQuickChip(
+                              '3 Attempts',
+                              '3',
+                              _allowedAttemptsController,
+                            ),
+                            _buildQuickChip(
+                              '5 Attempts',
+                              '5',
+                              _allowedAttemptsController,
                             ),
                           ],
                         ),

@@ -23,15 +23,26 @@ class ExamService {
   Future<int> getRemainingAttempts({
     required String examId,
     required String studentId,
+    int? maxAttempts,
   }) async {
+    int totalAllowed = maxAttempts ?? 1;
+    if (maxAttempts == null) {
+      try {
+        final examDoc = await _examsCollection.doc(examId).get();
+        if (examDoc.exists) {
+          final data = examDoc.data() as Map<String, dynamic>? ?? {};
+          totalAllowed = (data['allowedAttempts'] as num?)?.toInt() ?? 1;
+        }
+      } catch (_) {}
+    }
     final existingAttempts = await _examsCollection
         .doc(examId)
         .collection('submissions')
         .where('userId', isEqualTo: studentId)
         .get();
-    return (maxExamAttempts - existingAttempts.docs.length).clamp(
+    return (totalAllowed - existingAttempts.docs.length).clamp(
       0,
-      maxExamAttempts,
+      totalAllowed,
     );
   }
 
@@ -333,11 +344,12 @@ class ExamService {
         'Unauthorized: You are only allowed to attempt tests created by your assigned Admin.',
       );
     }
+    final int allowedAttempts = exam.allowedAttempts > 0 ? exam.allowedAttempts : 1;
     final existingAttemptsQuery = await submissionsRef
         .where('userId', isEqualTo: studentId)
         .get();
-    if (existingAttemptsQuery.docs.length >= maxExamAttempts) {
-      throw Exception('Maximum attempts reached.');
+    if (existingAttemptsQuery.docs.length >= allowedAttempts) {
+      throw Exception('Maximum attempts reached ($allowedAttempts of $allowedAttempts used).');
     }
     final int currentAttemptNumber = existingAttemptsQuery.docs.length + 1;
 
@@ -351,8 +363,12 @@ class ExamService {
     double totalMarksObtained = 0.0;
     for (var question in authoritativeExam.questions) {
       final chosenOption = selectedAnswers[question.id];
-      if (chosenOption == null || chosenOption.isEmpty) {
+      if (chosenOption == null || chosenOption.trim().isEmpty) {
         unattemptedCount++;
+      } else if (question.type == 'Descriptive' || question.options.isEmpty) {
+        // Descriptive answer: award full marks if student entered an answer
+        correctCount++;
+        totalMarksObtained += question.marks;
       } else if (chosenOption == question.correctOptionId) {
         correctCount++;
         totalMarksObtained += question.marks;
