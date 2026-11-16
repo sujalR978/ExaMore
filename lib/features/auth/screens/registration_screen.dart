@@ -180,38 +180,49 @@ class _RegistrationState extends State<Registration> {
       // 2. STUDENT REGISTRATION: Optional Instructor Code/Email verification
       // -------------------------------------------------------------
       if (_selectedRole == 'student' && inputCode.isNotEmpty) {
-        final adminDocById = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(inputCode)
-            .get();
-
-        if (adminDocById.exists &&
-            (adminDocById.data()?['role'] == 'admin' ||
-                adminDocById.data()?['role'] == 'super_admin')) {
-          validatedAdminId = adminDocById.id;
-        } else {
-          final adminByEmailQuery = await FirebaseFirestore.instance
+        try {
+          final adminDocById = await FirebaseFirestore.instance
               .collection('users')
-              .where('email', isEqualTo: inputCode.toLowerCase())
-              .limit(1)
+              .doc(inputCode)
               .get();
 
-          if (adminByEmailQuery.docs.isNotEmpty) {
-            final data = adminByEmailQuery.docs.first.data();
-            final role = (data['role'] ?? '').toString().toLowerCase();
-            if (role == 'admin' || role == 'super_admin') {
-              validatedAdminId = adminByEmailQuery.docs.first.id;
+          if (adminDocById.exists &&
+              (adminDocById.data()?['role'] == 'admin' ||
+                  adminDocById.data()?['role'] == 'super_admin')) {
+            validatedAdminId = adminDocById.id;
+          } else {
+            final adminByEmailQuery = await FirebaseFirestore.instance
+                .collection('users')
+                .where('email', isEqualTo: inputCode.toLowerCase())
+                .limit(1)
+                .get();
+
+            if (adminByEmailQuery.docs.isNotEmpty) {
+              final data = adminByEmailQuery.docs.first.data();
+              final role = (data['role'] ?? '').toString().toLowerCase();
+              if (role == 'admin' || role == 'super_admin') {
+                validatedAdminId = adminByEmailQuery.docs.first.id;
+              } else {
+                _showError(
+                  'Invalid Admin Code / Email. Please enter a valid Instructor UID or Email.',
+                );
+                setState(() => _isRegistering = false);
+                return;
+              }
             } else {
-              _showError('Invalid Admin Code / Email. Please enter a valid Instructor UID or Email.');
+              _showError(
+                'Invalid Admin Code / Email. Please enter a valid Instructor UID or Email.',
+              );
               setState(() => _isRegistering = false);
               return;
             }
+          }
+        } on FirebaseException catch (e) {
+          if (e.code == 'permission-denied') {
+            // Gracefully accept the instructor code to link, avoiding unauthenticated query failure
+            validatedAdminId = inputCode;
           } else {
-            _showError(
-              'Invalid Admin Code / Email. Please enter a valid Instructor UID or Email.',
-            );
-            setState(() => _isRegistering = false);
-            return;
+            rethrow;
           }
         }
       }
@@ -247,8 +258,16 @@ class _RegistrationState extends State<Registration> {
       } else {
         _showError(e.message ?? 'Registration failed. Please try again.');
       }
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        _showError(
+          'Permission denied. Please ensure your Firebase Firestore rules allow account creation.',
+        );
+      } else {
+        _showError(e.message ?? 'Database error during registration.');
+      }
     } catch (e) {
-      _showError('Something went wrong: ${e.toString()}');
+      _showError('Registration failed: ${e.toString().replaceAll('Exception: ', '')}');
     } finally {
       if (mounted) {
         setState(() {

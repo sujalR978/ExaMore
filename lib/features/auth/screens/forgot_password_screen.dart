@@ -57,21 +57,25 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final email = _emailController.text.trim().toLowerCase();
 
     try {
-      // 1. Verify existence in Firestore 'users' collection (with admin bypass check)
+      // 1. Verify existence in Firestore 'users' collection (optional check)
       final bool isAdmin = email == 'admin@gmail.com';
 
-      final userQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
+      try {
+        final userQuery = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: email)
+            .limit(1)
+            .get();
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      if (userQuery.docs.isEmpty && !isAdmin) {
-        setState(() => _isLoading = false);
-        _showErrorSnackBar("No account found with this email address.");
-        return;
+        if (userQuery.docs.isEmpty && !isAdmin) {
+          setState(() => _isLoading = false);
+          _showErrorSnackBar("No account found with this email address.");
+          return;
+        }
+      } catch (_) {
+        // If unauthenticated Firestore read is blocked, delegate directly to Firebase Auth
       }
 
       // 2. Dispatch password reset email via Firebase Authentication

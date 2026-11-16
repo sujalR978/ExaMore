@@ -3,14 +3,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Classrooms collection (Google Classroom Multi-Classrooms & Subjects)
+    // 1. Google Classroom: Classrooms, subjects & student enrollments
+    // Readable publicly/by link so students can preview and join via code or invite link
     match /classrooms/{classroomId} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
 
-    // Users and subcollections (Profiles, Attempts, Saved Exams)
+    // 2. User Profiles, Attempts, and Saved Exams
     match /users/{userId} {
-      allow read, write: if request.auth != null;
+      // Allow read so unauthenticated users can look up instructor codes & verify emails for password reset
+      allow read: if true;
+      // Allow create so new user registrations can write their initial profile document smoothly across all devices
+      allow create: if true;
+      // Updates and deletes strictly require an authenticated user
+      allow update, delete: if request.auth != null;
 
       match /saved_exams/{examId} {
         allow read, write: if request.auth != null;
@@ -20,24 +27,24 @@ service cloud.firestore {
       }
     }
 
-    // Exams and student submissions
+    // 3. Exams & Student Submissions
     match /exams/{examId} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if request.auth != null;
 
       match /submissions/{subId} {
         allow read, write: if request.auth != null;
       }
     }
 
-    // Question Bank
+    // 4. Question Bank
     match /question_bank/{questionId} {
       allow read, write: if request.auth != null;
     }
 
-    // Admin Activities & Notifications
+    // 5. Admin Activity Feed
     match /admin_activities/{activityId} {
       allow read, write: if request.auth != null;
     }
   }
 }
-

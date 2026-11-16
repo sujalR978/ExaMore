@@ -24,8 +24,6 @@ class AuthService {
     final User? firebaseUser = userCredential.user;
     if (firebaseUser == null) return;
 
-    await firebaseUser.sendEmailVerification();
-
     String uid = firebaseUser.uid;
     UserModel user = UserModel(
       uid: uid,
@@ -40,9 +38,13 @@ class AuthService {
     );
 
     try {
+      // 1. Immediately persist the user document in Firestore while freshly authenticated
       await _firestore.collection('users').doc(uid).set(user.toMap());
-    } on FirebaseException {
-      rethrow;
+
+      // 2. Dispatch email verification
+      try {
+        await firebaseUser.sendEmailVerification();
+      } catch (_) {}
     } finally {
       await _auth.signOut();
     }
