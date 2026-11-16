@@ -32,6 +32,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
   static final Map<String, String> _resolvedNameCache = {};
 
   String _searchQuery = '';
+  String _selectedFilter = 'all'; // 'all', 'passed', 'failed'
   ExamModel? _selectedExam;
 
   String _userRole = 'admin';
@@ -72,12 +73,12 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
             .get();
 
         if (doc.exists) {
-          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole =
+              (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
         }
       } catch (_) {}
     }
 
-    // Role-based scoping: Super admin sees all, regular admin only sees their own
     _examsStream = _examService.getExamsStream(
       adminId: _adminUid,
       role: _userRole,
@@ -124,7 +125,10 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           children: [
             Icon(Icons.table_chart_outlined, color: Color(0xFF7C3AED)),
             SizedBox(width: 10),
-            Text('Marksheet Exported', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Marksheet Exported',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Column(
@@ -154,7 +158,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7C3AED),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('OK'),
@@ -254,9 +260,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  _userRole == 'super_admin'
-                      ? 'Exam Submissions'
-                      : 'Exam Submissions',
+                  'Exam Submissions',
                   style: TextStyle(
                     color: textColor,
                     fontWeight: FontWeight.bold,
@@ -402,7 +406,10 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                                   ? 'No exams exist across the platform.'
                                   : 'You have not created any exams yet.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 13, color: subtitleColor),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: subtitleColor,
+                              ),
                             ),
                           ],
                         ),
@@ -451,7 +458,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
 
         final allSubmissions = snapshot.data ?? [];
 
-        // 1. Requirement: "Take the heighest score as final score among all the attempts"
+        // Group by student and keep best attempt (highest score)
         final Map<String, StudentSubmissionModel> bestSubmissionPerStudent = {};
         final Map<String, int> attemptCountPerStudent = {};
 
@@ -474,13 +481,33 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           (a, b) => b.scorePercentage.compareTo(a.scorePercentage),
         );
 
-        // Filter based on search query
+        int passedCount = 0;
+        int failedCount = 0;
+        for (var s in rankedSubmissions) {
+          final pass = s.isPassed ||
+              s.scorePercentage >= currentExam.passingScorePercentage;
+          if (pass) {
+            passedCount++;
+          } else {
+            failedCount++;
+          }
+        }
+
+        // Filter based on search query and filter chips
         final filteredSubmissions = rankedSubmissions.where((student) {
-          final query = _searchQuery.toLowerCase();
           final resolvedName =
               _resolvedNameCache[student.studentId] ?? student.studentName;
-          return resolvedName.toLowerCase().contains(query) ||
+          final query = _searchQuery.toLowerCase();
+          final matchesQuery =
+              resolvedName.toLowerCase().contains(query) ||
               student.studentId.toLowerCase().contains(query);
+          if (!matchesQuery) return false;
+
+          final pass = student.isPassed ||
+              student.scorePercentage >= currentExam.passingScorePercentage;
+          if (_selectedFilter == 'passed') return pass;
+          if (_selectedFilter == 'failed') return !pass;
+          return true;
         }).toList();
 
         return SingleChildScrollView(
@@ -535,10 +562,13 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                 const SizedBox(height: 14),
               ],
 
-              // Header: Exam Title & Spec Badges (Clean, no unnecessary stat cards)
+              // TOP HEADER CARD: ONLY Title and Export CSV (as explicitly requested: all other chips removed)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
                 decoration: BoxDecoration(
                   color: containerColor,
                   borderRadius: BorderRadius.circular(18),
@@ -551,237 +581,117 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                     ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            currentExam.title,
-                            style: TextStyle(
-                              color: textColor,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              height: 1.25,
-                            ),
-                          ),
+                    Expanded(
+                      child: Text(
+                        currentExam.title,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
                         ),
-                        if (rankedSubmissions.isNotEmpty)
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              _handleExportCsv(
-                                context,
-                                currentExam,
-                                rankedSubmissions,
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF7C3AED),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.file_download_outlined,
-                              size: 16,
-                            ),
-                            label: const Text(
-                              'Export CSV',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 10),
-
-                    // Specification Badges
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        // Exam Code Badge
-                        Container(
+                    const SizedBox(width: 12),
+                    if (rankedSubmissions.isNotEmpty)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          _handleExportCsv(
+                            context,
+                            currentExam,
+                            rankedSubmissions,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7C3AED),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '# ${currentExam.examCode.isNotEmpty ? currentExam.examCode : currentExam.id.substring(0, 6)}',
-                            style: const TextStyle(
-                              color: Color(0xFF7C3AED),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-
-                        // Allowed Attempts Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0EA5E9).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Max ${currentExam.allowedAttempts} ${currentExam.allowedAttempts == 1 ? 'Attempt' : 'Attempts'}',
-                            style: const TextStyle(
-                              color: Color(0xFF0EA5E9),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        icon: const Icon(
+                          Icons.file_download_outlined,
+                          size: 16,
+                        ),
+                        label: const Text(
+                          'Export CSV',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-
-                        // Pass Mark Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDarkMode
-                                ? const Color(0xFF1E293B)
-                                : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Pass: ${currentExam.passingScorePercentage.toInt()}%',
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                        // Status Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: currentExam.status.toLowerCase() ==
-                                    'published'
-                                ? const Color(0xFF10B981).withOpacity(0.15)
-                                : const Color(0xFFF59E0B).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            currentExam.status,
-                            style: TextStyle(
-                              color: currentExam.status.toLowerCase() ==
-                                      'published'
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFF59E0B),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // Student Results Table Container
+              // PRODUCTION-LEVEL STUDENT LIST CARD
               Container(
                 decoration: BoxDecoration(
                   color: containerColor,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(color: borderColor),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.03),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withOpacity(isDarkMode ? 0.25 : 0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Search & Header Title
+                    // Search & Filters Header
                     Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Student Standings',
-                                    style: TextStyle(
-                                      color: textColor,
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF7C3AED)
-                                          .withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(100),
-                                    ),
-                                    child: Text(
-                                      '${rankedSubmissions.length} Students',
-                                      style: const TextStyle(
-                                        color: Color(0xFF7C3AED),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                'Student Leaderboard',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                              const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 3,
-                                    backgroundColor: Color(0xFF10B981),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C3AED)
+                                      .withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(100),
+                                ),
+                                child: Text(
+                                  '${rankedSubmissions.length} Students',
+                                  style: const TextStyle(
+                                    color: Color(0xFF7C3AED),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    'Live',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF10B981),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
+
+                          // Search TextField
                           TextField(
                             controller: _searchController,
                             decoration: InputDecoration(
@@ -830,82 +740,63 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                          const SizedBox(height: 10),
 
-                    // Table Header
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDarkMode
-                            ? const Color(0xFF1E293B).withOpacity(0.5)
-                            : const Color(0xFFF1F5F9),
-                        border: Border(
-                          top: BorderSide(color: borderColor),
-                          bottom: BorderSide(color: borderColor),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            child: Text(
-                              '#',
-                              style: TextStyle(
-                                color: subtitleColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                          // Filter Segmented Chips (All / Passed / Failed)
+                          Row(
+                            children: [
+                              _buildFilterChip(
+                                label: 'All (${rankedSubmissions.length})',
+                                filterKey: 'all',
+                                isSelected: _selectedFilter == 'all',
+                                activeColor: const Color(0xFF7C3AED),
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 5,
-                            child: Text(
-                              'STUDENT',
-                              style: TextStyle(
-                                color: subtitleColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
+                              const SizedBox(width: 8),
+                              _buildFilterChip(
+                                label: 'Passed ($passedCount)',
+                                filterKey: 'passed',
+                                isSelected: _selectedFilter == 'passed',
+                                activeColor: const Color(0xFF10B981),
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 3,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                'FINAL SCORE',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
+                              const SizedBox(width: 8),
+                              _buildFilterChip(
+                                label: 'Failed ($failedCount)',
+                                filterKey: 'failed',
+                                isSelected: _selectedFilter == 'failed',
+                                activeColor: const Color(0xFFEF4444),
                               ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
                     ),
 
-                    // Student Rows
+                    Divider(height: 1, color: borderColor),
+
+                    // Student List Items
                     if (filteredSubmissions.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 36.0),
+                        padding: const EdgeInsets.symmetric(vertical: 48.0),
                         child: Center(
-                          child: Text(
-                            rankedSubmissions.isEmpty
-                                ? 'No student submissions recorded yet.'
-                                : 'No matching results found for "$_searchQuery"',
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 13,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 44,
+                                color: subtitleColor.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                rankedSubmissions.isEmpty
+                                    ? 'No student submissions recorded yet.'
+                                    : 'No matching students found for "$_searchQuery"',
+                                style: TextStyle(
+                                  color: subtitleColor,
+                                  fontSize: 13.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       )
@@ -953,6 +844,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
+                        color: isDarkMode
+                            ? const Color(0xFF1E293B).withOpacity(0.3)
+                            : const Color(0xFFF8FAFC),
                         border: Border(top: BorderSide(color: borderColor)),
                       ),
                       child: Row(
@@ -966,11 +860,11 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                             ),
                           ),
                           Text(
-                            'Best attempt scores displayed',
+                            'Tap student to review answers',
                             style: TextStyle(
-                              color: subtitleColor,
+                              color: const Color(0xFF7C3AED),
                               fontSize: 11.5,
-                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -983,6 +877,38 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required String filterKey,
+    required bool isSelected,
+    required Color activeColor,
+  }) {
+    return InkWell(
+      onTap: () {
+        setState(() => _selectedFilter = filterKey);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? activeColor : Colors.grey.withOpacity(0.25),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? activeColor : Colors.grey,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1086,139 +1012,224 @@ class _StudentSubmissionRowState extends State<_StudentSubmissionRow> {
     final isPassed = widget.submission.isPassed ||
         widget.submission.scorePercentage >= widget.passingScore;
 
+    // Elegant Rank Visuals
+    Widget rankWidget;
+    if (widget.rank == 1) {
+      rankWidget = Container(
+        width: 26,
+        height: 26,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF59E0B),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Icon(Icons.star, color: Colors.white, size: 14),
+        ),
+      );
+    } else if (widget.rank == 2) {
+      rankWidget = Container(
+        width: 26,
+        height: 26,
+        decoration: const BoxDecoration(
+          color: Color(0xFF94A3B8),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Text(
+            '2',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    } else if (widget.rank == 3) {
+      rankWidget = Container(
+        width: 26,
+        height: 26,
+        decoration: const BoxDecoration(
+          color: Color(0xFFD97706),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Text(
+            '3',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    } else {
+      rankWidget = SizedBox(
+        width: 26,
+        child: Text(
+          '#${widget.rank}',
+          style: TextStyle(
+            color: widget.subtitleColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+
     return InkWell(
       onTap: widget.onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            // Rank Number
-            SizedBox(
-              width: 28,
-              child: Text(
-                '${widget.rank}',
-                style: TextStyle(
-                  color: widget.rank <= 3
-                      ? const Color(0xFF7C3AED)
-                      : widget.subtitleColor,
-                  fontWeight: widget.rank <= 3
-                      ? FontWeight.bold
-                      : FontWeight.normal,
-                  fontSize: 13,
-                ),
-              ),
-            ),
+            // Rank
+            rankWidget,
+            const SizedBox(width: 12),
 
-            // Student Avatar & Real Name
+            // Student Avatar
+            CircleAvatar(
+              radius: 19,
+              backgroundColor: isPassed
+                  ? const Color(0xFF10B981).withOpacity(0.15)
+                  : const Color(0xFFEF4444).withOpacity(0.15),
+              backgroundImage:
+                  (_photoUrl != null && _photoUrl!.startsWith('http'))
+                      ? NetworkImage(_photoUrl!)
+                      : null,
+              child: (_photoUrl == null || !_photoUrl!.startsWith('http'))
+                  ? Text(
+                      widget.getInitials(_displayName),
+                      style: TextStyle(
+                        color: isPassed
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+
+            // Student Name & ID / Attempt Badge
             Expanded(
-              flex: 5,
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 17,
-                    backgroundColor: isPassed
-                        ? const Color(0xFF10B981).withOpacity(0.15)
-                        : const Color(0xFFEF4444).withOpacity(0.15),
-                    backgroundImage:
-                        (_photoUrl != null && _photoUrl!.startsWith('http'))
-                            ? NetworkImage(_photoUrl!)
-                            : null,
-                    child: (_photoUrl == null || !_photoUrl!.startsWith('http'))
-                        ? Text(
-                            widget.getInitials(_displayName),
-                            style: TextStyle(
-                              color: isPassed
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFEF4444),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11.5,
-                            ),
-                          )
-                        : null,
+                  Text(
+                    _displayName,
+                    style: TextStyle(
+                      color: widget.textColor,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _displayName,
-                          style: TextStyle(
-                            color: widget.textColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        widget.submission.studentId.length > 8
+                            ? widget.submission.studentId.substring(0, 8)
+                            : widget.submission.studentId,
+                        style: TextStyle(
+                          color: widget.subtitleColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Text(
-                              widget.submission.studentId.length > 8
-                                  ? widget.submission.studentId.substring(0, 8)
-                                  : widget.submission.studentId,
-                              style: TextStyle(
-                                color: widget.subtitleColor,
-                                fontSize: 11,
-                              ),
+                      ),
+                      if (widget.attemptsCount > 1) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Best of ${widget.attemptsCount}',
+                            style: const TextStyle(
+                              color: Color(0xFF7C3AED),
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
                             ),
-                            if (widget.attemptsCount > 1) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF7C3AED)
-                                      .withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  'Best of ${widget.attemptsCount}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF7C3AED),
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            // Score & Pass/Fail status
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${widget.submission.scorePercentage.toInt()}%',
+            // Final Score & Status Badge
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '${widget.submission.scorePercentage.toInt()}%',
+                      style: TextStyle(
+                        color: isPassed
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '(${widget.submission.marksObtained.truncateToDouble() == widget.submission.marksObtained ? widget.submission.marksObtained.toInt() : widget.submission.marksObtained.toStringAsFixed(1)} pts)',
+                      style: TextStyle(
+                        color: widget.subtitleColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isPassed
+                        ? const Color(0xFF10B981).withOpacity(0.12)
+                        : const Color(0xFFEF4444).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    isPassed ? 'PASSED' : 'FAILED',
                     style: TextStyle(
                       color: isPassed
                           ? const Color(0xFF10B981)
                           : const Color(0xFFEF4444),
-                      fontSize: 15,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 0.3,
                     ),
                   ),
-                  Text(
-                    '${widget.submission.marksObtained.truncateToDouble() == widget.submission.marksObtained ? widget.submission.marksObtained.toInt() : widget.submission.marksObtained.toStringAsFixed(1)} / ${widget.submission.totalMarks.toInt()} pts',
-                    style: TextStyle(
-                      color: widget.subtitleColor,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: widget.subtitleColor.withOpacity(0.5),
+              size: 20,
             ),
           ],
         ),
