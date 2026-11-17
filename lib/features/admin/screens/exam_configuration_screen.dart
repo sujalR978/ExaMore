@@ -2,6 +2,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
@@ -33,6 +34,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
   bool _shuffleQuestions = false;
   bool _showResultsImmediately = false;
+
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   ClassroomModel? _selectedClassroom;
   List<ClassroomModel> _availableClassrooms = [];
@@ -75,6 +79,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     _shuffleQuestions = widget.exam?.shuffleQuestions ?? false;
     _showResultsImmediately = widget.exam?.showResultsImmediately ?? false;
+    _startDate = widget.exam?.startDate;
+    _endDate = widget.exam?.endDate;
 
     _selectedClassroom = widget.classroom;
     if (widget.exam?.category != null && widget.exam!.category.isNotEmpty) {
@@ -307,6 +313,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           negativeMarking: negativeMarking,
           passingScorePercentage: passingPercentage,
           allowedAttempts: allowedAttempts,
+          startDate: _startDate,
+          endDate: _endDate,
           shuffleQuestions: _shuffleQuestions,
           showResultsImmediately: _showResultsImmediately,
           updatedAt: DateTime.now(),
@@ -326,6 +334,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           negativeMarking: negativeMarking,
           passingScorePercentage: passingPercentage,
           allowedAttempts: allowedAttempts,
+          startDate: _startDate,
+          endDate: _endDate,
           shuffleQuestions: _shuffleQuestions,
           showResultsImmediately: _showResultsImmediately,
           status: 'Draft',
@@ -1093,7 +1103,48 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
+
+                        // Timeslot Window (Open From & Closes At)
+                        _buildFieldLabel(
+                          'Exam Timeslot Window (Optional)',
+                          subtitleColor,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Set when the assessment opens and automatically closes. After close, students who missed will be marked 0.',
+                          style: TextStyle(
+                            color: subtitleColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        _buildTimeslotTile(
+                          label: 'Opens At (Publish Time)',
+                          dateTime: _startDate,
+                          icon: Icons.event_available_rounded,
+                          onTap: () => _pickTimeslotDateTime(isStart: true),
+                          onClear: () => setState(() => _startDate = null),
+                          textColor: textColor,
+                          subtitleColor: subtitleColor,
+                          borderColor: borderColor,
+                          isDarkMode: isDarkMode,
+                        ),
+                        const SizedBox(height: 10),
+
+                        _buildTimeslotTile(
+                          label: 'Closes At (Deadline Time)',
+                          dateTime: _endDate,
+                          icon: Icons.event_busy_rounded,
+                          onTap: () => _pickTimeslotDateTime(isStart: false),
+                          onClear: () => setState(() => _endDate = null),
+                          textColor: textColor,
+                          subtitleColor: subtitleColor,
+                          borderColor: borderColor,
+                          isDarkMode: isDarkMode,
+                        ),
+                        const SizedBox(height: 20),
 
                         // Shuffle Questions
                         Row(
@@ -1334,6 +1385,129 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
         color: color,
         fontSize: 12.5,
         fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  Future<void> _pickTimeslotDateTime({required bool isStart}) async {
+    final now = DateTime.now();
+    final initialDate = isStart
+        ? (_startDate ?? now)
+        : (_endDate ?? (_startDate ?? now).add(const Duration(days: 1)));
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 730)),
+    );
+
+    if (pickedDate == null || !mounted) return;
+
+    final initialTime = isStart
+        ? (_startDate != null
+            ? TimeOfDay.fromDateTime(_startDate!)
+            : const TimeOfDay(hour: 9, minute: 0))
+        : (_endDate != null
+            ? TimeOfDay.fromDateTime(_endDate!)
+            : const TimeOfDay(hour: 23, minute: 59));
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+
+    if (pickedTime == null || !mounted) return;
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _startDate = combined;
+        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+          _endDate = _startDate!.add(const Duration(hours: 2));
+        }
+      } else {
+        _endDate = combined;
+      }
+    });
+  }
+
+  Widget _buildTimeslotTile({
+    required String label,
+    required DateTime? dateTime,
+    required VoidCallback onTap,
+    required VoidCallback onClear,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color borderColor,
+    required bool isDarkMode,
+    required IconData icon,
+  }) {
+    final isSet = dateTime != null;
+    final displayStr = isSet
+        ? DateFormat('EEE, MMM d, yyyy • h:mm a').format(dateTime)
+        : 'Not set (Immediate / Anytime)';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? const Color(0xFF1E293B).withOpacity(0.5)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSet
+              ? const Color(0xFF7C3AED).withOpacity(0.5)
+              : borderColor,
+        ),
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7C3AED).withOpacity(0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: const Color(0xFF7C3AED), size: 18),
+        ),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: subtitleColor,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text(
+          displayStr,
+          style: TextStyle(
+            color: isSet ? textColor : subtitleColor,
+            fontSize: 13,
+            fontWeight: isSet ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        trailing: isSet
+            ? IconButton(
+                icon: const Icon(Icons.clear_rounded, size: 18),
+                color: subtitleColor,
+                tooltip: 'Clear',
+                onPressed: onClear,
+              )
+            : IconButton(
+                icon: const Icon(Icons.edit_calendar_rounded, size: 20),
+                color: const Color(0xFF7C3AED),
+                tooltip: 'Set Time',
+                onPressed: onTap,
+              ),
+        onTap: onTap,
       ),
     );
   }

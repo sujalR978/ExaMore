@@ -344,6 +344,16 @@ class ExamService {
         'Unauthorized: You are only allowed to attempt tests created by your assigned Admin.',
       );
     }
+    // 1. Verify Timeslot Window
+    final now = DateTime.now();
+    if (exam.startDate != null && now.isBefore(exam.startDate!)) {
+      throw Exception('Exam is not yet open for attempts.');
+    }
+    if (exam.endDate != null && now.isAfter(exam.endDate!)) {
+      throw Exception('Exam is closed. The deadline for this assessment has passed.');
+    }
+
+    // 2. Strict attempt limit verification
     final int allowedAttempts = exam.allowedAttempts > 0 ? exam.allowedAttempts : 1;
     final existingAttemptsQuery = await submissionsRef
         .where('userId', isEqualTo: studentId)

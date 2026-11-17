@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 /// Reusable image widget that transparently renders:
@@ -8,8 +9,10 @@ import 'package:flutter/material.dart';
 /// - Local file paths
 /// - Flutter asset paths
 ///
-/// Also provides full-screen pinch-to-zoom viewing support.
+/// Also provides full-screen pinch-to-zoom viewing support and cached memory
+/// playback with gapless rendering to prevent image flickering during rebuilds.
 class AppImageView extends StatelessWidget {
+  static final Map<String, Uint8List> _base64Cache = {};
   final String? imageSource;
   final double? width;
   final double? height;
@@ -181,6 +184,7 @@ class AppImageView extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        gaplessPlayback: true,
         errorBuilder: (_, __, ___) => errorWidget ?? _defaultErrorWidget(),
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
@@ -200,10 +204,11 @@ class AppImageView extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
+        gaplessPlayback: true,
         errorBuilder: (_, __, ___) => errorWidget ?? _defaultErrorWidget(),
       );
     } else {
-      // Attempt base64 decoding
+      // Attempt base64 decoding with static memory cache & gapless playback
       try {
         String cleanBase64 = src;
         if (cleanBase64.contains(',')) {
@@ -211,12 +216,23 @@ class AppImageView extends StatelessWidget {
         }
         cleanBase64 =
             cleanBase64.replaceAll('\n', '').replaceAll('\r', '').trim();
-        final bytes = base64Decode(cleanBase64);
+
+        Uint8List? bytes = _base64Cache[cleanBase64];
+        if (bytes == null) {
+          bytes = base64Decode(cleanBase64);
+          // Bound cache size to prevent memory leaks if many images are loaded
+          if (_base64Cache.length > 100) {
+            _base64Cache.remove(_base64Cache.keys.first);
+          }
+          _base64Cache[cleanBase64] = bytes;
+        }
+
         imgWidget = Image.memory(
           bytes,
           width: width,
           height: height,
           fit: fit,
+          gaplessPlayback: true,
           errorBuilder: (_, __, ___) => errorWidget ?? _defaultErrorWidget(),
         );
       } catch (_) {
@@ -229,6 +245,7 @@ class AppImageView extends StatelessWidget {
               width: width,
               height: height,
               fit: fit,
+              gaplessPlayback: true,
               errorBuilder: (_, __, ___) =>
                   errorWidget ?? _defaultErrorWidget(),
             );

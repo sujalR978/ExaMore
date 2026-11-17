@@ -123,6 +123,7 @@ class ExamModel {
   final String status; // 'Draft' or 'Published'
   final int allowedAttempts; // 1, 2, 3...
   final DateTime? startDate;
+  final DateTime? endDate; // Closes at (Timeslot end)
   final int enrolledCount;
   final int submissionsCount;
   final List<QuestionModel> questions;
@@ -148,6 +149,7 @@ class ExamModel {
     this.status = 'Draft',
     this.allowedAttempts = 1,
     this.startDate,
+    this.endDate,
     this.enrolledCount = 0,
     this.submissionsCount = 0,
     this.questions = const [],
@@ -155,6 +157,11 @@ class ExamModel {
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
+
+  bool get isScheduled =>
+      startDate != null && DateTime.now().isBefore(startDate!);
+  bool get isClosed => endDate != null && DateTime.now().isAfter(endDate!);
+  bool get isCurrentlyOpen => !isScheduled && !isClosed;
 
   ExamModel sanitizeForStudent() {
     return ExamModel(
@@ -174,6 +181,7 @@ class ExamModel {
       status: status,
       allowedAttempts: allowedAttempts,
       startDate: startDate,
+      endDate: endDate,
       enrolledCount: enrolledCount,
       submissionsCount: submissionsCount,
       questions: questions.map((q) => q.sanitizeForStudent()).toList(),
@@ -200,6 +208,7 @@ class ExamModel {
       'status': status,
       'allowedAttempts': allowedAttempts,
       'startDate': startDate != null ? Timestamp.fromDate(startDate!) : null,
+      'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
       'enrolledCount': enrolledCount,
       'submissionsCount': submissionsCount,
       'questions': questions.map((q) => q.toMap()).toList(),
@@ -229,6 +238,7 @@ class ExamModel {
       status: data['status'] ?? 'Draft',
       allowedAttempts: (data['allowedAttempts'] as num?)?.toInt() ?? 1,
       startDate: (data['startDate'] as Timestamp?)?.toDate(),
+      endDate: (data['endDate'] as Timestamp?)?.toDate(),
       enrolledCount: (data['enrolledCount'] as num?)?.toInt() ?? 0,
       submissionsCount: (data['submissionsCount'] as num?)?.toInt() ?? 0,
       questions: (data['questions'] as List<dynamic>? ?? [])
@@ -256,6 +266,7 @@ class ExamModel {
     String? status,
     int? allowedAttempts,
     DateTime? startDate,
+    DateTime? endDate,
     int? enrolledCount,
     int? submissionsCount,
     List<QuestionModel>? questions,
@@ -281,6 +292,7 @@ class ExamModel {
       status: status ?? this.status,
       allowedAttempts: allowedAttempts ?? this.allowedAttempts,
       startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
       enrolledCount: enrolledCount ?? this.enrolledCount,
       submissionsCount: submissionsCount ?? this.submissionsCount,
       questions: questions ?? this.questions,

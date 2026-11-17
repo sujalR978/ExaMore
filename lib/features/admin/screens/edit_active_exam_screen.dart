@@ -20,11 +20,13 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _idController;
   late final TextEditingController _startDateController;
+  late final TextEditingController _endDateController;
   late final TextEditingController _durationController;
   late final TextEditingController _enrolledController;
 
   late bool _isPublished;
   DateTime? _selectedDateTime;
+  DateTime? _selectedEndDateTime;
   bool _isLoading = false;
 
   @override
@@ -32,11 +34,15 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
     super.initState();
     final exam = widget.exam;
     _selectedDateTime = exam.startDate ?? exam.createdAt;
+    _selectedEndDateTime = exam.endDate;
 
     _titleController = TextEditingController(text: exam.title);
     _idController = TextEditingController(text: exam.examCode);
     _startDateController = TextEditingController(
       text: _formatDisplayDate(_selectedDateTime),
+    );
+    _endDateController = TextEditingController(
+      text: _formatDisplayDate(_selectedEndDateTime),
     );
     _durationController = TextEditingController(
       text: exam.durationMinutes.toString(),
@@ -105,6 +111,37 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
     });
   }
 
+  Future<void> _pickEndDateTime() async {
+    final initialDate = _selectedEndDateTime ??
+        (_selectedDateTime ?? DateTime.now()).add(const Duration(days: 1));
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now().add(const Duration(days: 730)),
+    );
+
+    if (pickedDate == null || !mounted) return;
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialDate),
+    );
+
+    if (pickedTime == null || !mounted) return;
+
+    setState(() {
+      _selectedEndDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
+      _endDateController.text = _formatDisplayDate(_selectedEndDateTime);
+    });
+  }
+
   void _navigateToAnalytics() {
     // Navigate passing the exact active ExamModel instance with valid id
     Navigator.of(context).push(
@@ -130,6 +167,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
         enrolledCount: int.tryParse(_enrolledController.text.trim()) ?? 0,
         status: _isPublished ? 'Published' : 'Draft',
         startDate: _selectedDateTime,
+        endDate: _selectedEndDateTime,
         updatedAt: DateTime.now(),
       );
 
@@ -165,6 +203,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
     _titleController.dispose();
     _idController.dispose();
     _startDateController.dispose();
+    _endDateController.dispose();
     _durationController.dispose();
     _enrolledController.dispose();
     super.dispose();
@@ -442,7 +481,7 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                     const SizedBox(height: 16),
 
                     // Start Date Field (with Date Picker)
-                    _buildFieldLabel('Start Date & Time *', subtitleColor),
+                    _buildFieldLabel('Start Date & Time (Open At)', subtitleColor),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _startDateController,
@@ -463,9 +502,31 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
                         borderColor: borderColor,
                         isDarkMode: isDarkMode,
                       ),
-                      validator: (val) => val == null || val.trim().isEmpty
-                          ? 'Start date cannot be empty'
-                          : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // End Date Field (with Date Picker)
+                    _buildFieldLabel('End Date & Time (Closes At)', subtitleColor),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _endDateController,
+                      readOnly: true,
+                      onTap: _pickEndDateTime,
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: _inputDecoration(
+                        hint: 'No deadline (leave empty for open indefinitely)',
+                        prefixIcon: Icon(
+                          Icons.event_busy_outlined,
+                          color: subtitleColor,
+                          size: 18,
+                        ),
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                      ),
                     ),
                     const SizedBox(height: 16),
 
