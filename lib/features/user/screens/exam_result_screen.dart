@@ -233,10 +233,13 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Score Overview Card
+                    // Score Overview Card (Side by Side Row)
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 18,
+                      ),
                       decoration: BoxDecoration(
                         color: containerColor,
                         borderRadius: BorderRadius.circular(20),
@@ -251,89 +254,99 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                           ),
                         ],
                       ),
-                      child: Column(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Status Badge (Passed / Needs Improvement)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isPassed
-                                  ? (isDark
-                                        ? const Color(0xFF064E3B)
-                                        : const Color(0xFFD1FAE5))
-                                  : (isDark
-                                        ? const Color(0xFF451A03)
-                                        : const Color(0xFFFEF2F2)),
-                              borderRadius: BorderRadius.circular(100),
-                            ),
-                            child: Text(
-                              isPassed ? 'PASSED' : 'NEEDS IMPROVEMENT',
-                              style: TextStyle(
-                                color: isPassed
-                                    ? (isDark
-                                          ? const Color(0xFF34D399)
-                                          : const Color(0xFF065F46))
-                                    : const Color(0xFFDC2626),
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
+                          // Left Column: Status Badge + Marks Secured
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Status Badge (Passed / Needs Improvement)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isPassed
+                                        ? (isDark
+                                              ? const Color(0xFF064E3B)
+                                              : const Color(0xFFD1FAE5))
+                                        : (isDark
+                                              ? const Color(0xFF451A03)
+                                              : const Color(0xFFFEF2F2)),
+                                    borderRadius: BorderRadius.circular(100),
+                                  ),
+                                  child: Text(
+                                    isPassed ? 'PASSED' : 'NEEDS IMPROVEMENT',
+                                    style: TextStyle(
+                                      color: isPassed
+                                          ? (isDark
+                                                ? const Color(0xFF34D399)
+                                                : const Color(0xFF065F46))
+                                          : const Color(0xFFDC2626),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
 
-                          // Marks Secured
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                _submission.marksObtained.toStringAsFixed(
-                                  _submission.marksObtained
-                                              .truncateToDouble() ==
-                                          _submission.marksObtained
-                                      ? 0
-                                      : 1,
+                                // Marks Secured
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      _submission.marksObtained.toStringAsFixed(
+                                        _submission.marksObtained
+                                                    .truncateToDouble() ==
+                                                _submission.marksObtained
+                                            ? 0
+                                            : 1,
+                                      ),
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      '/${_submission.totalMarks.toInt()}',
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.bold,
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Marks Secured',
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '/${_submission.totalMarks.toInt()}',
-                                style: TextStyle(
-                                  color: subtitleColor,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Marks Secured',
-                            style: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 18),
 
-                          // Circular Progress with Score Percentage
+                          const SizedBox(width: 16),
+
+                          // Right Side: Circular Progress with Score Percentage
                           CustomCircularProgress(
                             progress: scoreRatio,
                             text: '${_submission.scorePercentage.toInt()}%',
-                            width: 110,
-                            height: 110,
-                            circleSize: 110,
-                            strokeWidth: 10,
+                            width: 100,
+                            height: 100,
+                            circleSize: 100,
+                            strokeWidth: 9,
                           ),
                         ],
                       ),
