@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/user/screens/active_exam_screen.dart';
-import 'package:prep_mate/features/user/screens/review_answers_screen.dart';
+import 'package:prep_mate/features/user/screens/exam_result_screen.dart';
 
 class ExamdetailPage extends StatefulWidget {
   final ExamModel? exam;
@@ -655,7 +655,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
                               onPressed: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (context) => ReviewAnswersScreen(
+                                    builder: (context) => ExamResultScreen(
                                       exam: _exam,
                                       submission: bestSubmission,
                                     ),
