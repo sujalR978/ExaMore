@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
@@ -24,6 +25,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   String _filterMode = 'All'; // 'All', 'Incorrect', 'Skipped'
   Map<String, String> _selectedAnswers = {};
   bool _isLoading = true;
+  int _userAttemptsCount = 1;
+  bool _canRevealAnswers = true;
 
   @override
   void initState() {
@@ -103,6 +106,51 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       } catch (_) {}
     }
 
+    // 3. Count attempts completed by this user to determine if answers should be revealed
+    final currentUid =
+        FirebaseAuth.instance.currentUser?.uid ?? _submission.studentId;
+    if (currentUid.isNotEmpty && _exam.id.isNotEmpty) {
+      try {
+        final examSubs = await FirebaseFirestore.instance
+            .collection('exams')
+            .doc(_exam.id)
+            .collection('submissions')
+            .where('userId', isEqualTo: currentUid)
+            .get();
+
+        int count = examSubs.docs.length;
+        if (count == 0) {
+          final examSubsByStudentId = await FirebaseFirestore.instance
+              .collection('exams')
+              .doc(_exam.id)
+              .collection('submissions')
+              .where('studentId', isEqualTo: currentUid)
+              .get();
+          count = examSubsByStudentId.docs.length;
+        }
+
+        if (count == 0) {
+          final userAttempts = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(currentUid)
+              .collection('attempts')
+              .where('examId', isEqualTo: _exam.id)
+              .get();
+          count = userAttempts.docs.length;
+        }
+
+        if (count > 0) {
+          _userAttemptsCount = count;
+        }
+      } catch (_) {}
+    }
+
+    final bool isClosed = _exam.isClosed;
+    final bool allAttemptsCompleted =
+        _userAttemptsCount >= _exam.allowedAttempts;
+    _canRevealAnswers =
+        (_exam.allowedAttempts <= 1) || allAttemptsCompleted || isClosed;
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -158,7 +206,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       final isCorrect = !isSkipped && studentChoice == q.correctOptionId;
 
       bool include = true;
-      if (_filterMode == 'Incorrect') {
+      if (_filterMode == 'Incorrect' && _canRevealAnswers) {
         include = !isCorrect && !isSkipped;
       } else if (_filterMode == 'Skipped') {
         include = isSkipped;
@@ -420,12 +468,72 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Scroll down to review each question, your answers, and verified correct solutions.',
+                      _canRevealAnswers
+                          ? 'Scroll down to review each question, your answers, and verified correct solutions.'
+                          : 'Scroll down to review the questions and your recorded choices.',
                       style: TextStyle(color: subtitleColor, fontSize: 13),
                     ),
                     const SizedBox(height: 16),
 
-                    // Filter Chips (All, Incorrect, Skipped)
+                    // Notice if answers are locked for multiple attempts
+                    if (!_canRevealAnswers) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF451A03).withOpacity(0.35)
+                              : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFFF59E0B).withOpacity(0.5),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.lock_clock_rounded,
+                              color: Color(0xFFF59E0B),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Answers Locked • Attempt $_userAttemptsCount of ${_exam.allowedAttempts}',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? const Color(0xFFFDE68A)
+                                          : const Color(0xFF92400E),
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'This exam allows multiple attempts (${_exam.allowedAttempts} max). Correct answers and verified solutions will be revealed once all attempts are completed or when the exam closes.',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? const Color(0xFFFDE68A)
+                                              .withOpacity(0.85)
+                                          : const Color(0xFFB45309),
+                                      fontSize: 12,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Filter Chips (All, Incorrect [if revealed], Skipped)
                     Row(
                       children: [
                         _buildFilterChip(
@@ -438,18 +546,21 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                           isDark: isDark,
                           onTap: () => setState(() => _filterMode = 'All'),
                         ),
-                        const SizedBox(width: 8),
-                        _buildFilterChip(
-                          title: 'Incorrect (${_submission.incorrectAnswers})',
-                          isSelected: _filterMode == 'Incorrect',
-                          selectedColor: const Color(0xFFEF4444),
-                          textColor: textColor,
-                          containerColor: containerColor,
-                          borderColor: borderColor,
-                          isDark: isDark,
-                          onTap: () =>
-                              setState(() => _filterMode = 'Incorrect'),
-                        ),
+                        if (_canRevealAnswers) ...[
+                          const SizedBox(width: 8),
+                          _buildFilterChip(
+                            title:
+                                'Incorrect (${_submission.incorrectAnswers})',
+                            isSelected: _filterMode == 'Incorrect',
+                            selectedColor: const Color(0xFFEF4444),
+                            textColor: textColor,
+                            containerColor: containerColor,
+                            borderColor: borderColor,
+                            isDark: isDark,
+                            onTap: () =>
+                                setState(() => _filterMode = 'Incorrect'),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         _buildFilterChip(
                           title: 'Skipped (${_submission.unattemptedAnswers})',
@@ -531,6 +642,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                             marks: q.marks,
                             isCorrect: isCorrect,
                             isSkipped: isSkipped,
+                            canRevealAnswers: _canRevealAnswers,
                             question: q,
                             studentChoice: studentChoice,
                             studentLetter: studentLetter,
@@ -644,6 +756,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     required double marks,
     required bool isCorrect,
     required bool isSkipped,
+    required bool canRevealAnswers,
     required QuestionModel question,
     required String? studentChoice,
     required String studentLetter,
@@ -654,11 +767,13 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     required Color borderColor,
     required bool isDark,
   }) {
-    final statusColor = isCorrect
-        ? const Color(0xFF10B981)
-        : isSkipped
-        ? const Color(0xFF64748B)
-        : const Color(0xFFEF4444);
+    final statusColor = !canRevealAnswers
+        ? (isSkipped ? const Color(0xFF64748B) : const Color(0xFF7C3AED))
+        : (isCorrect
+            ? const Color(0xFF10B981)
+            : isSkipped
+            ? const Color(0xFF64748B)
+            : const Color(0xFFEF4444));
 
     return Container(
       decoration: BoxDecoration(
@@ -690,11 +805,15 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   Row(
                     children: [
                       Icon(
-                        isCorrect
-                            ? Icons.check_circle_rounded
-                            : isSkipped
-                            ? Icons.remove_circle_outline_rounded
-                            : Icons.cancel_rounded,
+                        !canRevealAnswers
+                            ? (isSkipped
+                                ? Icons.remove_circle_outline_rounded
+                                : Icons.radio_button_checked_rounded)
+                            : (isCorrect
+                                ? Icons.check_circle_rounded
+                                : isSkipped
+                                ? Icons.remove_circle_outline_rounded
+                                : Icons.cancel_rounded),
                         color: statusColor,
                         size: 18,
                       ),
@@ -895,63 +1014,99 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                     Color optionBorder;
                     Widget? statusBadge;
 
-                    if (isThisOptionCorrect) {
-                      optionBg = isDark
-                          ? const Color(0xFF064E3B).withOpacity(0.35)
-                          : const Color(0xFFDCFCE7);
-                      optionBorder = const Color(0xFF10B981);
-                      statusBadge = Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.check_circle_rounded,
-                            color: Color(0xFF10B981),
-                            size: 15,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isThisOptionSelected
-                                ? 'Your Choice (Correct)'
-                                : 'Correct Answer',
-                            style: const TextStyle(
-                              color: Color(0xFF059669),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                    if (canRevealAnswers) {
+                      if (isThisOptionCorrect) {
+                        optionBg = isDark
+                            ? const Color(0xFF064E3B).withOpacity(0.35)
+                            : const Color(0xFFDCFCE7);
+                        optionBorder = const Color(0xFF10B981);
+                        statusBadge = Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: Color(0xFF10B981),
+                              size: 15,
                             ),
-                          ),
-                        ],
-                      );
-                    } else if (isThisOptionSelected) {
-                      optionBg = isDark
-                          ? const Color(0xFF451A03).withOpacity(0.35)
-                          : const Color(0xFFFEE2E2);
-                      optionBorder = const Color(0xFFEF4444);
-                      statusBadge = const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.cancel_rounded,
-                            color: Color(0xFFEF4444),
-                            size: 15,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Your Selection (Incorrect)',
-                            style: TextStyle(
-                              color: Color(0xFFDC2626),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            const SizedBox(width: 4),
+                            Text(
+                              isThisOptionSelected
+                                  ? 'Your Choice (Correct)'
+                                  : 'Correct Answer',
+                              style: const TextStyle(
+                                color: Color(0xFF059669),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      );
+                          ],
+                        );
+                      } else if (isThisOptionSelected) {
+                        optionBg = isDark
+                            ? const Color(0xFF451A03).withOpacity(0.35)
+                            : const Color(0xFFFEE2E2);
+                        optionBorder = const Color(0xFFEF4444);
+                        statusBadge = const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.cancel_rounded,
+                              color: Color(0xFFEF4444),
+                              size: 15,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Your Selection (Incorrect)',
+                              style: TextStyle(
+                                color: Color(0xFFDC2626),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        );
+                      } else {
+                        optionBg = isDark
+                            ? const Color(0xFF1E293B).withOpacity(0.4)
+                            : const Color(0xFFF8FAFC);
+                        optionBorder = isDark
+                            ? Colors.white10
+                            : Colors.grey.shade200;
+                      }
                     } else {
-                      optionBg = isDark
-                          ? const Color(0xFF1E293B).withOpacity(0.4)
-                          : const Color(0xFFF8FAFC);
-                      optionBorder = isDark
-                          ? Colors.white10
-                          : Colors.grey.shade200;
+                      // Answers locked until all attempts completed
+                      if (isThisOptionSelected) {
+                        optionBg = isDark
+                            ? const Color(0xFF7C3AED).withOpacity(0.18)
+                            : const Color(0xFFF3E8FF);
+                        optionBorder = const Color(0xFF7C3AED);
+                        statusBadge = const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline_rounded,
+                              color: Color(0xFF7C3AED),
+                              size: 15,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'Your Selection (Recorded)',
+                              style: TextStyle(
+                                color: Color(0xFF7C3AED),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        );
+                      } else {
+                        optionBg = isDark
+                            ? const Color(0xFF1E293B).withOpacity(0.4)
+                            : const Color(0xFFF8FAFC);
+                        optionBorder = isDark
+                            ? Colors.white10
+                            : Colors.grey.shade200;
+                      }
                     }
 
                     return Container(
@@ -1123,19 +1278,25 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.lightbulb_outline_rounded,
-                      color: Color(0xFF8B5CF6),
+                    Icon(
+                      canRevealAnswers
+                          ? Icons.lightbulb_outline_rounded
+                          : Icons.lock_clock_rounded,
+                      color: canRevealAnswers
+                          ? const Color(0xFF8B5CF6)
+                          : const Color(0xFFF59E0B),
                       size: 15,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        isCorrect
-                            ? 'Great job! You selected Option $correctLetter, which is the verified answer.'
-                            : isSkipped
-                            ? 'You skipped this question. Option $correctLetter is the verified correct answer.'
-                            : 'You chose Option $studentLetter. The correct answer is Option $correctLetter.',
+                        !canRevealAnswers
+                            ? 'The correct answer is locked. Verified solutions will be revealed after all ${_exam.allowedAttempts} attempts are completed.'
+                            : (isCorrect
+                                ? 'Great job! You selected Option $correctLetter, which is the verified answer.'
+                                : isSkipped
+                                ? 'You skipped this question. Option $correctLetter is the verified correct answer.'
+                                : 'You chose Option $studentLetter. The correct answer is Option $correctLetter.'),
                         style: TextStyle(
                           color: subtitleColor,
                           fontSize: 11.5,
