@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 /// - Network URLs (http/https)
 /// - Local file paths
 /// - Flutter asset paths
+///
+/// Also provides full-screen pinch-to-zoom viewing support.
 class AppImageView extends StatelessWidget {
   final String? imageSource;
   final double? width;
@@ -15,6 +17,8 @@ class AppImageView extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Widget? placeholder;
   final Widget? errorWidget;
+  final bool enableFullScreenOnTap;
+  final String? fullScreenTitle;
 
   const AppImageView({
     super.key,
@@ -25,7 +29,142 @@ class AppImageView extends StatelessWidget {
     this.borderRadius,
     this.placeholder,
     this.errorWidget,
+    this.enableFullScreenOnTap = false,
+    this.fullScreenTitle,
   });
+
+  /// Opens an interactive full-screen viewer with pinch-to-zoom & pan.
+  static void showFullScreenViewer(
+    BuildContext context,
+    String imageSource, {
+    String? title,
+  }) {
+    if (imageSource.trim().isEmpty) return;
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withOpacity(0.92),
+        pageBuilder: (context, _, __) {
+          final TransformationController transformController =
+              TransformationController();
+
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  // Interactive Zoomable Image
+                  Center(
+                    child: GestureDetector(
+                      onDoubleTap: () {
+                        if (transformController.value != Matrix4.identity()) {
+                          transformController.value = Matrix4.identity();
+                        } else {
+                          transformController.value = Matrix4.identity()
+                            ..scale(2.5);
+                        }
+                      },
+                      child: InteractiveViewer(
+                        transformationController: transformController,
+                        minScale: 0.5,
+                        maxScale: 6.0,
+                        clipBehavior: Clip.none,
+                        child: AppImageView(
+                          imageSource: imageSource,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Top Header with Title and Close Button
+                  Positioned(
+                    top: 10,
+                    left: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.65),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  title ?? 'Image Preview',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Text(
+                                  'Pinch to zoom • Double tap to reset',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            splashRadius: 20,
+                            tooltip: 'Close',
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Floating Reset Zoom Button at Bottom
+                  Positioned(
+                    bottom: 24,
+                    right: 24,
+                    child: Material(
+                      color: Colors.black.withOpacity(0.65),
+                      shape: const CircleBorder(
+                        side: BorderSide(color: Colors.white24),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.fit_screen_rounded,
+                          color: Colors.white,
+                        ),
+                        tooltip: 'Reset Zoom',
+                        onPressed: () {
+                          transformController.value = Matrix4.identity();
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +209,8 @@ class AppImageView extends StatelessWidget {
         if (cleanBase64.contains(',')) {
           cleanBase64 = cleanBase64.split(',').last;
         }
-        cleanBase64 = cleanBase64.replaceAll('\n', '').replaceAll('\r', '').trim();
+        cleanBase64 =
+            cleanBase64.replaceAll('\n', '').replaceAll('\r', '').trim();
         final bytes = base64Decode(cleanBase64);
         imgWidget = Image.memory(
           bytes,
@@ -102,11 +242,44 @@ class AppImageView extends StatelessWidget {
     }
 
     if (borderRadius != null) {
-      return ClipRRect(
+      imgWidget = ClipRRect(
         borderRadius: borderRadius!,
         child: imgWidget,
       );
     }
+
+    if (enableFullScreenOnTap) {
+      return GestureDetector(
+        onTap: () => showFullScreenViewer(
+          context,
+          src,
+          title: fullScreenTitle,
+        ),
+        child: Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            imgWidget,
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.zoom_in_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return imgWidget;
   }
 

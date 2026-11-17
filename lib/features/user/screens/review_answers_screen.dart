@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 
 class ReviewAnswersScreen extends StatefulWidget {
@@ -453,6 +454,81 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
               ),
               const SizedBox(height: 12),
 
+              // Question Image (if attached)
+              if (question.imageUrl != null &&
+                  question.imageUrl!.isNotEmpty) ...[
+                GestureDetector(
+                  onTap: () {
+                    AppImageView.showFullScreenViewer(
+                      context,
+                      question.imageUrl!,
+                      title: '$questionNum Image',
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    width: double.infinity,
+                    constraints: const BoxConstraints(
+                      minHeight: 160,
+                      maxHeight: 340,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? const Color(0xFF1E293B).withOpacity(0.5)
+                          : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color:
+                            isDarkMode ? Colors.white12 : Colors.grey.shade200,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AppImageView(
+                          imageSource: question.imageUrl,
+                          fit: BoxFit.contain,
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.65),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.fullscreen_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Tap to zoom',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
               // Question Statement
               Text(
                 question.questionText,
@@ -465,162 +541,282 @@ class _ReviewAnswersScreenState extends State<ReviewAnswersScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Renders all 4 options
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: question.options.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, optIdx) {
-                  final option = question.options[optIdx];
-                  final letter = String.fromCharCode(65 + optIdx);
-                  final isThisOptionCorrect =
-                      option.id == question.correctOptionId;
-                  final isThisOptionSelected = option.id == studentChoice;
-
-                  Color optionBg;
-                  Color optionBorder;
-                  Widget? statusBadge;
-
-                  if (isThisOptionCorrect) {
-                    // Correct Option
-                    optionBg = isDarkMode
-                        ? const Color(0xFF064E3B).withOpacity(0.35)
-                        : const Color(0xFFDCFCE7);
-                    optionBorder = const Color(0xFF10B981);
-                    statusBadge = Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF10B981),
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          isThisOptionSelected
-                              ? 'Your Choice (Correct)'
-                              : 'Correct Answer',
-                          style: const TextStyle(
-                            color: Color(0xFF059669),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    );
-                  } else if (isThisOptionSelected) {
-                    // Incorrect Choice selected by Student
-                    optionBg = isDarkMode
-                        ? const Color(0xFF451A03).withOpacity(0.35)
-                        : const Color(0xFFFEE2E2);
-                    optionBorder = const Color(0xFFEF4444);
-                    statusBadge = const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.cancel_rounded,
-                          color: Color(0xFFEF4444),
-                          size: 16,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Your Selection (Incorrect)',
-                          style: TextStyle(
-                            color: Color(0xFFDC2626),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    );
-                  } else {
-                    // Default unselected Option
-                    optionBg = isDarkMode
-                        ? const Color(0xFF1E293B).withOpacity(0.5)
-                        : const Color(0xFFF8FAFC);
-                    optionBorder = isDarkMode
-                        ? Colors.white10
-                        : Colors.grey.shade200;
-                  }
-
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
+              // Descriptive or MCQ Answers
+              if (question.type == 'Descriptive' ||
+                  question.options.isEmpty) ...[
+                Text(
+                  'Your Submitted Answer:',
+                  style: TextStyle(
+                    color: subtitleColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF1E293B).withOpacity(0.6)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
                     ),
-                    decoration: BoxDecoration(
-                      color: optionBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: optionBorder,
-                        width: (isThisOptionCorrect || isThisOptionSelected)
-                            ? 1.5
-                            : 1.0,
+                  ),
+                  child: Text(
+                    (studentChoice ?? '').trim().isEmpty
+                        ? 'No answer submitted by student.'
+                        : (studentChoice ?? ''),
+                    style: TextStyle(
+                      color: (studentChoice ?? '').trim().isEmpty
+                          ? subtitleColor
+                          : textColor,
+                      fontSize: 14,
+                      fontStyle: (studentChoice ?? '').trim().isEmpty
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                // Renders all MCQ options
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: question.options.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, optIdx) {
+                    final option = question.options[optIdx];
+                    final letter = String.fromCharCode(65 + optIdx);
+                    final isThisOptionCorrect =
+                        option.id == question.correctOptionId;
+                    final isThisOptionSelected = option.id == studentChoice;
+                    final hasOptImage =
+                        option.imageUrl != null && option.imageUrl!.isNotEmpty;
+
+                    Color optionBg;
+                    Color optionBorder;
+                    Widget? statusBadge;
+
+                    if (isThisOptionCorrect) {
+                      // Correct Option
+                      optionBg = isDarkMode
+                          ? const Color(0xFF064E3B).withOpacity(0.35)
+                          : const Color(0xFFDCFCE7);
+                      optionBorder = const Color(0xFF10B981);
+                      statusBadge = Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF10B981),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isThisOptionSelected
+                                ? 'Your Choice (Correct)'
+                                : 'Correct Answer',
+                            style: const TextStyle(
+                              color: Color(0xFF059669),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      );
+                    } else if (isThisOptionSelected) {
+                      // Incorrect Choice selected by Student
+                      optionBg = isDarkMode
+                          ? const Color(0xFF451A03).withOpacity(0.35)
+                          : const Color(0xFFFEE2E2);
+                      optionBorder = const Color(0xFFEF4444);
+                      statusBadge = const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.cancel_rounded,
+                            color: Color(0xFFEF4444),
+                            size: 16,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Your Selection (Incorrect)',
+                            style: TextStyle(
+                              color: Color(0xFFDC2626),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      );
+                    } else {
+                      // Default unselected Option
+                      optionBg = isDarkMode
+                          ? const Color(0xFF1E293B).withOpacity(0.5)
+                          : const Color(0xFFF8FAFC);
+                      optionBorder = isDarkMode
+                          ? Colors.white10
+                          : Colors.grey.shade200;
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isThisOptionCorrect
-                                    ? const Color(0xFF10B981)
-                                    : (isThisOptionSelected
-                                          ? const Color(0xFFEF4444)
-                                          : (isDarkMode
-                                                ? Colors.white12
-                                                : Colors.grey.shade300)),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  letter,
-                                  style: TextStyle(
-                                    color:
-                                        (isThisOptionCorrect ||
-                                            isThisOptionSelected)
-                                        ? Colors.white
-                                        : textColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                      decoration: BoxDecoration(
+                        color: optionBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: optionBorder,
+                          width: (isThisOptionCorrect || isThisOptionSelected)
+                              ? 1.5
+                              : 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isThisOptionCorrect
+                                      ? const Color(0xFF10B981)
+                                      : (isThisOptionSelected
+                                            ? const Color(0xFFEF4444)
+                                            : (isDarkMode
+                                                  ? Colors.white12
+                                                  : Colors.grey.shade300)),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    letter,
+                                    style: TextStyle(
+                                      color:
+                                          (isThisOptionCorrect ||
+                                              isThisOptionSelected)
+                                          ? Colors.white
+                                          : textColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                option.text,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 14,
-                                  fontWeight:
-                                      (isThisOptionCorrect ||
-                                          isThisOptionSelected)
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option.text.isNotEmpty
+                                      ? option.text
+                                      : 'Option $letter',
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 14,
+                                    fontWeight:
+                                        (isThisOptionCorrect ||
+                                            isThisOptionSelected)
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (hasOptImage) ...[
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: () {
+                                AppImageView.showFullScreenViewer(
+                                  context,
+                                  option.imageUrl!,
+                                  title: 'Option $letter Image',
+                                );
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                constraints: const BoxConstraints(
+                                  minHeight: 100,
+                                  maxHeight: 200,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode
+                                      ? Colors.black26
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isDarkMode
+                                        ? Colors.white12
+                                        : Colors.grey.shade200,
+                                  ),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    AppImageView(
+                                      imageSource: option.imageUrl,
+                                      fit: BoxFit.contain,
+                                    ),
+                                    Positioned(
+                                      right: 6,
+                                      bottom: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.65),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.zoom_in_rounded,
+                                              color: Colors.white,
+                                              size: 12,
+                                            ),
+                                            SizedBox(width: 3),
+                                            Text(
+                                              'Zoom',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ],
-                        ),
-                        if (statusBadge != null) ...[
-                          const SizedBox(height: 6),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 40),
-                            child: statusBadge,
-                          ),
+                          if (statusBadge != null) ...[
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 40),
+                              child: statusBadge,
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      ),
+                    );
+                  },
+                ),
+              ],
               const SizedBox(height: 14),
 
               // Summary / Resolution Note

@@ -832,21 +832,79 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        // Question Image (if attached)
+                        // Question Image (if attached) - Full & proper view with zoom
                         if (currentQuestion.imageUrl != null &&
                             currentQuestion.imageUrl!.isNotEmpty) ...[
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 16),
-                            width: double.infinity,
-                            constraints: const BoxConstraints(maxHeight: 250),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: borderColor),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: AppImageView(
-                              imageSource: currentQuestion.imageUrl,
-                              fit: BoxFit.contain,
+                          GestureDetector(
+                            onTap: () {
+                              AppImageView.showFullScreenViewer(
+                                context,
+                                currentQuestion.imageUrl!,
+                                title:
+                                    'Question ${_currentIndex + 1} Image',
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 18),
+                              width: double.infinity,
+                              constraints: const BoxConstraints(
+                                minHeight: 180,
+                                maxHeight: 380,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDarkMode
+                                    ? const Color(0xFF1E293B).withOpacity(0.5)
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: borderColor),
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  AppImageView(
+                                    imageSource: currentQuestion.imageUrl,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  // Floating Zoom & Fullscreen indicator
+                                  Positioned(
+                                    top: 10,
+                                    right: 10,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.7),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: Colors.white24,
+                                        ),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.fullscreen_rounded,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Full Screen / Zoom',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -1069,6 +1127,8 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
     required Color borderColor,
     required VoidCallback onSelect,
   }) {
+    final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;
+
     return GestureDetector(
       onTap: onSelect,
       child: AnimatedContainer(
@@ -1082,73 +1142,146 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
               : containerColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF7C3AED)
-                : borderColor,
+            color: isSelected ? const Color(0xFF7C3AED) : borderColor,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF7C3AED)
-                      : (isDarkMode
-                            ? const Color(0xFF94A3B8)
-                            : Colors.grey.shade400),
-                  width: 1.5,
-                ),
-                color: isSelected
-                    ? const Color(0xFF7C3AED)
-                    : Colors.transparent,
-              ),
-              child: Center(
-                child: Text(
-                  optionLetter,
-                  style: TextStyle(
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFF7C3AED)
+                          : (isDarkMode
+                                ? const Color(0xFF94A3B8)
+                                : Colors.grey.shade400),
+                      width: 1.5,
+                    ),
                     color: isSelected
-                        ? Colors.white
-                        : (isDarkMode
-                              ? const Color(0xFF94A3B8)
-                              : Colors.grey.shade600),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                        ? const Color(0xFF7C3AED)
+                        : Colors.transparent,
+                  ),
+                  child: Center(
+                    child: Text(
+                      optionLetter,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : (isDarkMode
+                                  ? const Color(0xFF94A3B8)
+                                  : Colors.grey.shade600),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    text.isNotEmpty ? text : 'Option $optionLetter',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 15.5,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                if (hasImage) ...[
+                  IconButton(
+                    icon: const Icon(Icons.fullscreen_rounded, size: 22),
+                    color: isDarkMode
+                        ? const Color(0xFF94A3B8)
+                        : Colors.grey.shade600,
+                    tooltip: 'View Full Image',
+                    onPressed: () {
+                      AppImageView.showFullScreenViewer(
+                        context,
+                        imageUrl,
+                        title: 'Option $optionLetter Image',
+                      );
+                    },
+                  ),
+                ],
+              ],
+            ),
+            if (hasImage) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () {
+                  AppImageView.showFullScreenViewer(
+                    context,
+                    imageUrl,
+                    title: 'Option $optionLetter Image',
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(
+                    minHeight: 120,
+                    maxHeight: 240,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF1E293B).withOpacity(0.5)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      AppImageView(
+                        imageSource: imageUrl,
+                        fit: BoxFit.contain,
+                      ),
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.65),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.zoom_in_rounded,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Tap to enlarge',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 14),
-            if (imageUrl != null && imageUrl.isNotEmpty) ...[
-              Container(
-                width: 48,
-                height: 48,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: AppImageView(
-                  imageSource: imageUrl,
-                  fit: BoxFit.cover,
-                ),
-              ),
             ],
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 15.5,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-            ),
           ],
         ),
       ),
