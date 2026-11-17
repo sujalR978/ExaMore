@@ -1107,12 +1107,12 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
                         // Timeslot Window (Open From & Closes At)
                         _buildFieldLabel(
-                          'Exam Timeslot Window (Optional)',
+                          'Exam Publishing & Closing Timeslot (Date & Time)',
                           subtitleColor,
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Set when the assessment opens and automatically closes. After close, students who missed will be marked 0.',
+                          'Specify the exact date and time to publish (open) and close the exam. Students can only attempt within this active window.',
                           style: TextStyle(
                             color: subtitleColor,
                             fontSize: 12,
@@ -1121,10 +1121,13 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         const SizedBox(height: 10),
 
                         _buildTimeslotTile(
-                          label: 'Opens At (Publish Time)',
+                          title: 'Publish / Open Exam',
+                          hintText: 'Immediate (available as soon as published)',
                           dateTime: _startDate,
                           icon: Icons.event_available_rounded,
-                          onTap: () => _pickTimeslotDateTime(isStart: true),
+                          onPickDate: () => _pickTimeslotDate(isStart: true),
+                          onPickTime: () => _pickTimeslotTime(isStart: true),
+                          onPickBoth: () => _pickTimeslotDateTime(isStart: true),
                           onClear: () => setState(() => _startDate = null),
                           textColor: textColor,
                           subtitleColor: subtitleColor,
@@ -1134,10 +1137,13 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         const SizedBox(height: 10),
 
                         _buildTimeslotTile(
-                          label: 'Closes At (Deadline Time)',
+                          title: 'Close / Deadline Exam',
+                          hintText: 'No deadline (remains open indefinitely)',
                           dateTime: _endDate,
                           icon: Icons.event_busy_rounded,
-                          onTap: () => _pickTimeslotDateTime(isStart: false),
+                          onPickDate: () => _pickTimeslotDate(isStart: false),
+                          onPickTime: () => _pickTimeslotTime(isStart: false),
+                          onPickBoth: () => _pickTimeslotDateTime(isStart: false),
                           onClear: () => setState(() => _endDate = null),
                           textColor: textColor,
                           subtitleColor: subtitleColor,
@@ -1389,11 +1395,13 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     );
   }
 
-  Future<void> _pickTimeslotDateTime({required bool isStart}) async {
+  Future<void> _pickTimeslotDate({required bool isStart}) async {
     final now = DateTime.now();
-    final initialDate = isStart
-        ? (_startDate ?? now)
-        : (_endDate ?? (_startDate ?? now).add(const Duration(days: 1)));
+    final current = isStart ? _startDate : _endDate;
+    final initialDate = current ??
+        (isStart
+            ? now
+            : (_startDate ?? now).add(const Duration(days: 1)));
 
     final pickedDate = await showDatePicker(
       context: context,
@@ -1404,12 +1412,38 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     if (pickedDate == null || !mounted) return;
 
-    final initialTime = isStart
-        ? (_startDate != null
-            ? TimeOfDay.fromDateTime(_startDate!)
-            : const TimeOfDay(hour: 9, minute: 0))
-        : (_endDate != null
-            ? TimeOfDay.fromDateTime(_endDate!)
+    final existingTime = current != null
+        ? TimeOfDay.fromDateTime(current)
+        : (isStart
+            ? const TimeOfDay(hour: 9, minute: 0)
+            : const TimeOfDay(hour: 23, minute: 59));
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      existingTime.hour,
+      existingTime.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _startDate = combined;
+        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+          _endDate = _startDate!.add(const Duration(hours: 2));
+        }
+      } else {
+        _endDate = combined;
+      }
+    });
+  }
+
+  Future<void> _pickTimeslotTime({required bool isStart}) async {
+    final current = isStart ? _startDate : _endDate;
+    final initialTime = current != null
+        ? TimeOfDay.fromDateTime(current)
+        : (isStart
+            ? const TimeOfDay(hour: 9, minute: 0)
             : const TimeOfDay(hour: 23, minute: 59));
 
     final pickedTime = await showTimePicker(
@@ -1419,10 +1453,16 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     if (pickedTime == null || !mounted) return;
 
+    final now = DateTime.now();
+    final baseDate = current ??
+        (isStart
+            ? now
+            : (_startDate ?? now).add(const Duration(days: 1)));
+
     final combined = DateTime(
-      pickedDate.year,
-      pickedDate.month,
-      pickedDate.day,
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
       pickedTime.hour,
       pickedTime.minute,
     );
@@ -1439,10 +1479,19 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     });
   }
 
+  Future<void> _pickTimeslotDateTime({required bool isStart}) async {
+    await _pickTimeslotDate(isStart: isStart);
+    if (!mounted) return;
+    await _pickTimeslotTime(isStart: isStart);
+  }
+
   Widget _buildTimeslotTile({
-    required String label,
+    required String title,
+    required String hintText,
     required DateTime? dateTime,
-    required VoidCallback onTap,
+    required VoidCallback onPickDate,
+    required VoidCallback onPickTime,
+    required VoidCallback onPickBoth,
     required VoidCallback onClear,
     required Color textColor,
     required Color subtitleColor,
@@ -1451,63 +1500,181 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     required IconData icon,
   }) {
     final isSet = dateTime != null;
-    final displayStr = isSet
-        ? DateFormat('EEE, MMM d, yyyy • h:mm a').format(dateTime)
-        : 'Not set (Immediate / Anytime)';
+    final dateStr = isSet
+        ? DateFormat('EEE, MMM d, yyyy').format(dateTime)
+        : 'Date: Not set';
+    final timeStr =
+        isSet ? DateFormat('h:mm a').format(dateTime) : 'Time: Not set';
 
     return Container(
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDarkMode
             ? const Color(0xFF1E293B).withOpacity(0.5)
             : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isSet
               ? const Color(0xFF7C3AED).withOpacity(0.5)
               : borderColor,
+          width: isSet ? 1.5 : 1.0,
         ),
       ),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF7C3AED).withOpacity(0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: const Color(0xFF7C3AED), size: 18),
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            color: subtitleColor,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          displayStr,
-          style: TextStyle(
-            color: isSet ? textColor : subtitleColor,
-            fontSize: 13,
-            fontWeight: isSet ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-        trailing: isSet
-            ? IconButton(
-                icon: const Icon(Icons.clear_rounded, size: 18),
-                color: subtitleColor,
-                tooltip: 'Clear',
-                onPressed: onClear,
-              )
-            : IconButton(
-                icon: const Icon(Icons.edit_calendar_rounded, size: 20),
-                color: const Color(0xFF7C3AED),
-                tooltip: 'Set Time',
-                onPressed: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: const Color(0xFF7C3AED), size: 18),
               ),
-        onTap: onTap,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      isSet ? 'Scheduled active' : hintText,
+                      style: TextStyle(
+                        color: isSet
+                            ? const Color(0xFF10B981)
+                            : subtitleColor,
+                        fontSize: 11,
+                        fontWeight:
+                            isSet ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSet)
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  color: subtitleColor,
+                  tooltip: 'Clear',
+                  splashRadius: 18,
+                  onPressed: onClear,
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              // Date Button
+              Expanded(
+                flex: 3,
+                child: InkWell(
+                  onTap: onPickDate,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? const Color(0xFF0F172A)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSet
+                            ? const Color(0xFF7C3AED).withOpacity(0.3)
+                            : borderColor,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 15,
+                          color: Color(0xFF7C3AED),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            dateStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isSet ? textColor : subtitleColor,
+                              fontSize: 12.5,
+                              fontWeight: isSet
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Time Button
+              Expanded(
+                flex: 2,
+                child: InkWell(
+                  onTap: onPickTime,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDarkMode
+                          ? const Color(0xFF0F172A)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSet
+                            ? const Color(0xFF7C3AED).withOpacity(0.3)
+                            : borderColor,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 15,
+                          color: Color(0xFF7C3AED),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            timeStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isSet ? textColor : subtitleColor,
+                              fontSize: 12.5,
+                              fontWeight: isSet
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

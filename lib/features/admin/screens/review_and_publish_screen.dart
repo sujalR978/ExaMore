@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
@@ -23,6 +24,8 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
   late bool _shuffleQuestions;
   late bool _showResultsImmediately;
   late double _passingScorePercentage;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   bool _isSavingDraft = false;
   bool _isPublishing = false;
@@ -49,6 +52,8 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
     _shuffleQuestions = _currentExam.shuffleQuestions;
     _showResultsImmediately = _currentExam.showResultsImmediately;
     _passingScorePercentage = _currentExam.passingScorePercentage;
+    _startDate = _currentExam.startDate;
+    _endDate = _currentExam.endDate;
   }
 
   ExamModel _prepareUpdatedExam({String? newStatus}) {
@@ -56,6 +61,8 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       shuffleQuestions: _shuffleQuestions,
       showResultsImmediately: _showResultsImmediately,
       passingScorePercentage: _passingScorePercentage,
+      startDate: _startDate,
+      endDate: _endDate,
       status: newStatus ?? _currentExam.status,
       updatedAt: DateTime.now(),
     );
@@ -288,8 +295,94 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
         _passingScorePercentage = latestExam.passingScorePercentage;
         _shuffleQuestions = latestExam.shuffleQuestions;
         _showResultsImmediately = latestExam.showResultsImmediately;
+        _startDate = latestExam.startDate;
+        _endDate = latestExam.endDate;
       });
     }
+  }
+
+  Future<void> _pickTimeslotDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final current = isStart ? _startDate : _endDate;
+    final initialDate = current ??
+        (isStart
+            ? now
+            : (_startDate ?? now).add(const Duration(days: 1)));
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: now.subtract(const Duration(days: 30)),
+      lastDate: now.add(const Duration(days: 730)),
+    );
+
+    if (pickedDate == null || !mounted) return;
+
+    final existingTime = current != null
+        ? TimeOfDay.fromDateTime(current)
+        : (isStart
+            ? const TimeOfDay(hour: 9, minute: 0)
+            : const TimeOfDay(hour: 23, minute: 59));
+
+    final combined = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      existingTime.hour,
+      existingTime.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _startDate = combined;
+        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+          _endDate = _startDate!.add(const Duration(hours: 2));
+        }
+      } else {
+        _endDate = combined;
+      }
+    });
+  }
+
+  Future<void> _pickTimeslotTime({required bool isStart}) async {
+    final current = isStart ? _startDate : _endDate;
+    final initialTime = current != null
+        ? TimeOfDay.fromDateTime(current)
+        : (isStart
+            ? const TimeOfDay(hour: 9, minute: 0)
+            : const TimeOfDay(hour: 23, minute: 59));
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+
+    if (pickedTime == null || !mounted) return;
+
+    final now = DateTime.now();
+    final baseDate = current ??
+        (isStart
+            ? now
+            : (_startDate ?? now).add(const Duration(days: 1)));
+
+    final combined = DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _startDate = combined;
+        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+          _endDate = _startDate!.add(const Duration(hours: 2));
+        }
+      } else {
+        _endDate = combined;
+      }
+    });
   }
 
   @override
@@ -620,6 +713,40 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                               },
                             ),
                           ],
+                        ),
+
+                        Divider(color: borderColor, height: 20),
+
+                        // Publish / Open Timeslot
+                        _buildReviewTimeslotTile(
+                          title: 'Publish / Open Exam',
+                          subtitle: 'Exam opens automatically at this date & time',
+                          dateTime: _startDate,
+                          onPickDate: () => _pickTimeslotDate(isStart: true),
+                          onPickTime: () => _pickTimeslotTime(isStart: true),
+                          onClear: () => setState(() => _startDate = null),
+                          textColor: textColor,
+                          subtitleColor: subtitleColor,
+                          borderColor: borderColor,
+                          isDarkMode: isDarkMode,
+                          icon: Icons.schedule_send_rounded,
+                        ),
+
+                        Divider(color: borderColor, height: 20),
+
+                        // Close / Deadline Timeslot
+                        _buildReviewTimeslotTile(
+                          title: 'Close / Deadline Exam',
+                          subtitle: 'Exam closes & locks at this date & time',
+                          dateTime: _endDate,
+                          onPickDate: () => _pickTimeslotDate(isStart: false),
+                          onPickTime: () => _pickTimeslotTime(isStart: false),
+                          onClear: () => setState(() => _endDate = null),
+                          textColor: textColor,
+                          subtitleColor: subtitleColor,
+                          borderColor: borderColor,
+                          isDarkMode: isDarkMode,
+                          icon: Icons.event_busy_rounded,
                         ),
                       ],
                     ),
@@ -1051,5 +1178,165 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
   Widget _buildVerticalDivider(Color borderColor) {
     return Container(width: 1, height: 30, color: borderColor);
+  }
+
+  Widget _buildReviewTimeslotTile({
+    required String title,
+    required String subtitle,
+    required DateTime? dateTime,
+    required VoidCallback onPickDate,
+    required VoidCallback onPickTime,
+    required VoidCallback onClear,
+    required Color textColor,
+    required Color subtitleColor,
+    required Color borderColor,
+    required bool isDarkMode,
+    required IconData icon,
+  }) {
+    final dateFormat = DateFormat('MMM dd, yyyy');
+    final timeFormat = DateFormat('hh:mm a');
+
+    final dateStr =
+        dateTime != null ? dateFormat.format(dateTime) : 'Set Date';
+    final timeStr =
+        dateTime != null ? timeFormat.format(dateTime) : 'Set Time';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: const Color(0xFF7C3AED)),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            if (dateTime != null)
+              GestureDetector(
+                onTap: onClear,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    'Clear',
+                    style: TextStyle(
+                      color: Colors.redAccent.shade200,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: TextStyle(color: subtitleColor, fontSize: 11.5),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: onPickDate,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF1E293B).withOpacity(0.5)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: dateTime != null
+                          ? const Color(0xFF7C3AED).withOpacity(0.4)
+                          : borderColor,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: Color(0xFF7C3AED),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          dateStr,
+                          style: TextStyle(
+                            color:
+                                dateTime != null ? textColor : subtitleColor,
+                            fontSize: 12.5,
+                            fontWeight: dateTime != null
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: InkWell(
+                onTap: onPickTime,
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? const Color(0xFF1E293B).withOpacity(0.5)
+                        : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: dateTime != null
+                          ? const Color(0xFF7C3AED).withOpacity(0.4)
+                          : borderColor,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time_rounded,
+                        size: 14,
+                        color: Color(0xFF7C3AED),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          timeStr,
+                          style: TextStyle(
+                            color:
+                                dateTime != null ? textColor : subtitleColor,
+                            fontSize: 12.5,
+                            fontWeight: dateTime != null
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
