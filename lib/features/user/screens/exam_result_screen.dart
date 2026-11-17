@@ -345,7 +345,8 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
 
                                 // Marks Secured
                                 Row(
-                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
@@ -518,8 +519,9 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                                     'This exam allows multiple attempts (${_exam.allowedAttempts} max). Correct answers and verified solutions will be revealed once all attempts are completed or when the exam closes.',
                                     style: TextStyle(
                                       color: isDark
-                                          ? const Color(0xFFFDE68A)
-                                              .withOpacity(0.85)
+                                          ? const Color(
+                                              0xFFFDE68A,
+                                            ).withOpacity(0.85)
                                           : const Color(0xFFB45309),
                                       fontSize: 12,
                                       height: 1.35,
@@ -770,10 +772,10 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     final statusColor = !canRevealAnswers
         ? (isSkipped ? const Color(0xFF64748B) : const Color(0xFF7C3AED))
         : (isCorrect
-            ? const Color(0xFF10B981)
-            : isSkipped
-            ? const Color(0xFF64748B)
-            : const Color(0xFFEF4444));
+              ? const Color(0xFF10B981)
+              : isSkipped
+              ? const Color(0xFF64748B)
+              : const Color(0xFFEF4444));
 
     return Container(
       decoration: BoxDecoration(
@@ -807,13 +809,13 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                       Icon(
                         !canRevealAnswers
                             ? (isSkipped
-                                ? Icons.remove_circle_outline_rounded
-                                : Icons.radio_button_checked_rounded)
+                                  ? Icons.remove_circle_outline_rounded
+                                  : Icons.radio_button_checked_rounded)
                             : (isCorrect
-                                ? Icons.check_circle_rounded
-                                : isSkipped
-                                ? Icons.remove_circle_outline_rounded
-                                : Icons.cancel_rounded),
+                                  ? Icons.check_circle_rounded
+                                  : isSkipped
+                                  ? Icons.remove_circle_outline_rounded
+                                  : Icons.cancel_rounded),
                         color: statusColor,
                         size: 18,
                       ),
@@ -1262,51 +1264,6 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
                   },
                 ),
               ],
-              const SizedBox(height: 12),
-
-              // Summary / Resolution Note
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF1E293B).withOpacity(0.5)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      canRevealAnswers
-                          ? Icons.lightbulb_outline_rounded
-                          : Icons.lock_clock_rounded,
-                      color: canRevealAnswers
-                          ? const Color(0xFF8B5CF6)
-                          : const Color(0xFFF59E0B),
-                      size: 15,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        !canRevealAnswers
-                            ? 'The correct answer is locked. Verified solutions will be revealed after all ${_exam.allowedAttempts} attempts are completed.'
-                            : (isCorrect
-                                ? 'Great job! You selected Option $correctLetter, which is the verified answer.'
-                                : isSkipped
-                                ? 'You skipped this question. Option $correctLetter is the verified correct answer.'
-                                : 'You chose Option $studentLetter. The correct answer is Option $correctLetter.'),
-                        style: TextStyle(
-                          color: subtitleColor,
-                          fontSize: 11.5,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
