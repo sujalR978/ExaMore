@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Reusable image widget that transparently renders:
@@ -237,22 +238,26 @@ class AppImageView extends StatelessWidget {
         );
       } catch (_) {
         // Fallback to local file path
-        try {
-          final file = File(src);
-          if (file.existsSync()) {
-            imgWidget = Image.file(
-              file,
-              width: width,
-              height: height,
-              fit: fit,
-              gaplessPlayback: true,
-              errorBuilder: (_, __, ___) =>
-                  errorWidget ?? _defaultErrorWidget(),
-            );
-          } else {
+        if (!kIsWeb) {
+          try {
+            final file = File(src);
+            if (file.existsSync()) {
+              imgWidget = Image.file(
+                file,
+                width: width,
+                height: height,
+                fit: fit,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) =>
+                    errorWidget ?? _defaultErrorWidget(),
+              );
+            } else {
+              imgWidget = errorWidget ?? _defaultErrorWidget();
+            }
+          } catch (_) {
             imgWidget = errorWidget ?? _defaultErrorWidget();
           }
-        } catch (_) {
+        } else {
           imgWidget = errorWidget ?? _defaultErrorWidget();
         }
       }

@@ -45,88 +45,80 @@ class _InputfieldState extends State<Inputfield> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return SizedBox(
-      width: 308,
-      child: TextFormField(
-        obscureText: widget.isPassword && !isPasswordVisible,
-        controller: widget.controller,
-        focusNode: _focusNode,
-        validator: widget.validator,
-        textAlignVertical: TextAlignVertical.bottom,
-
-        // Text color
-        style: TextStyle(color: theme.colorScheme.onSurface),
-
-        decoration: InputDecoration(
-          hintText: widget.hintText,
-
-          // Hint text color
-          hintStyle: TextStyle(
-            color: isDark ? const Color(0xFF94A3B8) : Colors.grey,
-          ),
-
-          // Background color
-          filled: true,
-          fillColor: isFocused
-              ? isDark
-                    ? const Color(0xFF273449)
-                    : const Color(0xFFEFF6FF)
-              : isDark
-              ? const Color(0xFF1E293B)
-              : const Color(0xFFF8FAFC),
-
-          // Prefix icon
-          prefixIcon: Icon(
-            widget.icon,
-            color: isFocused
-                ? isDark
+    return TextFormField(
+      obscureText: widget.isPassword && !isPasswordVisible,
+      controller: widget.controller,
+      focusNode: _focusNode,
+      validator: widget.validator,
+      style: const TextStyle(
+        color: Color(0xFFF8FAFC),
+        fontSize: 14.5,
+        fontWeight: FontWeight.w400,
+      ),
+      cursorColor: const Color(0xFF8B5CF6),
+      decoration: InputDecoration(
+        hintText: widget.hintText,
+        hintStyle: const TextStyle(
+          color: Color(0xFF64748B),
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        filled: true,
+        fillColor: const Color(0xFF0F172A),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        prefixIcon: Icon(
+          widget.icon,
+          size: 20,
+          color: isFocused
+              ? const Color(0xFFA78BFA)
+              : const Color(0xFF64748B),
+        ),
+        suffixIcon: widget.isPassword
+            ? IconButton(
+                splashRadius: 18,
+                onPressed: () {
+                  setState(() {
+                    isPasswordVisible = !isPasswordVisible;
+                  });
+                },
+                icon: Icon(
+                  isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  size: 20,
+                  color: isFocused
                       ? const Color(0xFFA78BFA)
-                      : const Color(0xFF7C3AED)
-                : isDark
-                ? const Color(0xFF94A3B8)
-                : Colors.grey,
+                      : const Color(0xFF64748B),
+                ),
+              )
+            : null,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFF334155),
+            width: 1,
           ),
-
-          // Password visibility icon
-          suffixIcon: widget.isPassword
-              ? IconButton(
-                  onPressed: () {
-                    setState(() {
-                      isPasswordVisible = !isPasswordVisible;
-                    });
-                  },
-                  icon: Icon(
-                    isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                    color: isFocused
-                        ? isDark
-                              ? const Color(0xFFA78BFA)
-                              : const Color(0xFF7C3AED)
-                        : isDark
-                        ? const Color(0xFF94A3B8)
-                        : Colors.grey,
-                  ),
-                )
-              : null,
-
-          // Normal border
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: isDark ? const Color(0xFF334155) : Colors.transparent,
-              width: 1,
-            ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFF8B5CF6),
+            width: 1.5,
           ),
-
-          // Focused border
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-              color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
-              width: 1.5,
-            ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFFEF4444),
+            width: 1,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFFEF4444),
+            width: 1.5,
           ),
         ),
       ),

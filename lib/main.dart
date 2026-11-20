@@ -5,6 +5,7 @@ import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
+import 'package:prep_mate/features/auth/screens/email_verification_screen.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'firebase_options.dart';
@@ -46,6 +47,10 @@ class MyApp extends StatelessWidget {
               if (authSnapshot.hasData && authSnapshot.data != null) {
                 final user = authSnapshot.data!;
 
+                // Check email verification guard for non-superadmin accounts
+                final bool isGoogleAuth = user.providerData
+                    .any((p) => p.providerId == 'google.com');
+
                 return StreamBuilder<DocumentSnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('users')
@@ -78,6 +83,16 @@ class MyApp extends StatelessWidget {
                           .toString()
                           .toLowerCase()
                           .trim();
+                    }
+
+                    // Enforce email verification protection
+                    if (!user.emailVerified &&
+                        !isGoogleAuth &&
+                        role != 'super_admin') {
+                      return EmailVerificationScreen(
+                        email: user.email,
+                        targetRole: role,
+                      );
                     }
 
                     // Role-based routing gate

@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 
 class AdminExamManagementScreen extends StatelessWidget {
   final String adminUid;
@@ -271,57 +272,11 @@ class AdminExamManagementScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: isDark
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  title: Text(
-                    '$adminName\'s Exams',
-                    style: TextStyle(
-                      color: isDark
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
-                ),
-              ),
-            ),
-          ),
-        ),
+      appBar: AdminTopBar(
+        title: '$adminName\'s Exams',
+        subtitle: 'Instructor Managed Assessments',
+        showBackButton: true,
+        onBackPressed: () => Navigator.pop(context),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance

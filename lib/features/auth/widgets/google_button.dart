@@ -273,44 +273,54 @@ class _GooglebuttonState extends State<Googlebutton> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E2638),
+          side: const BorderSide(
+            color: Color(0xFF334155),
+            width: 1,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-      ),
-      onPressed: _isLoading ? null : _handleGoogleSignIn,
-      child: _isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/image/google_logo.png',
-                  height: 20,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.g_mobiledata, size: 24),
+        onPressed: _isLoading ? null : _handleGoogleSignIn,
+        child: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  "Continue with Google",
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/icons/google.png',
+                    height: 19,
+                    width: 19,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.g_mobiledata, size: 22, color: Colors.white),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    "Continue with Google",
+                    style: TextStyle(
+                      color: Color(0xFFF8FAFC),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14.5,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }

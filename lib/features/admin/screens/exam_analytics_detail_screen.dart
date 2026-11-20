@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/csv_export_service.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
@@ -230,46 +231,14 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
           backgroundColor: backgroundColor,
           key: _scaffoldKey,
           drawer: const AdminMenuDrawer(),
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            scrolledUnderElevation: 0.5,
-            leading: Navigator.canPop(context)
-                ? IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.pop(context),
-                  )
-                : IconButton(
-                    icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-            title: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.analytics_rounded,
-                    color: Color(0xFF7C3AED),
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Exam Submissions',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-            centerTitle: true,
+          appBar: AdminTopBar(
+            title: activeExam != null && activeExam.title.isNotEmpty
+                ? activeExam.title
+                : 'Exam Submissions',
+            subtitle: 'Submissions & Candidate Analytics',
+            showBackButton: Navigator.canPop(context),
+            onBackPressed: () => Navigator.pop(context),
+            onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
             actions: [
               if (activeExam != null && activeExam.id.isNotEmpty)
                 PopupMenuButton<String>(

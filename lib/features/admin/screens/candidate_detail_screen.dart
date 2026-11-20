@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 
 class CandidateDetailScreen extends StatefulWidget {
   final String examId;
@@ -116,23 +117,11 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: surfaceColor,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: textColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Candidate Submission',
-          style: TextStyle(
-            color: textColor,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      appBar: AdminTopBar(
+        title: 'Candidate Submission',
+        subtitle: 'Student Answer Sheet & Scoring',
+        showBackButton: true,
+        onBackPressed: () => Navigator.pop(context),
       ),
       body: StreamBuilder<StudentSubmissionModel>(
         stream: _examService.getCandidateDetailStream(

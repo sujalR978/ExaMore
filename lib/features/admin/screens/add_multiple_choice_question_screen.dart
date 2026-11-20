@@ -10,6 +10,7 @@ import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/review_and_publish_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class AddMultipleChoiceQuestionScreen extends StatefulWidget {
@@ -595,43 +596,15 @@ class _AddMultipleChoiceQuestionScreenState
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 20,
-            color: textColor,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.isForQuestionBank
-                  ? 'Question Bank'
-                  : (_editingIndex != null ? 'Edit Question' : 'Exam Questions'),
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              widget.isForQuestionBank
-                  ? 'Repository Question Item'
-                  : 'Step 2 of 3 • Add & Manage Questions',
-              style: TextStyle(
-                color: subtitleColor,
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
+      appBar: AdminTopBar(
+        title: widget.isForQuestionBank
+            ? 'Question Bank'
+            : (_editingIndex != null ? 'Edit Question' : 'Exam Questions'),
+        subtitle: widget.isForQuestionBank
+            ? 'Repository Question Item'
+            : 'Step 2 of 3 • Add & Manage Questions',
+        showBackButton: true,
+        onBackPressed: () => Navigator.pop(context),
       ),
       body: Column(
         children: [
@@ -1389,14 +1362,19 @@ class _AddMultipleChoiceQuestionScreenState
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Answer Options & Correct Key',
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
+                              Flexible(
+                                child: Text(
+                                  'Answer Options & Correct Key',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 'Tap letter to set correct',
                                 style: TextStyle(
@@ -1563,6 +1541,8 @@ class _AddMultipleChoiceQuestionScreenState
                                           color: subtitleColor,
                                           tooltip: 'Attach image to this option',
                                           visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                                           onPressed: () =>
                                               _pickOptionImage(idx),
                                         ),
@@ -1571,12 +1551,11 @@ class _AddMultipleChoiceQuestionScreenState
                                       if (isCorrect)
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
+                                            horizontal: 5,
                                             vertical: 2,
                                           ),
-                                          margin: const EdgeInsets.only(
-                                            left: 4,
-                                            right: 6,
+                                          margin: const EdgeInsets.symmetric(
+                                            horizontal: 4,
                                           ),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFF10B981)
@@ -1587,7 +1566,7 @@ class _AddMultipleChoiceQuestionScreenState
                                           child: const Text(
                                             'Correct',
                                             style: TextStyle(
-                                              fontSize: 10,
+                                              fontSize: 9.5,
                                               fontWeight: FontWeight.bold,
                                               color: Color(0xFF10B981),
                                             ),
@@ -1602,6 +1581,7 @@ class _AddMultipleChoiceQuestionScreenState
                                           ),
                                           visualDensity: VisualDensity.compact,
                                           padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                                           onPressed: () =>
                                               _handleRemoveOption(idx),
                                         ),

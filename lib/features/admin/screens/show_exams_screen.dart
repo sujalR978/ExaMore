@@ -9,6 +9,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 
 class Showexamesscreen extends StatefulWidget {
@@ -213,54 +214,10 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
-                    },
-                  ),
-                  title: Text(
-                    isSuperAdmin ? 'All Platform Exams' : 'My Active Exams',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
-                ),
-              ),
-            ),
-          ),
-        ),
+      appBar: AdminTopBar(
+        title: isSuperAdmin ? 'All Platform Exams' : 'My Active Exams',
+        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Published Assessments',
+        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

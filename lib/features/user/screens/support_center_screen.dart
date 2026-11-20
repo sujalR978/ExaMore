@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -82,10 +83,16 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
     }
     if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
+    } else if (photoUrl.startsWith('assets/')) {
+      return AssetImage(photoUrl);
     } else {
-      final file = File(photoUrl);
-      if (file.existsSync()) {
-        return FileImage(file);
+      if (!kIsWeb) {
+        try {
+          final file = File(photoUrl);
+          if (file.existsSync()) {
+            return FileImage(file);
+          }
+        } catch (_) {}
       }
       return const NetworkImage(
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',

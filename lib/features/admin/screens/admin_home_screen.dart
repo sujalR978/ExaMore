@@ -16,6 +16,7 @@ import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -468,56 +469,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }) {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-        backgroundColor: surfaceColor,
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: textColor),
-          tooltip: 'Menu',
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.school_rounded,
-                color: Color(0xFF7C3AED),
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'ExaMore',
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 17,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                Text(
-                  isSuperAdmin ? 'Super Admin Portal' : 'Classroom Dashboard',
-                  style: TextStyle(
-                    color: subtitleColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+      appBar: AdminTopBar(
+        title: 'ExaMore',
+        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Classroom Dashboard',
+        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<Map<String, dynamic>>(
         stream: _metricsStream,

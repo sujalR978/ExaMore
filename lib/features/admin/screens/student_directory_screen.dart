@@ -3,8 +3,11 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 
 class StudentDirectoryScreen extends StatefulWidget {
   const StudentDirectoryScreen({super.key});
@@ -95,10 +98,16 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     }
     if (photoUrl.startsWith('http')) {
       return NetworkImage(photoUrl);
+    } else if (photoUrl.startsWith('assets/')) {
+      return AssetImage(photoUrl);
     } else {
-      final file = File(photoUrl);
-      if (file.existsSync()) {
-        return FileImage(file);
+      if (!kIsWeb) {
+        try {
+          final file = File(photoUrl);
+          if (file.existsSync()) {
+            return FileImage(file);
+          }
+        } catch (_) {}
       }
       return const NetworkImage(
         'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
@@ -107,89 +116,200 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   void _showStudentInfo(Map<String, dynamic> studentData) {
-    final String name = studentData['name']?.toString() ?? 'Unnamed Student';
-    final String email = studentData['email']?.toString() ?? 'No email';
-    final String phone = studentData['phone']?.toString() ?? 'No phone';
-    final String major =
-        studentData['major']?.toString() ??
-        studentData['department']?.toString() ??
-        'General';
+    final String name = studentData['name']?.toString().trim().isNotEmpty == true
+        ? studentData['name'].toString().trim()
+        : 'Unnamed Student';
+    final String email = studentData['email']?.toString().trim().isNotEmpty == true
+        ? studentData['email'].toString().trim()
+        : 'No email';
+    final String phone = studentData['phone']?.toString().trim().isNotEmpty == true
+        ? studentData['phone'].toString().trim()
+        : 'No phone';
+    final String major = studentData['major']?.toString().trim().isNotEmpty == true
+        ? studentData['major'].toString().trim()
+        : (studentData['department']?.toString().trim().isNotEmpty == true
+            ? studentData['department'].toString().trim()
+            : 'General');
     final String academicLevel =
-        studentData['academicLevel']?.toString() ?? 'N/A';
+        studentData['academicLevel']?.toString().trim().isNotEmpty == true
+            ? studentData['academicLevel'].toString().trim()
+            : 'N/A';
     final String photoUrl = studentData['photoUrl']?.toString() ?? '';
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundImage: _getProfileImage(photoUrl),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? const Color(0xFF171E31) : Colors.white;
+        final borderColor = isDark ? const Color(0xFF28334D) : const Color(0xFFE2E8F0);
+        final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+        final labelColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+        final dividerColor = isDark ? const Color(0xFF28334D) : const Color(0xFFE2E8F0);
+        final avatarBg = isDark ? Colors.white : const Color(0xFFF1F5F9);
+
+        return Dialog(
+          backgroundColor: cardBg,
+          elevation: 12,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: borderColor, width: 1),
+          ),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Student Header (Avatar + Name)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: avatarBg,
+                          border: Border.all(
+                            color: const Color(0xFF7C3AED).withOpacity(0.2),
+                            width: 1.5,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.transparent,
+                          backgroundImage: _getProfileImage(photoUrl),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Divider(height: 1, thickness: 1, color: dividerColor),
+                  const SizedBox(height: 16),
+
+                  // Information rows with responsive layouts and non-overflowing text
+                  _buildInfoRow(
+                    icon: Icons.mail_outline_rounded,
+                    label: 'Email',
+                    value: email,
+                    labelColor: labelColor,
+                    valueColor: textColor,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildInfoRow(
+                    icon: Icons.phone_outlined,
+                    label: 'Phone',
+                    value: phone,
+                    labelColor: labelColor,
+                    valueColor: textColor,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildInfoRow(
+                    icon: Icons.science_outlined,
+                    label: 'Major',
+                    value: major,
+                    labelColor: labelColor,
+                    valueColor: textColor,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildInfoRow(
+                    icon: Icons.school_outlined,
+                    label: 'Academic Level',
+                    value: academicLevel,
+                    labelColor: labelColor,
+                    valueColor: textColor,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Actions: Right-aligned styled Close button
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF7C3AED),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Close',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Divider(),
-            _buildInfoRow(Icons.email_outlined, 'Email', email),
-            const SizedBox(height: 10),
-            _buildInfoRow(Icons.phone_outlined, 'Phone', phone),
-            const SizedBox(height: 10),
-            _buildInfoRow(Icons.science_outlined, 'Major', major),
-            const SizedBox(height: 10),
-            _buildInfoRow(
-              Icons.school_outlined,
-              'Academic Level',
-              academicLevel,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Close',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color labelColor,
+    required Color valueColor,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: const Color(0xFF7C3AED)),
-        const SizedBox(width: 10),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            icon,
+            size: 20,
+            color: const Color(0xFF7C3AED),
+          ),
+        ),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: labelColor,
+                ),
               ),
+              const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                  color: valueColor,
+                  height: 1.25,
                 ),
               ),
             ],
@@ -328,54 +448,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDarkMode ? 0.2 : 0.05,
-                    ),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.menu, color: textColor),
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                  title: Text(
-                    isSuperAdmin ? 'All System Students' : 'My Students',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
-                ),
-              ),
-            ),
-          ),
-        ),
+      appBar: AdminTopBar(
+        title: isSuperAdmin ? 'All System Students' : 'My Students',
+        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Student Directory',
+        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _studentStream,

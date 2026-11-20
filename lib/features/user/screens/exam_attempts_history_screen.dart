@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/screens/exam_result_screen.dart';
@@ -22,6 +23,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  String _selectedTimeFilter = 'All Time';
 
   String _assignedAdminId = '';
   bool _isLoadingUser = true;
@@ -103,65 +105,48 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    final containerColor = theme.colorScheme.surface;
-    final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final bgColor = AppColors.background(isDarkMode);
+    final cardColor = AppColors.card(isDarkMode);
+    final surfaceSec = AppColors.surfaceSecondary(isDarkMode);
+    final borderColor = AppColors.border(isDarkMode);
+    final textPrimary = AppColors.textPrimary(isDarkMode);
+    final textSecondary = AppColors.textSecondary(isDarkMode);
+    final textMuted = AppColors.textMuted(isDarkMode);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            const Icon(Icons.bar_chart_rounded, color: Color(0xFFF59E0B), size: 22),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Exam Attempts History',
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(
-                      Icons.arrow_back,
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                    ),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  title: Text(
-                    'Exam Attempts History',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(
+                  'Review your scores and performance across all exam attempts.',
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
-          ),
+          ],
         ),
       ),
       body: _isLoadingUser || _attemptsStream == null
@@ -196,16 +181,32 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                 // Filter by assigned adminId if available, then group by exam title
                 final Map<String, List<dynamic>> groupedData = {};
 
+                final now = DateTime.now();
                 for (var item in rawAttempts) {
                   final submission =
                       item['submission'] as StudentSubmissionModel;
                   final examAdminId = (item['adminId'] ?? '').toString().trim();
 
-                  // Cohort isolation: If user has an assigned instructor, only show their exams
+                  // Cohort isolation
                   if (_assignedAdminId.isNotEmpty &&
                       examAdminId.isNotEmpty &&
                       examAdminId != _assignedAdminId) {
                     continue;
+                  }
+
+                  // Time filter
+                  if (_selectedTimeFilter == 'Past 7 Days') {
+                    if (now.difference(submission.submittedAt).inDays > 7) {
+                      continue;
+                    }
+                  } else if (_selectedTimeFilter == 'Past 30 Days') {
+                    if (now.difference(submission.submittedAt).inDays > 30) {
+                      continue;
+                    }
+                  } else if (_selectedTimeFilter == 'This Year') {
+                    if (submission.submittedAt.year != now.year) {
+                      continue;
+                    }
                   }
 
                   final key = submission.examTitle.isNotEmpty
@@ -222,67 +223,114 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                 }).toList();
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 8),
-                      Text(
-                        'Past Performance',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Review your scores and breakdown across all exam attempts.',
-                        style: TextStyle(color: subtitleColor, fontSize: 14),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Search Bar Widget
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: "Search exam or subject...",
-                          hintStyle: TextStyle(
-                            color: subtitleColor,
-                            fontSize: 13,
-                          ),
-                          prefixIcon: Icon(Icons.search, color: subtitleColor),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: Icon(
-                                    Icons.clear,
-                                    color: subtitleColor,
-                                    size: 18,
+                      // Search and Filter Header
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              style: const TextStyle(color: Color(0xFFF8FAFC), fontSize: 14),
+                              decoration: InputDecoration(
+                                hintText: "Search exam, subject or date...",
+                                hintStyle: TextStyle(
+                                  color: textMuted,
+                                  fontSize: 13,
+                                ),
+                                prefixIcon: Icon(Icons.search_rounded, color: textMuted, size: 20),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(
+                                          Icons.clear_rounded,
+                                          color: textSecondary,
+                                          size: 18,
+                                        ),
+                                        onPressed: () => _searchController.clear(),
+                                      )
+                                    : null,
+                                filled: true,
+                                fillColor: cardColor,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  borderSide: BorderSide(color: borderColor),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  borderSide: BorderSide(color: borderColor),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF7C3AED),
+                                    width: 1.5,
                                   ),
-                                  onPressed: () => _searchController.clear(),
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: containerColor,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16.0),
-                            borderSide: BorderSide(color: borderColor),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16.0),
-                            borderSide: BorderSide(color: borderColor),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16.0),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF7C3AED),
-                              width: 1.5,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                              ),
                             ),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
+                          const SizedBox(width: 12),
+                          PopupMenuButton<String>(
+                            tooltip: 'Filter by Time',
+                            color: cardColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: borderColor),
+                            ),
+                            initialValue: _selectedTimeFilter,
+                            onSelected: (val) {
+                              setState(() {
+                                _selectedTimeFilter = val;
+                              });
+                            },
+                            itemBuilder: (context) => [
+                              'All Time',
+                              'Past 7 Days',
+                              'Past 30 Days',
+                              'This Year',
+                            ].map((f) {
+                              final isSel = f == _selectedTimeFilter;
+                              return PopupMenuItem<String>(
+                                value: f,
+                                child: Text(
+                                  f,
+                                  style: TextStyle(
+                                    color: isSel ? const Color(0xFF7C3AED) : textPrimary,
+                                    fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.calendar_today_rounded, size: 15, color: textSecondary),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _selectedTimeFilter,
+                                    style: TextStyle(
+                                      color: textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: textSecondary),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                       const SizedBox(height: 20),
 
@@ -295,32 +343,248 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                   ? 'No exam attempts recorded yet.'
                                   : 'No exams found matching "$_searchQuery"',
                               style: TextStyle(
-                                color: subtitleColor,
+                                color: textSecondary,
                                 fontSize: 14,
                               ),
                             ),
                           ),
                         )
                       else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filteredEntries.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 20),
-                          itemBuilder: (context, index) {
-                            final entry = filteredEntries[index];
-                            final examTitle = entry.key;
-                            final attemptsList = entry.value;
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            const minTableWidth = 560.0;
+                            final tableWidth = constraints.maxWidth < minTableWidth
+                                ? minTableWidth
+                                : constraints.maxWidth;
 
-                            return _buildExamGroupCard(
-                              examTitle: examTitle,
-                              containerColor: containerColor,
-                              textColor: textColor,
-                              subtitleColor: subtitleColor,
-                              borderColor: borderColor,
-                              isDarkMode: isDarkMode,
-                              attempts: attemptsList,
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              physics: const BouncingScrollPhysics(),
+                              child: SizedBox(
+                                width: tableWidth,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Table Columns Header
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: surfaceSec,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: borderColor, width: 0.8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 7,
+                                            child: Text(
+                                              'Exam / Subject',
+                                              style: TextStyle(
+                                                color: textMuted,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 5,
+                                            child: Text(
+                                              'Date',
+                                              style: TextStyle(
+                                                color: textMuted,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 5,
+                                            child: Text(
+                                              'Score',
+                                              style: TextStyle(
+                                                color: textMuted,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 85,
+                                            child: Text(
+                                              'Result',
+                                              textAlign: TextAlign.right,
+                                              style: TextStyle(
+                                                color: textMuted,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+
+                                    // List of Exam Attempts
+                                    ListView.separated(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: filteredEntries.length,
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 8),
+                                      itemBuilder: (context, index) {
+                                        final entry = filteredEntries[index];
+                                        final attemptsList = entry.value;
+
+                                        return Column(
+                                          children: List.generate(attemptsList.length, (attemptIdx) {
+                                            final item = attemptsList[attemptIdx];
+                                            final examId = (item['examId'] ?? '').toString();
+                                            final submission = item['submission'] as StudentSubmissionModel;
+
+                                            final isPass = submission.isPassed || submission.scorePercentage >= 50;
+                                            final scoreText =
+                                                '${submission.marksObtained.toInt()} / ${submission.totalMarks.toInt()} (${submission.scorePercentage.toInt()}%)';
+
+                                            return Container(
+                                              margin: const EdgeInsets.only(bottom: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                              decoration: BoxDecoration(
+                                                color: cardColor,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: borderColor, width: 0.8),
+                                              ),
+                                              child: InkWell(
+                                                onTap: () => _handleAttemptTap(examId: examId, submission: submission),
+                                                child: Row(
+                                                  children: [
+                                                    // Left Icon + Exam Title & Subject
+                                                    Expanded(
+                                                      flex: 7,
+                                                      child: Row(
+                                                        children: [
+                                                          Container(
+                                                            width: 38,
+                                                            height: 38,
+                                                            decoration: BoxDecoration(
+                                                              color: const Color(0xFF7C3AED).withOpacity(0.15),
+                                                              borderRadius: BorderRadius.circular(10),
+                                                            ),
+                                                            child: const Icon(
+                                                              Icons.assignment_rounded,
+                                                              color: Color(0xFF7C3AED),
+                                                              size: 18,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          Expanded(
+                                                            child: Column(
+                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                              children: [
+                                                                Text(
+                                                                  submission.examTitle.isNotEmpty
+                                                                      ? submission.examTitle
+                                                                      : 'Calculus Basics',
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                  style: TextStyle(
+                                                                    color: textPrimary,
+                                                                    fontWeight: FontWeight.bold,
+                                                                    fontSize: 13.5,
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(height: 2),
+                                                                Text(
+                                                                  'Completed Assessment',
+                                                                  maxLines: 1,
+                                                                  overflow: TextOverflow.ellipsis,
+                                                                  style: TextStyle(
+                                                                    color: textMuted,
+                                                                    fontSize: 11.5,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    // Date
+                                                    Expanded(
+                                                      flex: 5,
+                                                      child: Row(
+                                                        children: [
+                                                          Icon(Icons.calendar_today_outlined, size: 13, color: textMuted),
+                                                          const SizedBox(width: 6),
+                                                          Expanded(
+                                                            child: Text(
+                                                              _formatDate(submission.submittedAt),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                              style: TextStyle(
+                                                                color: textSecondary,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    // Score
+                                                    Expanded(
+                                                      flex: 5,
+                                                      child: Text(
+                                                        scoreText,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                        style: TextStyle(
+                                                          color: textPrimary,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 12.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    // Result Badge + Arrow
+                                                    SizedBox(
+                                                      width: 85,
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.end,
+                                                        children: [
+                                                          Container(
+                                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                            decoration: BoxDecoration(
+                                                              color: isPass
+                                                                  ? const Color(0xFF10B981).withOpacity(0.18)
+                                                                  : const Color(0xFFEF4444).withOpacity(0.18),
+                                                              borderRadius: BorderRadius.circular(20),
+                                                            ),
+                                                            child: Text(
+                                                              isPass ? 'Passed' : 'Failed',
+                                                              style: TextStyle(
+                                                                color: isPass
+                                                                    ? const Color(0xFF10B981)
+                                                                    : const Color(0xFFEF4444),
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 11,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 6),
+                                                          Icon(Icons.chevron_right_rounded, size: 16, color: textMuted),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          }),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
                             );
                           },
                         ),

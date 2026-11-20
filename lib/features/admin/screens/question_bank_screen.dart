@@ -7,6 +7,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/question_file_parser.dart';
 
@@ -450,69 +451,10 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
       drawer: const AdminMenuDrawer(),
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: Padding(
-                    padding: const EdgeInsets.only(left: 16.0),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.menu_book,
-                          color: isDarkMode
-                              ? const Color(0xFFFBBF24)
-                              : const Color(0xFF1E1B4B),
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                  title: Text(
-                    isSuperAdmin ? 'Examora (All Banks)' : 'Examora Question Bank',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: false,
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.menu, color: textColor),
-                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+      appBar: AdminTopBar(
+        title: isSuperAdmin ? 'Examora (All Banks)' : 'Examora Question Bank',
+        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Centralized Questions',
+        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<List<QuestionModel>>(
         stream: _questionStream,

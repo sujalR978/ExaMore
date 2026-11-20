@@ -8,6 +8,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class ExamConfigurationScreen extends StatefulWidget {
@@ -398,43 +399,15 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 20,
-            color: textColor,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _isEditing ? 'Edit Exam' : 'Create New Exam',
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              'Step 1 of 3 • Basic Configuration',
-              style: TextStyle(
-                color: subtitleColor,
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
+      appBar: AdminTopBar(
+        title: _isEditing ? 'Edit Exam' : 'Create New Exam',
+        subtitle: 'Step 1 of 3 • Basic Configuration',
+        showBackButton: true,
+        onBackPressed: () => Navigator.pop(context),
         actions: [
           if (_isLockedToClassroom)
             Padding(
-              padding: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.only(right: 8),
               child: Center(
                 child: Container(
                   padding:

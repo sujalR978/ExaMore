@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 
 class EditActiveExamScreen extends StatefulWidget {
   final ExamModel exam;
@@ -223,65 +224,23 @@ class _EditActiveExamScreenState extends State<EditActiveExamScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
+      appBar: AdminTopBar(
+        title: 'Edit Active Exam',
+        subtitle: widget.exam.title,
+        showBackButton: true,
+        onBackPressed: _handleCancel,
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.analytics_outlined,
+              color: Color(0xFFF59E0B),
+              size: 22,
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: isDarkMode ? 0.2 : 0.05,
-                    ),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: _handleCancel,
-                  ),
-                  title: Text(
-                    'Edit Active Exam',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFF1E1B4B),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.analytics_outlined,
-                        color: Color(0xFFFBBF24),
-                      ),
-                      tooltip: 'View Live Analytics',
-                      onPressed: _navigateToAnalytics,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ),
-              ),
-            ),
+            tooltip: 'View Live Analytics',
+            onPressed: _navigateToAnalytics,
           ),
-        ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

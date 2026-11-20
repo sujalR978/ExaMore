@@ -47,15 +47,11 @@ class _SplashState extends State<Splash> {
           children: [
             // Logo
             Container(
-              width: 100,
-              height: 100,
-
+              width: 110,
+              height: 110,
               padding: const EdgeInsets.all(4),
-
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 4, 4, 4),
-                borderRadius: BorderRadius.circular(20),
-
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.15),
@@ -64,10 +60,9 @@ class _SplashState extends State<Splash> {
                   ),
                 ],
               ),
-
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset('assets/image/image.png', fit: BoxFit.cover),
+                borderRadius: BorderRadius.circular(20),
+                child: Image.asset('assets/image/image.png', fit: BoxFit.contain),
               ),
             ),
 
@@ -75,9 +70,9 @@ class _SplashState extends State<Splash> {
 
             // App name
             const Text(
-              "Examora",
+              "ExaMore",
               style: TextStyle(
-                color: Colors.black,
+                color: Color(0xFF0F172A),
                 fontSize: 32,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.5,

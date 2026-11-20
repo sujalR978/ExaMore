@@ -32,8 +32,8 @@ class CustomBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final surfaceColor = theme.colorScheme.surface;
-    final borderColor = isDarkMode ? Colors.white10 : Colors.grey.shade200;
+    final surfaceColor = isDarkMode ? const Color(0xFF13192B) : theme.colorScheme.surface;
+    final borderColor = isDarkMode ? const Color(0xFF28334D) : Colors.grey.shade200;
     final inactiveColor =
         isDarkMode ? const Color(0xFF94A3B8) : Colors.grey.shade600;
 
@@ -41,12 +41,12 @@ class CustomBottomNavBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: surfaceColor,
         border: Border(
-          top: BorderSide(color: borderColor, width: 0.8),
+          top: BorderSide(color: borderColor, width: 1.0),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.25 : 0.04),
-            blurRadius: 8,
+            color: Colors.black.withOpacity(isDarkMode ? 0.35 : 0.04),
+            blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
@@ -78,11 +78,11 @@ class CustomBottomNavBar extends StatelessWidget {
                           curve: Curves.easeInOut,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
-                            vertical: 4,
+                            vertical: 5,
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? activeColor.withOpacity(0.14)
+                                ? const Color(0xFF7C3AED)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -93,25 +93,21 @@ class CustomBottomNavBar extends StatelessWidget {
                               Icon(
                                 isSelected ? item.activeIcon : item.inactiveIcon,
                                 size: 22,
-                                color: isSelected ? activeColor : inactiveColor,
+                                color: isSelected ? Colors.white : inactiveColor,
                               ),
                               if (item.badgeText != null &&
                                   item.badgeText!.isNotEmpty)
                                 Positioned(
                                   top: -4,
-                                  right: -10,
+                                  right: -8,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 1,
+                                      horizontal: 5,
+                                      vertical: 1.5,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: activeColor,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 14,
-                                      minHeight: 14,
+                                      color: const Color(0xFFEF4444),
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
                                       item.badgeText!,
@@ -120,7 +116,6 @@ class CustomBottomNavBar extends StatelessWidget {
                                         fontSize: 9,
                                         fontWeight: FontWeight.bold,
                                       ),
-                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ),
@@ -128,19 +123,17 @@ class CustomBottomNavBar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 3),
-                        AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 200),
+                        Text(
+                          item.label,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight:
                                 isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? activeColor : inactiveColor,
-                            letterSpacing: -0.1,
-                          ),
-                          child: Text(
-                            item.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            color: isSelected
+                                ? (isDarkMode
+                                    ? const Color(0xFFA78BFA)
+                                    : const Color(0xFF7C3AED))
+                                : inactiveColor,
                           ),
                         ),
                       ],

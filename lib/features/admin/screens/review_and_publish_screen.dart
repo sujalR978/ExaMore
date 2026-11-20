@@ -6,6 +6,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class ReviewAndPublishScreen extends StatefulWidget {
@@ -403,39 +404,11 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 20,
-            color: textColor,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Review & Publish',
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            Text(
-              'Step 3 of 3 • Final Verification',
-              style: TextStyle(
-                color: subtitleColor,
-                fontSize: 12,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
+      appBar: AdminTopBar(
+        title: 'Review & Publish',
+        subtitle: 'Step 3 of 3 • Final Verification',
+        showBackButton: true,
+        onBackPressed: () => Navigator.pop(context),
       ),
       body: Column(
         children: [

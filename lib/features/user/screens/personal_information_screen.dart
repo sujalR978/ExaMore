@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:prep_mate/core/widgets/app_image_view.dart';
 
 class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
@@ -80,16 +83,28 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
 
   // Pick an image from gallery
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 75,
-    );
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 65,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
 
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImagePath = pickedFile.path;
-      });
+      if (pickedFile != null) {
+        final bytes = await pickedFile.readAsBytes();
+        final base64String = base64Encode(bytes);
+        setState(() {
+          _selectedImagePath = base64String;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to select photo: $e')),
+        );
+      }
     }
   }
 
@@ -280,14 +295,28 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       onTap: _isEditing ? _pickImage : null,
                       child: Stack(
                         children: [
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundImage: _selectedImagePath != null
-                                ? FileImage(File(_selectedImagePath!))
-                                      as ImageProvider
-                                : (_photoUrl.startsWith('http')
-                                      ? NetworkImage(_photoUrl) as ImageProvider
-                                      : FileImage(File(_photoUrl))),
+                          ClipOval(
+                            child: SizedBox(
+                              width: 100,
+                              height: 100,
+                              child: _selectedImagePath != null || _photoUrl.isNotEmpty
+                                  ? AppImageView(
+                                      imageSource: _selectedImagePath ?? _photoUrl,
+                                      fit: BoxFit.cover,
+                                      width: 100,
+                                      height: 100,
+                                      placeholder: Container(
+                                        color: const Color(0xFF4C1D95),
+                                        alignment: Alignment.center,
+                                        child: const Icon(Icons.person, color: Colors.white, size: 48),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: const Color(0xFF4C1D95),
+                                      alignment: Alignment.center,
+                                      child: const Icon(Icons.person, color: Colors.white, size: 48),
+                                    ),
+                            ),
                           ),
                           if (_isEditing)
                             Positioned(

@@ -9,7 +9,7 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Email & Password Registration
-  Future<void> createUser({
+  Future<User> createUser({
     required String name,
     required String email,
     required String password,
@@ -22,7 +22,12 @@ class AuthService {
     );
 
     final User? firebaseUser = userCredential.user;
-    if (firebaseUser == null) return;
+    if (firebaseUser == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'Failed to create user account.',
+      );
+    }
 
     String uid = firebaseUser.uid;
     UserModel user = UserModel(
@@ -37,17 +42,15 @@ class AuthService {
       updatedAt: DateTime.now(),
     );
 
-    try {
-      // 1. Immediately persist the user document in Firestore while freshly authenticated
-      await _firestore.collection('users').doc(uid).set(user.toMap());
+    // 1. Immediately persist user profile in Firestore
+    await _firestore.collection('users').doc(uid).set(user.toMap());
 
-      // 2. Dispatch email verification
-      try {
-        await firebaseUser.sendEmailVerification();
-      } catch (_) {}
-    } finally {
-      await _auth.signOut();
-    }
+    // 2. Dispatch verification email while session is active
+    try {
+      await firebaseUser.sendEmailVerification();
+    } catch (_) {}
+
+    return firebaseUser;
   }
 
   // Google Sign-In with dynamic Instructor Code linking
@@ -214,8 +217,10 @@ class AuthService {
 
     // Email verification check (Super Admin excluded if flagged in DB)
     await user.reload();
-    if (!user.emailVerified && role != 'super_admin') {
-      await _auth.signOut();
+    final User? refreshedUser = _auth.currentUser;
+    if (refreshedUser != null &&
+        !refreshedUser.emailVerified &&
+        role != 'super_admin') {
       throw FirebaseAuthException(
         code: 'email-not-verified',
         message:

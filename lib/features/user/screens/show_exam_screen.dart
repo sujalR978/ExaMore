@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
@@ -194,160 +195,118 @@ class _ShowexamState extends State<Showexam> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    final containerColor = theme.colorScheme.surface;
-    final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final bgColor = AppColors.background(isDarkMode);
+    final cardColor = AppColors.card(isDarkMode);
+    final borderColor = AppColors.border(isDarkMode);
+    final textPrimary = AppColors.textPrimary(isDarkMode);
+    final textSecondary = AppColors.textSecondary(isDarkMode);
+    final textMuted = AppColors.textMuted(isDarkMode);
 
     final userId = _currentUser?.uid ?? '';
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: CircleAvatar(
-                      backgroundImage: NetworkImage(
-                        _currentUser?.photoURL ??
-                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    'Examora',
-                    style: TextStyle(
-                      color: isDarkMode
-                          ? const Color(0xFFFBBF24)
-                          : const Color(0xFFB45309),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                    ),
-                  ),
-                  centerTitle: true,
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.notifications, color: textColor),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const Settingscreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Explore Exams',
+              style: TextStyle(
+                color: textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text(
+              'Find practice tests and assessments across all subjects.',
+              style: TextStyle(
+                color: textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.settings_outlined, color: textSecondary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const Settingscreen(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoadingUser || _publishedExamsStream == null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 8),
-                  Text(
-                    'Explore Exams',
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Find practice tests and assessments across all subjects.',
-                    style: TextStyle(color: subtitleColor, fontSize: 14),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Search Bar with Clear Icon
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: "Search for 'Calculus' or 'Biology'...",
-                            hintStyle: TextStyle(
-                              color: subtitleColor,
-                              fontSize: 13,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search,
-                              color: subtitleColor,
-                            ),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: Icon(
-                                      Icons.clear,
-                                      color: subtitleColor,
-                                      size: 18,
-                                    ),
-                                    onPressed: () => _searchController.clear(),
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: containerColor,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16.0),
-                              borderSide: BorderSide(color: borderColor),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16.0),
-                              borderSide: BorderSide(color: borderColor),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16.0),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF7C3AED),
-                                width: 1.5,
+                  // Search Bar with Clean Styling
+                  TextField(
+                    controller: _searchController,
+                    style: TextStyle(color: textPrimary, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: "Search for subjects, topics or exams...",
+                      hintStyle: TextStyle(
+                        color: textMuted,
+                        fontSize: 13,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: textMuted,
+                        size: 20,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear_rounded,
+                                color: textSecondary,
+                                size: 18,
                               ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 14,
-                            ),
-                          ),
+                              onPressed: () => _searchController.clear(),
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.0),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF7C3AED),
+                          width: 1.5,
                         ),
                       ),
-                    ],
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 16,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // Category Filter Chips
                   SizedBox(
-                    height: 40,
+                    height: 38,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _categories.length,
@@ -355,29 +314,38 @@ class _ShowexamState extends State<Showexam> {
                         final isSelected = _selectedCategoryIndex == index;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(_categories[index]),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              _onCategorySelected(index);
-                            },
-                            selectedColor: const Color(0xFF1E1B4B),
-                            backgroundColor: containerColor,
-                            labelStyle: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : (isDarkMode
-                                        ? Colors.white70
-                                        : const Color(0xFF1E1B4B)),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(100),
-                              side: BorderSide(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () => _onCategorySelected(index),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.transparent
-                                    : borderColor,
+                                    ? const Color(0xFF7C3AED)
+                                    : cardColor,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? const Color(0xFF7C3AED)
+                                      : borderColor,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Text(
+                                _categories[index],
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? Colors.white
+                                      : textSecondary,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 12.5,
+                                ),
                               ),
                             ),
                           ),
@@ -385,30 +353,45 @@ class _ShowexamState extends State<Showexam> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
 
                   // Section Header: Recommended for You
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Recommended for You',
-                        style: TextStyle(
-                          color: textColor,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          'Recommended for You',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       TextButton(
                         onPressed: _handleViewAll,
-                        child: Text(
-                          'View All',
-                          style: TextStyle(
-                            color: isDarkMode
-                                ? const Color(0xFFFBBF24)
-                                : const Color(0xFFB45309),
-                            fontWeight: FontWeight.bold,
-                          ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'View All',
+                              style: TextStyle(
+                                color: Color(0xFFF59E0B),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFFF59E0B)),
+                          ],
                         ),
                       ),
                     ],
@@ -470,7 +453,7 @@ class _ShowexamState extends State<Showexam> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(28),
                               decoration: BoxDecoration(
-                                color: containerColor,
+                                color: cardColor,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(color: borderColor),
                               ),
@@ -483,7 +466,7 @@ class _ShowexamState extends State<Showexam> {
                                             : 'No published assessments available from your instructor under this category.'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-                                    color: subtitleColor,
+                                    color: textSecondary,
                                     fontSize: 14,
                                   ),
                                 ),

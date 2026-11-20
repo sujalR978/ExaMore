@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/features/auth/screens/email_verification_screen.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/auth/widgets/custom_button.dart';
@@ -241,7 +242,14 @@ class _RegistrationState extends State<Registration> {
 
       if (!mounted) return;
 
-      _showVerificationSentDialog(inputEmail);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => EmailVerificationScreen(
+            email: inputEmail,
+            targetRole: _selectedRole,
+          ),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') {
         _showError(
@@ -279,426 +287,457 @@ class _RegistrationState extends State<Registration> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFF0F172A),
       body: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 60),
-            child: Column(
-              children: [
-                Center(
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          offset: const Offset(0, 4),
-                          blurRadius: 12,
-                          color: const Color(
-                            0xFF4C1D95,
-                          ).withValues(alpha: isDark ? 0.10 : 0.04),
-                        ),
-                      ],
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        width: 1,
-                        color: isDark
-                            ? const Color(0xFF334155)
-                            : const Color(0xffE2E8F0),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32),
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF2E1065),
+                Color(0xFF1E1B4B),
+                Color(0xFF0F172A),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  children: [
+                    // 1. Top Section: Logo & Branding Header
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                       child: Column(
                         children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                width: 1,
-                                color: isDark
-                                    ? const Color(0xFF334155)
-                                    : const Color(0xffE2E8F0),
-                              ),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(2.0),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.asset(
-                                  'assets/image/image.png',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(
-                                        Icons.school,
-                                        size: 40,
-                                        color: Color(0xFF7C3AED),
-                                      ),
-                                ),
-                              ),
+                          Image.asset(
+                            'assets/image/examore_logo.png',
+                            height: 85,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                const Icon(
+                              Icons.school_rounded,
+                              size: 65,
+                              color: Color(0xFF8B5CF6),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          const Maintitle(text: "Create your Examora"),
-                          const Maintitle(text: "account"),
-                          const SizedBox(height: 6),
-                          const Subtitle(
-                            text:
-                                "Start your journey toward better exam results.",
+                          const SizedBox(height: 8),
+                          const Text(
+                            "ExaMore Register",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFF8FAFC),
+                              letterSpacing: 0.3,
+                            ),
                           ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            "Join ExaMore to start your personalized exam journey",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
-                          // Role Selector Tab
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              left: 24,
-                              right: 24,
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? const Color(0xFF1E293B)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedRole = 'student';
-                                          _adminCode.clear();
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 10,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _selectedRole == 'student'
-                                              ? const Color(0xFF7C3AED)
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            "Student",
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: _selectedRole == 'student'
-                                                  ? Colors.white
-                                                  : (isDark
-                                                        ? Colors.white70
-                                                        : const Color(
-                                                            0xFF64748B,
-                                                          )),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          _selectedRole = 'admin';
-                                          _adminCode.clear();
-                                        });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 10,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _selectedRole == 'admin'
-                                              ? const Color(0xFF7C3AED)
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            "Admin / Instructor",
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: _selectedRole == 'admin'
-                                                  ? Colors.white
-                                                  : (isDark
-                                                        ? Colors.white70
-                                                        : const Color(
-                                                            0xFF64748B,
-                                                          )),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                    // 2. Bottom Sheet: Dark rounded container with form
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1E293B),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(32),
+                            topRight: Radius.circular(32),
+                          ),
+                          border: Border(
+                            top: BorderSide(
+                              color: Color(0xFF334155),
+                              width: 1,
                             ),
                           ),
-
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              bottom: 24,
-                              left: 24,
-                              right: 24,
-                            ),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: const Googlebutton(),
-                            ),
-                          ),
-
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: 24,
-                              right: 24,
-                              left: 24,
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Divider(
-                                    thickness: 1,
-                                    color: isDark
-                                        ? const Color(0xFF475569)
-                                        : const Color(0xffCBC4D2),
-                                    endIndent: 10,
+                        ),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(24, 22, 24, 32),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Role Selector Toggle
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A),
+                                  borderRadius: BorderRadius.circular(25),
+                                  border: Border.all(
+                                    color: const Color(0xFF334155),
+                                    width: 1,
                                   ),
                                 ),
-                                Text(
-                                  "OR CONTINUE WITH",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    color: isDark
-                                        ? const Color(0xFF94A3B8)
-                                        : const Color(0xff7A7582),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Divider(
-                                    thickness: 1,
-                                    color: isDark
-                                        ? const Color(0xFF475569)
-                                        : const Color(0xffCBC4D2),
-                                    indent: 10,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Form(
-                            key: _formKey,
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Row(
                                   children: [
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 4.0),
-                                      child: Filedtitle(text: "Full Name"),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 16,
-                                      ),
-                                      child: Inputfield(
-                                        controller: _name,
-                                        hintText: "John Doe",
-                                        icon: Icons.person,
-                                        isPassword: false,
-                                        validator: (value) {
-                                          if (value == null ||
-                                              value.trim().isEmpty) {
-                                            return "Full name is required";
-                                          }
-                                          if (value.trim().length < 3) {
-                                            return "Enter a valid name";
-                                          }
-                                          return null;
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedRole = 'student';
+                                            _adminCode.clear();
+                                          });
                                         },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(vertical: 9),
+                                          decoration: BoxDecoration(
+                                            color: _selectedRole == 'student'
+                                                ? const Color(0xFF7C3AED)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(20),
+                                            boxShadow: _selectedRole == 'student'
+                                                ? [
+                                                    BoxShadow(
+                                                      color: const Color(0xFF7C3AED).withOpacity(0.3),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.person_outline_rounded,
+                                                size: 16,
+                                                color: _selectedRole == 'student'
+                                                    ? Colors.white
+                                                    : const Color(0xFF94A3B8),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "Student",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  color: _selectedRole == 'student'
+                                                      ? Colors.white
+                                                      : const Color(0xFF94A3B8),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedRole = 'admin';
+                                            _adminCode.clear();
+                                          });
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          padding: const EdgeInsets.symmetric(vertical: 9),
+                                          decoration: BoxDecoration(
+                                            color: _selectedRole == 'admin'
+                                                ? const Color(0xFF7C3AED)
+                                                : Colors.transparent,
+                                            borderRadius: BorderRadius.circular(20),
+                                            boxShadow: _selectedRole == 'admin'
+                                                ? [
+                                                    BoxShadow(
+                                                      color: const Color(0xFF7C3AED).withOpacity(0.3),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.school_outlined,
+                                                size: 16,
+                                                color: _selectedRole == 'admin'
+                                                    ? Colors.white
+                                                    : const Color(0xFF94A3B8),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "Admin / Instructor",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13,
+                                                  color: _selectedRole == 'admin'
+                                                      ? Colors.white
+                                                      : const Color(0xFF94A3B8),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
 
-                                    // Optional Verification Field for Students
+                              const SizedBox(height: 18),
+
+                              // Form
+                              Form(
+                                key: _formKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Full Name
+                                    const Text(
+                                      "Full Name",
+                                      style: TextStyle(
+                                        color: Color(0xFFF8FAFC),
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Inputfield(
+                                      controller: _name,
+                                      hintText: "Enter your full name",
+                                      icon: Icons.person_outline_rounded,
+                                      isPassword: false,
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return "Full name is required";
+                                        }
+                                        if (value.trim().length < 3) {
+                                          return "Enter a valid name";
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // Email Address
+                                    const Text(
+                                      "Email Address",
+                                      style: TextStyle(
+                                        color: Color(0xFFF8FAFC),
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Inputfield(
+                                      controller: _email,
+                                      hintText: "Enter your email address",
+                                      icon: Icons.email_outlined,
+                                      isPassword: false,
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return "Email is required";
+                                        }
+                                        final emailRegex = RegExp(
+                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                        );
+                                        if (!emailRegex.hasMatch(value.trim())) {
+                                          return "Enter a valid email address";
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // Optional Instructor Code for Students
                                     if (_selectedRole == 'student') ...[
-                                      const Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom: 4.0,
-                                        ),
-                                        child: Filedtitle(
-                                          text: "Instructor Code or Email (Optional)",
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 16,
-                                        ),
-                                        child: Inputfield(
-                                          controller: _adminCode,
-                                          hintText: "teacher@school.edu or admin_uid",
-                                          icon: Icons.school_outlined,
-                                          isPassword: false,
-                                          validator: (value) => null,
+                                      const Text(
+                                        "Instructor Code (Optional)",
+                                        style: TextStyle(
+                                          color: Color(0xFFF8FAFC),
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
+                                      const SizedBox(height: 8),
+                                      Stack(
+                                        alignment: Alignment.centerRight,
+                                        children: [
+                                          Inputfield(
+                                            controller: _adminCode,
+                                            hintText: "Instructor email or UID",
+                                            icon: Icons.school_outlined,
+                                            isPassword: false,
+                                            validator: (value) => null,
+                                          ),
+                                          const Padding(
+                                            padding: EdgeInsets.only(right: 14),
+                                            child: Tooltip(
+                                              message:
+                                                  "Enter instructor's email or UID to join their classroom cohort",
+                                              child: Icon(
+                                                Icons.info_outline_rounded,
+                                                size: 18,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 14),
                                     ],
 
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 4.0),
-                                      child: Filedtitle(text: "Email Address"),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 16,
-                                      ),
-                                      child: Inputfield(
-                                        controller: _email,
-                                        hintText: "user@example.com",
-                                        icon: Icons.email,
-                                        isPassword: false,
-                                        validator: (value) {
-                                          if (value == null ||
-                                              value.trim().isEmpty) {
-                                            return "Email is required";
-                                          }
-                                          final emailRegex = RegExp(
-                                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                          );
-                                          if (!emailRegex.hasMatch(
-                                            value.trim(),
-                                          )) {
-                                            return "Enter a valid email address";
-                                          }
-                                          return null;
-                                        },
+                                    // Password
+                                    const Text(
+                                      "Password",
+                                      style: TextStyle(
+                                        color: Color(0xFFF8FAFC),
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 4.0),
-                                      child: Filedtitle(text: "Password"),
+                                    const SizedBox(height: 8),
+                                    Inputfield(
+                                      controller: _password,
+                                      hintText: "Enter your password",
+                                      icon: Icons.lock_outline_rounded,
+                                      isPassword: true,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return "Password is required";
+                                        }
+                                        if (value.length < 6) {
+                                          return "Password must be at least 6 characters";
+                                        }
+                                        return null;
+                                      },
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 16,
-                                      ),
-                                      child: Inputfield(
-                                        controller: _password,
-                                        hintText: "••••••••",
-                                        icon: Icons.lock,
-                                        isPassword: true,
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return "Password is required";
-                                          }
-                                          if (value.length < 6) {
-                                            return "Password must be at least 6 characters";
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                    ),
-                                    const Padding(
-                                      padding: EdgeInsets.only(bottom: 4.0),
-                                      child: Filedtitle(
-                                        text: "Confirm Password",
+                                    const SizedBox(height: 14),
+
+                                    // Confirm Password
+                                    const Text(
+                                      "Confirm Password",
+                                      style: TextStyle(
+                                        color: Color(0xFFF8FAFC),
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 24,
-                                      ),
-                                      child: Inputfield(
-                                        controller: _cPassword,
-                                        hintText: "••••••••",
-                                        icon: Icons.lock_outline,
-                                        isPassword: true,
-                                        validator: (value) {
-                                          if (value == null || value.isEmpty) {
-                                            return "Confirm Password is required";
-                                          }
-                                          if (value != _password.text) {
-                                            return "Passwords do not match";
-                                          }
-                                          return null;
-                                        },
-                                      ),
+                                    const SizedBox(height: 8),
+                                    Inputfield(
+                                      controller: _cPassword,
+                                      hintText: "Re-enter your password",
+                                      icon: Icons.lock_outline_rounded,
+                                      isPassword: true,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return "Confirm Password is required";
+                                        }
+                                        if (value != _password.text) {
+                                          return "Passwords do not match";
+                                        }
+                                        return null;
+                                      },
                                     ),
-                                    SizedBox(
-                                      height: 52,
-                                      width: double.infinity,
-                                      child: Button(
-                                        text: _isRegistering
-                                            ? "Creating Account..."
-                                            : "Create Account",
-                                        icon: Icons.arrow_forward,
-                                        onPressed: () {
-                                          if (!_isRegistering) {
-                                            _register();
-                                          }
-                                        },
-                                      ),
+
+                                    const SizedBox(height: 22),
+
+                                    // Create Account CTA Button
+                                    Button(
+                                      text: _isRegistering
+                                          ? "CREATING ACCOUNT..."
+                                          : "REGISTER",
+                                      onPressed: () {
+                                        if (!_isRegistering) {
+                                          _register();
+                                        }
+                                      },
                                     ),
+
                                     const SizedBox(height: 20),
+
+                                    // Login navigation prompt
                                     Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        const Subtitle(
-                                          text: "Already have an account? ",
+                                        const Text(
+                                          "Already have an account? ",
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            color: Color(0xFF94A3B8),
+                                          ),
                                         ),
                                         Textbutton(
                                           text: "Login",
+                                          color: const Color(0xFFA78BFA),
                                           onPressed: () {
-                                            Navigator.of(
-                                              context,
-                                            ).pushReplacement(
+                                            Navigator.of(context).pushReplacement(
                                               MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const Login(),
+                                                builder: (context) => const Login(),
                                               ),
                                             );
                                           },
                                         ),
                                       ],
                                     ),
+
+                                    const SizedBox(height: 22),
+
+                                    // OR Divider
+                                    const Row(
+                                      children: [
+                                        Expanded(
+                                          child: Divider(
+                                            thickness: 1,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 14),
+                                          child: Text(
+                                            "OR",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF64748B),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Divider(
+                                            thickness: 1,
+                                            color: Color(0xFF334155),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 22),
+
+                                    // Continue with Google
+                                    const Googlebutton(),
                                   ],
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

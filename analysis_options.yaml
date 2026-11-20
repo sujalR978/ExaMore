@@ -18,6 +18,10 @@ analyzer:
     unused_catch_clause: ignore
     unused_local_variable: ignore
     use_build_context_synchronously: ignore
+  exclude:
+    - build/**
+    - android/**
+    - web/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

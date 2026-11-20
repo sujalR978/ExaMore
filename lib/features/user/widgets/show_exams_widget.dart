@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/theme/app_theme.dart';
 
 class ExamCardWidget extends StatelessWidget {
   final String badgeText;
@@ -36,24 +37,26 @@ class ExamCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
-    final containerColor = theme.colorScheme.surface;
-    final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+    final textSecondary = AppColors.textSecondary(isDark);
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: containerColor,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
+        border: Border.all(
+          color: borderColor,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withOpacity(isDark ? 0.35 : 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -66,13 +69,17 @@ class ExamCardWidget extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: badgeColor,
+                  color: const Color(0xFF7C3AED).withOpacity(0.18),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFF7C3AED).withOpacity(0.4),
+                    width: 0.8,
+                  ),
                 ),
                 child: Text(
                   badgeText,
-                  style: TextStyle(
-                    color: badgeTextColor,
+                  style: const TextStyle(
+                    color: Color(0xFFA78BFA),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -81,7 +88,7 @@ class ExamCardWidget extends StatelessWidget {
               IconButton(
                 icon: Icon(
                   isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: isBookmarked ? const Color(0xFFFBBF24) : subtitleColor,
+                  color: isBookmarked ? const Color(0xFFF59E0B) : textSecondary,
                   size: 22,
                 ),
                 onPressed: onBookmarkToggle,
@@ -91,51 +98,87 @@ class ExamCardWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            description,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: subtitleColor, fontSize: 13, height: 1.4),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF7C3AED).withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Icon(icon, color: const Color(0xFFA78BFA), size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontSize: 12.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(
             children: [
-              Icon(Icons.access_time, size: 16, color: subtitleColor),
+              Icon(Icons.access_time_rounded, size: 15, color: textSecondary),
               const SizedBox(width: 4),
-              Text(time, style: TextStyle(color: subtitleColor, fontSize: 12)),
+              Text(time, style: TextStyle(color: textSecondary, fontSize: 12)),
               const SizedBox(width: 14),
-              Icon(Icons.list_alt, size: 16, color: subtitleColor),
+              Icon(Icons.assignment_outlined, size: 15, color: textSecondary),
               const SizedBox(width: 4),
-              Text(mcqs, style: TextStyle(color: subtitleColor, fontSize: 12)),
+              Text(mcqs, style: TextStyle(color: textSecondary, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            height: 46,
+            height: 44,
             child: ElevatedButton(
               onPressed: onButtonPressed,
               style: ElevatedButton.styleFrom(
-                backgroundColor: buttonBgColor,
-                foregroundColor: buttonTextColor,
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: const Color(0xFF0F172A),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: Text(
                 buttonText,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ),
           ),

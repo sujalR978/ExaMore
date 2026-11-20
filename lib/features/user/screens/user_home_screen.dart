@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
@@ -12,10 +13,12 @@ import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
 import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
+import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 
 class Userhomescreen extends StatefulWidget {
-  const Userhomescreen({super.key});
+  final ValueChanged<int>? onNavigateToTab;
+  const Userhomescreen({super.key, this.onNavigateToTab});
 
   @override
   State<Userhomescreen> createState() => _HomeScreenState();
@@ -77,108 +80,197 @@ class _HomeScreenState extends State<Userhomescreen> {
   }
 
   void _showJoinClassroomDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+    final textSecondary = AppColors.textSecondary(isDark);
+    final inputFill = isDark ? const Color(0xFF192132) : const Color(0xFFF1F5F9);
+    final inputBorder = isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0);
+
     final codeController = TextEditingController();
     bool isSubmitting = false;
 
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: const [
-              Icon(Icons.school_outlined, color: Color(0xFF7C3AED)),
-              SizedBox(width: 10),
-              Text('Join a Classroom'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Enter the Classroom Code or paste the invite link shared by your teacher.',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+        builder: (context, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: borderColor,
+                width: 1,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: codeController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  hintText: 'e.g. CLA-123',
-                  prefixIcon: const Icon(Icons.vpn_key_outlined),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(isDark ? 0.55 : 0.08),
+                  blurRadius: 30,
+                  offset: const Offset(0, 15),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C3AED).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.school_rounded,
+                            color: Color(0xFF7C3AED),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Join a Classroom',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                      splashRadius: 18,
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Enter the classroom code or paste the invite link shared by your instructor.',
+                  style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: codeController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  style: TextStyle(color: textPrimary, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. CLA-123',
+                    hintStyle: TextStyle(color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), fontSize: 14),
+                    prefixIcon: Icon(Icons.vpn_key_outlined, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), size: 18),
+                    filled: true,
+                    fillColor: inputFill,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: inputBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSubmitting
-                  ? null
-                  : () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isSubmitting
-                  ? null
-                  : () async {
-                      final input = codeController.text.trim();
-                      if (input.isEmpty) return;
-                      setDialogState(() => isSubmitting = true);
-                      try {
-                        final result = await ClassroomService.joinClassroom(
-                          studentUid: _currentUser!.uid,
-                          inputQuery: input,
-                        );
-                        if (!mounted) return;
-                        Navigator.of(dialogCtx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Successfully joined ${result['adminName']}\'s classroom!',
-                            ),
-                            backgroundColor: const Color(0xFF10B981),
-                          ),
-                        );
-                        _fetchStudentAdminAndInitStream();
-                      } catch (e) {
-                        setDialogState(() => isSubmitting = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              e.toString().replaceAll('Exception: ', ''),
-                            ),
-                            backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
-                foregroundColor: Colors.white,
-              ),
-              child: isSubmitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: isDark ? const Color(0xFF192132) : const Color(0xFFF1F5F9),
+                        side: BorderSide(color: borderColor),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       ),
-                    )
-                  : const Text('Join'),
+                      onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(color: textSecondary, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B),
+                        foregroundColor: const Color(0xFF0F172A),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              final input = codeController.text.trim();
+                              if (input.isEmpty) return;
+                              setDialogState(() => isSubmitting = true);
+                              try {
+                                final result = await ClassroomService.joinClassroom(
+                                  studentUid: _currentUser!.uid,
+                                  inputQuery: input,
+                                );
+                                if (!mounted) return;
+                                Navigator.of(dialogCtx).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Successfully joined ${result['adminName']}\'s classroom!',
+                                    ),
+                                    backgroundColor: const Color(0xFF10B981),
+                                  ),
+                                );
+                                _fetchStudentAdminAndInitStream();
+                              } catch (e) {
+                                setDialogState(() => isSubmitting = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      e.toString().replaceAll('Exception: ', ''),
+                                    ),
+                                    backgroundColor: const Color(0xFFEF4444),
+                                  ),
+                                );
+                              }
+                            },
+                      child: isSubmitting
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF0F172A),
+                              ),
+                            )
+                          : const Text(
+                              'Join',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -186,19 +278,8 @@ class _HomeScreenState extends State<Userhomescreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    final backgroundColor = isDarkMode
-        ? const Color(0xFF0F0E17)
-        : Colors.grey[100]!;
-    final containerColor = isDarkMode ? const Color(0xFF1E1B4B) : Colors.white;
-    final textColor = isDarkMode
-        ? const Color(0xFFF8FAFC)
-        : const Color(0xFF1E1B4B);
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final bool isDarkMode = isDark;
 
     final String displayName = _userName.isNotEmpty
         ? _userName
@@ -212,86 +293,46 @@ class _HomeScreenState extends State<Userhomescreen> {
         ? displayName[0].toUpperCase()
         : 'S';
 
+    final bgColor = AppColors.background(isDark);
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+    final textSecondary = AppColors.textSecondary(isDark);
+
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: bgColor,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'student_join_class_fab',
-        backgroundColor: const Color(0xFF7C3AED),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF59E0B),
+        foregroundColor: const Color(0xFF0F172A),
+        elevation: 4,
         onPressed: () => _showJoinClassroomDialog(context),
-        icon: const Icon(Icons.add, size: 20),
-        label: const Text('Join Classroom'),
+        icon: const Icon(Icons.add, size: 20, color: Color(0xFF0F172A)),
+        label: const Text(
+          'Join Classroom',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+          ),
+        ),
       ),
       appBar: AppBar(
         elevation: 0,
-        scrolledUnderElevation: 0.5,
+        scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16.0),
-          child: Center(
-            child: Builder(
-              builder: (context) {
-                final photoUrl = _currentUser?.photoURL;
-                final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const Userprofile(),
-                      ),
-                    );
-                  },
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: const Color(0xFF7C3AED).withOpacity(0.15),
-                    backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
-                    child: !hasPhoto
-                        ? Text(
-                            firstLetter,
-                            style: const TextStyle(
-                              color: Color(0xFF7C3AED),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          )
-                        : null,
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.school_rounded,
-                color: Color(0xFF7C3AED),
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'ExaMore',
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w800,
-                fontSize: 19,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
-        ),
-        centerTitle: true,
+        automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: Icon(Icons.settings_outlined, color: textColor),
+            icon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8)),
+            tooltip: 'Search',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const AllExamsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF94A3B8)),
             tooltip: 'Settings',
             onPressed: () {
               Navigator.of(context).push(
@@ -299,34 +340,47 @@ class _HomeScreenState extends State<Userhomescreen> {
               );
             },
           ),
-          const SizedBox(width: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 14.0, left: 6),
+            child: GestureDetector(
+              onTap: () {
+                if (widget.onNavigateToTab != null) {
+                  widget.onNavigateToTab!(3);
+                } else {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const MainNavigator(initialIndex: 3),
+                    ),
+                  );
+                }
+              },
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF4C1D95),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  firstLetter,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
       body: _isLoadingUser
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 36.0),
-                child: CircularProgressIndicator(),
-              ),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : StreamBuilder<List<ClassroomModel>>(
               stream: _enrolledClassroomsStream,
               builder: (context, classroomSnapshot) {
                 final classrooms = classroomSnapshot.data ?? [];
-
-                if (classrooms.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: _buildEmptyEnrolledClassroomsState(
-                        isDarkMode: isDarkMode,
-                        containerColor: containerColor,
-                        borderColor: borderColor,
-                        subtitleColor: subtitleColor,
-                      ),
-                    ),
-                  );
-                }
 
                 return StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _userAttemptsStream,
@@ -338,92 +392,134 @@ class _HomeScreenState extends State<Userhomescreen> {
                       builder: (context, examsSnapshot) {
                         final allExams = examsSnapshot.data ?? [];
 
+                        // Calculate overall stats
+                        final int classroomsCount = classrooms.length;
+                        final int examsTakenCount = attempts.length;
+                        double totalPercentSum = 0;
+                        for (var att in attempts) {
+                          final sub = att['submission'] as StudentSubmissionModel?;
+                          if (sub != null) {
+                            totalPercentSum += sub.scorePercentage;
+                          }
+                        }
+                        final double avgScore = examsTakenCount > 0
+                            ? (totalPercentSum / examsTakenCount)
+                            : 0;
+
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 80),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Greeting
-                              Text(
-                                'Hi, $displayName!',
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              // Section Header
+                              // Four Quick Stats Cards (Classrooms, Exams Taken, Avg. Score, Progress)
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'Enrolled Classrooms',
-                                        style: TextStyle(
-                                          color: textColor,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: const Color(
-                                            0xFF7C3AED,
-                                          ).withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(
-                                            100,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '${classrooms.length}',
-                                          style: const TextStyle(
-                                            color: Color(0xFF7C3AED),
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                  Expanded(
+                                    child: _buildHomeMetricCard(
+                                      icon: Icons.layers_outlined,
+                                      iconColor: const Color(0xFFA78BFA),
+                                      value: '$classroomsCount',
+                                      label: 'Classrooms',
+                                      isDark: isDark,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildHomeMetricCard(
+                                      icon: Icons.assignment_outlined,
+                                      iconColor: const Color(0xFFA78BFA),
+                                      value: '$examsTakenCount',
+                                      label: 'Exams Taken',
+                                      isDark: isDark,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildHomeMetricCard(
+                                      icon: Icons.emoji_events_outlined,
+                                      iconColor: const Color(0xFFF59E0B),
+                                      value: examsTakenCount > 0
+                                          ? '${avgScore.toInt()}%'
+                                          : '-',
+                                      label: 'Avg. Score',
+                                      isDark: isDark,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildHomeMetricCard(
+                                      icon: Icons.trending_up_rounded,
+                                      iconColor: const Color(0xFF34D399),
+                                      value: examsTakenCount > 0
+                                          ? '${avgScore.toInt()}%'
+                                          : '0%',
+                                      label: 'Progress',
+                                      isDark: isDark,
+                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 12),
 
-                              // Enrolled Classrooms Grid (Google Classroom style, same as admin)
-                              GridView.builder(
-                                physics: const NeverScrollableScrollPhysics(),
-                                shrinkWrap: true,
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: 2,
-                                      crossAxisSpacing: 12,
-                                      mainAxisSpacing: 12,
-                                      childAspectRatio: 1.02,
+                              const SizedBox(height: 24),
+
+                              // Section: Enrolled Classrooms
+                              if (classrooms.isNotEmpty) ...[
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Enrolled Classrooms',
+                                      style: TextStyle(
+                                        color: textPrimary,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
-                                itemCount: classrooms.length,
-                                itemBuilder: (context, index) {
-                                  final classroom = classrooms[index];
-                                  return _buildGoogleClassroomStudentCard(
-                                    classroom: classroom,
-                                    cardIndex: index,
-                                    allExams: allExams,
-                                    attempts: attempts,
-                                    isDarkMode: isDarkMode,
-                                    surfaceColor: containerColor,
-                                    borderColor: borderColor,
-                                    textColor: textColor,
-                                    subtitleColor: subtitleColor,
-                                  );
-                                },
-                              ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF7C3AED).withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '${classrooms.length}',
+                                        style: const TextStyle(
+                                          color: Color(0xFFA78BFA),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                GridView.builder(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  shrinkWrap: true,
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        crossAxisSpacing: 12,
+                                        mainAxisSpacing: 12,
+                                        childAspectRatio: 1.05,
+                                      ),
+                                  itemCount: classrooms.length,
+                                  itemBuilder: (context, index) {
+                                    final classroom = classrooms[index];
+                                    return _buildGoogleClassroomStudentCard(
+                                      classroom: classroom,
+                                      cardIndex: index,
+                                      allExams: allExams,
+                                      attempts: attempts,
+                                      isDarkMode: isDark,
+                                      surfaceColor: cardColor,
+                                      borderColor: borderColor,
+                                      textColor: textPrimary,
+                                      subtitleColor: textSecondary,
+                                    );
+                                  },
+                                ),
+                              ],
                             ],
                           ),
                         );
@@ -433,6 +529,54 @@ class _HomeScreenState extends State<Userhomescreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _buildHomeMetricCard({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+    required bool isDark,
+  }) {
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+    final textSecondary = AppColors.textSecondary(isDark);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: iconColor),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              color: textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
