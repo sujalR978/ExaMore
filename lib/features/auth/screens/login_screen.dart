@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
@@ -6,9 +8,9 @@ import 'package:prep_mate/features/auth/screens/forgot_password_screen.dart';
 import 'package:prep_mate/features/auth/screens/registration_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/auth/widgets/custom_button.dart';
+import 'package:prep_mate/features/auth/widgets/custom_text_button.dart';
 import 'package:prep_mate/features/auth/widgets/google_button.dart';
 import 'package:prep_mate/features/auth/widgets/input_field.dart';
-import 'package:prep_mate/features/auth/widgets/custom_text_button.dart';
 import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 
 class Login extends StatefulWidget {
@@ -20,25 +22,31 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _email = TextEditingController();
+  final TextEditingController _identifier = TextEditingController();
   final TextEditingController _password = TextEditingController();
   bool _isLogin = false;
 
   @override
   void dispose() {
-    _email.dispose();
+    _identifier.dispose();
     _password.dispose();
     super.dispose();
   }
 
-  void _showErrorSnackBar(String message) {
+  void _showFriendlyToast(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.white),
+            Icon(
+              isError
+                  ? Icons.error_outline_rounded
+                  : Icons.check_circle_outline_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -46,21 +54,46 @@ class _LoginState extends State<Login> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w500,
+                  fontSize: 13.5,
                 ),
               ),
             ),
           ],
         ),
-        backgroundColor: Colors.redAccent.shade700,
+        backgroundColor:
+            isError ? Colors.redAccent.shade700 : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
         elevation: 4,
       ),
     );
   }
 
+  Future<bool> _hasInternetConnection() async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return true;
+    }
+    try {
+      final lookup = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 4));
+      return lookup.isNotEmpty && lookup[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      try {
+        final fallback = await InternetAddress.lookup('1.1.1.1')
+            .timeout(const Duration(seconds: 3));
+        return fallback.isNotEmpty && fallback[0].rawAddress.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    }
+  }
+
   Future<void> login() async {
+    // Prevent duplicate triggers (LOG-007)
+    if (_isLogin) return;
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -71,12 +104,49 @@ class _LoginState extends State<Login> {
       _isLogin = true;
     });
 
+    // 1. Internet connection check (LOG-004)
+    final bool hasNet = await _hasInternetConnection();
+    if (!hasNet) {
+      _showFriendlyToast(
+        "No internet connection. Please check your network and try again.",
+      );
+      if (mounted) setState(() => _isLogin = false);
+      return;
+    }
+
+    final String rawInput = _identifier.text.trim();
+    final String passwordInput = _password.text;
+
     try {
+      String emailToAuth = rawInput.toLowerCase();
+
+      // Support 10-digit Phone Number lookup (LOG-001)
+      if (RegExp(r'^\d{10}$').hasMatch(rawInput)) {
+        try {
+          final phoneQuery = await FirebaseFirestore.instance
+              .collection('users')
+              .where('phone', isEqualTo: rawInput)
+              .limit(1)
+              .get();
+
+          if (phoneQuery.docs.isEmpty) {
+            _showFriendlyToast(
+              "Account with this phone number is not registered yet, please sign up first.",
+            );
+            if (mounted) setState(() => _isLogin = false);
+            return;
+          }
+          emailToAuth = (phoneQuery.docs.first.data()['email'] ?? '').toString().toLowerCase();
+        } catch (_) {
+          // If Firestore query is blocked, proceed with direct auth
+        }
+      }
+
       final AuthService authService = AuthService();
 
       final Map<String, dynamic> userData = await authService.signInUser(
-        email: _email.text.trim(),
-        password: _password.text,
+        email: emailToAuth,
+        password: passwordInput,
       );
 
       final String role = (userData['role'] ?? 'student')
@@ -85,7 +155,7 @@ class _LoginState extends State<Login> {
 
       if (!mounted) return;
 
-      // 3-Tier Routing
+      // Role-based routing (LOG-011)
       if (role == 'super_admin' || role == 'admin') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
@@ -99,38 +169,43 @@ class _LoginState extends State<Login> {
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
+      // Friendly specific messages without generic "Invalid credentials" (LOG-002, LOG-003)
       if (e.code == 'user-not-found') {
-        _showErrorSnackBar("Email is not registered.");
-      } else if (e.code == 'wrong-password') {
-        _showErrorSnackBar("Incorrect password.");
+        _showFriendlyToast(
+          "Account with this email/phone is not registered yet, please sign up first.",
+        );
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        _showFriendlyToast(
+          "Incorrect password, please try again or use Forgot Password.",
+        );
       } else if (e.code == 'email-not-verified') {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => EmailVerificationScreen(
-              email: _email.text.trim(),
+              email: _identifier.text.trim(),
             ),
           ),
         );
       } else if (e.code == 'invalid-email') {
-        _showErrorSnackBar("The email address is badly formatted.");
+        _showFriendlyToast("The email address is badly formatted.");
       } else if (e.code == 'user-disabled') {
-        _showErrorSnackBar(
+        _showFriendlyToast(
           "This account has been disabled by an administrator.",
         );
       } else if (e.code == 'too-many-requests') {
-        _showErrorSnackBar("Too many failed attempts. Please try again later.");
+        _showFriendlyToast("Too many failed attempts. Please try again later or reset your password.");
       } else if (e.code == 'network-request-failed') {
-        _showErrorSnackBar(
-          "No internet connection. Please check your network.",
+        _showFriendlyToast(
+          "No internet connection. Please check your network and try again.",
         );
       } else {
-        _showErrorSnackBar(
+        _showFriendlyToast(
           e.message ?? "An unexpected authentication error occurred.",
         );
       }
     } catch (e) {
       if (!mounted) return;
-      _showErrorSnackBar(
+      _showFriendlyToast(
         e
             .toString()
             .replaceAll("Exception: ", "")
@@ -179,7 +254,7 @@ class _LoginState extends State<Login> {
                         children: [
                           Image.asset(
                             'assets/image/examore_logo.png',
-                            height: 95,
+                            height: 85,
                             fit: BoxFit.contain,
                             errorBuilder: (context, error, stackTrace) =>
                                 const Icon(
@@ -236,9 +311,9 @@ class _LoginState extends State<Login> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                // Email Address Field Label
+                                // Email or Phone Field Label (LOG-001)
                                 const Text(
-                                  "Email Address",
+                                  "Email or Phone Number",
                                   style: TextStyle(
                                     color: Color(0xFFF8FAFC),
                                     fontSize: 13.5,
@@ -247,19 +322,32 @@ class _LoginState extends State<Login> {
                                 ),
                                 const SizedBox(height: 8),
                                 Inputfield(
-                                  controller: _email,
-                                  hintText: "Enter your email address",
-                                  icon: Icons.email_outlined,
+                                  controller: _identifier,
+                                  hintText: "Enter email or 10-digit phone number",
+                                  icon: Icons.person_outline_rounded,
                                   isPassword: false,
+                                  keyboardType: TextInputType.emailAddress,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
-                                      return "Email is required";
+                                      return "Email or phone number is required";
                                     }
+                                    if (value != value.trim() || value.contains(' ')) {
+                                      return "Leading, trailing, or embedded spaces are not allowed";
+                                    }
+                                    final clean = value.trim();
+                                    // Check if user entered phone digits
+                                    if (RegExp(r'^\d+$').hasMatch(clean)) {
+                                      if (clean.length != 10) {
+                                        return "Phone number must be exactly 10 digits";
+                                      }
+                                      return null;
+                                    }
+                                    // Otherwise validate email format
                                     final emailRegex = RegExp(
                                       r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                                     );
-                                    if (!emailRegex.hasMatch(value.trim())) {
-                                      return "Enter a valid email";
+                                    if (!emailRegex.hasMatch(clean)) {
+                                      return "Enter a valid email address or 10-digit phone number";
                                     }
                                     return null;
                                   },
@@ -314,12 +402,12 @@ class _LoginState extends State<Login> {
 
                                 const SizedBox(height: 20),
 
-                                // Login CTA Button
+                                // Login CTA Button (LOG-007, LOG-008)
                                 Button(
-                                  text: _isLogin ? "LOGGING IN..." : "LOGIN",
-                                  onPressed: () {
-                                    if (!_isLogin) login();
-                                  },
+                                  text: "LOGIN",
+                                  isLoading: _isLogin,
+                                  isDisabled: _isLogin,
+                                  onPressed: _isLogin ? null : login,
                                 ),
 
                                 const SizedBox(height: 20),
@@ -339,7 +427,7 @@ class _LoginState extends State<Login> {
                                       text: "Register",
                                       color: const Color(0xFFA78BFA),
                                       onPressed: () {
-                                        Navigator.of(context).push(
+                                        Navigator.of(context).pushReplacement(
                                           MaterialPageRoute(
                                             builder: (context) =>
                                                 const Registration(),
