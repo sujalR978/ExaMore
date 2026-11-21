@@ -240,17 +240,19 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () async {
-              Navigator.pop(context); // Close drawer
+              final nav = Navigator.of(context, rootNavigator: true);
               final confirm = await DialogUtils.showLogoutConfirmation(context);
-              if (confirm) {
-                await AuthService().signOut();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const Login()),
-                    (route) => false,
-                  );
-                }
+              if (!confirm) return;
+
+              if (context.mounted) {
+                Navigator.of(context).pop(); // Close drawer
               }
+
+              await AuthService().signOut();
+              nav.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const Login()),
+                (route) => false,
+              );
             },
           ),
         ],

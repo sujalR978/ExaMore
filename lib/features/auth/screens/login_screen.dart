@@ -292,39 +292,39 @@ class _LoginState extends State<Login> {
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 24,
-                                      vertical: 16,
+                                      vertical: 12,
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Image.asset(
                                           'assets/image/examore_logo.png',
-                                          height: 84,
+                                          height: 70,
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) =>
                                                   const Icon(
                                                     Icons.school_rounded,
-                                                    size: 68,
+                                                    size: 58,
                                                     color: Color(0xFF8B5CF6),
                                                   ),
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 10),
                                         Text(
                                           "ExaMore Login",
                                           style: TextStyle(
-                                            fontSize: 24,
+                                            fontSize: 22,
                                             fontWeight: FontWeight.bold,
                                             color: textPrimary,
                                             letterSpacing: 0.3,
                                           ),
                                         ),
-                                        const SizedBox(height: 6),
+                                        const SizedBox(height: 4),
                                         Text(
                                           "Master your exams and elevate your learning",
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             color: textSecondary,
                                             fontWeight: FontWeight.w400,
                                           ),
@@ -363,9 +363,9 @@ class _LoginState extends State<Login> {
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
                                     24,
-                                    26,
+                                    20,
                                     24,
-                                    22,
+                                    16,
                                   ),
                                   child: Form(
                                     key: _formKey,
@@ -379,11 +379,11 @@ class _LoginState extends State<Login> {
                                           "Email or Phone Number",
                                           style: TextStyle(
                                             color: textPrimary,
-                                            fontSize: 13.5,
+                                            fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 6),
                                         Inputfield(
                                           controller: _identifier,
                                           hintText:
@@ -395,16 +395,16 @@ class _LoginState extends State<Login> {
                                           validator:
                                               Validators.validateEmailOrPhone,
                                         ),
-                                        const SizedBox(height: 14),
+                                        const SizedBox(height: 12),
                                         Text(
                                           "Password",
                                           style: TextStyle(
                                             color: textPrimary,
-                                            fontSize: 13.5,
+                                            fontSize: 13,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 6),
                                         Inputfield(
                                           controller: _password,
                                           hintText: "Enter your password",
@@ -415,7 +415,7 @@ class _LoginState extends State<Login> {
                                           validator:
                                               Validators.validateBasicPassword,
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 4),
                                         Align(
                                           alignment: Alignment.centerRight,
                                           child: Textbutton(
@@ -431,14 +431,14 @@ class _LoginState extends State<Login> {
                                             },
                                           ),
                                         ),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 12),
                                         Button(
                                           text: "LOGIN",
                                           isLoading: _isLogin,
                                           isDisabled: _isLogin,
                                           onPressed: _isLogin ? null : login,
                                         ),
-                                        const SizedBox(height: 16),
+                                        const SizedBox(height: 12),
                                         Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
@@ -446,7 +446,7 @@ class _LoginState extends State<Login> {
                                             const Text(
                                               "Don't have an account? ",
                                               style: TextStyle(
-                                                fontSize: 13.5,
+                                                fontSize: 13,
                                                 color: Color(0xFF94A3B8),
                                               ),
                                             ),
@@ -466,7 +466,7 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 18),
+                                        const SizedBox(height: 14),
                                         const Row(
                                           children: [
                                             Expanded(
@@ -496,7 +496,7 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 18),
+                                        const SizedBox(height: 14),
                                         const Googlebutton(),
                                       ],
                                     ),
