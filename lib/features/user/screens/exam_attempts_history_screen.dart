@@ -494,7 +494,6 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
 
                       // Empty State
                       if (chatDateGroups.isEmpty)
