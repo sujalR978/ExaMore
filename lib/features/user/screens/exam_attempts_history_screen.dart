@@ -697,7 +697,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
     );
   }
 
-  /// Modern Exam Attempt Card
+  /// Compact Exam Attempt List Tile
   Widget _buildAttemptCard({
     required String examId,
     required StudentSubmissionModel submission,
@@ -722,275 +722,214 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
         : '${scorePercent.toStringAsFixed(1)}%';
 
     final marksStr =
-        '${submission.marksObtained.toInt()} / ${submission.totalMarks.toInt()} Marks';
+        '${submission.marksObtained.toInt()}/${submission.totalMarks.toInt()} pts';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isPassed
               ? const Color(0xFF10B981).withValues(alpha: 0.25)
               : const Color(0xFFEF4444).withValues(alpha: 0.25),
-          width: 1.2,
+          width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.25 : 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           onTap: () => _handleAttemptTap(
             examId: examId,
             submission: submission,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
               children: [
-                // Top Header: Subject Badge (Left) + Chat Time Stamp (Right)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Subject Name Badge
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.school_rounded,
-                              size: 13,
-                              color: Color(0xFF8B5CF6),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
+                // Compact Score Box (Leading)
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: isPassed
+                        ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                        : const Color(0xFFEF4444).withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isPassed
+                          ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                          : const Color(0xFFEF4444).withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      scoreStr,
+                      style: TextStyle(
+                        color: isPassed
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Center Column (Subject & Time, Title, Metrics)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Subject badge & Time
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
                               child: Text(
                                 subjectName.toUpperCase(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Color(0xFFA78BFA),
-                                  fontSize: 10.5,
+                                  fontSize: 9.5,
                                   fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
+                                  letterSpacing: 0.4,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Submission Time (Chat Style)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.access_time_rounded,
-                          size: 13,
-                          color: textMuted,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          timeStr,
-                          style: TextStyle(
-                            color: textMuted,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Exam Name
-                Text(
-                  examTitle,
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.bold,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Score Banner & Pass/Fail Status Row
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: surfaceSec,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: borderColor.withValues(alpha: 0.6),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Score Details
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isPassed
-                                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                                  : const Color(0xFFEF4444).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              scoreStr,
-                              style: TextStyle(
-                                color: isPassed
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFFEF4444),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 6),
+                          Text('•', style: TextStyle(color: textMuted, fontSize: 10)),
+                          const SizedBox(width: 6),
                           Text(
-                            marksStr,
+                            timeStr,
                             style: TextStyle(
-                              color: textSecondary,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
+                              color: textMuted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 3),
 
-                      // Status Pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
+                      // Exam Title
+                      Text(
+                        examTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                         ),
-                        decoration: BoxDecoration(
-                          color: isPassed
-                              ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                              : const Color(0xFFEF4444).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isPassed
-                                ? const Color(0xFF10B981).withValues(alpha: 0.4)
-                                : const Color(0xFFEF4444).withValues(alpha: 0.4),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isPassed
-                                  ? Icons.check_circle_rounded
-                                  : Icons.cancel_rounded,
-                              size: 13,
-                              color: isPassed
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFEF4444),
+                      ),
+                      const SizedBox(height: 3),
+
+                      // Metrics summary row
+                      Row(
+                        children: [
+                          Text(
+                            marksStr,
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 4),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${submission.correctAnswers}✓',
+                            style: const TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${submission.incorrectAnswers}✗',
+                            style: const TextStyle(
+                              color: Color(0xFFEF4444),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (submission.unattemptedAnswers > 0) ...[
+                            const SizedBox(width: 6),
                             Text(
-                              isPassed ? 'Passed' : 'Needs Retake',
+                              '${submission.unattemptedAnswers}○',
                               style: TextStyle(
-                                color: isPassed
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFFEF4444),
+                                color: textMuted,
                                 fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(width: 8),
 
-                // Answer Breakdown Chips & Action Link
+                // Trailing: Status Pill + Arrow
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Correct Answers Chip
-                    _buildStatPill(
-                      label: '${submission.correctAnswers} Correct',
-                      color: const Color(0xFF10B981),
-                      icon: Icons.check_rounded,
-                      isDarkMode: isDarkMode,
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Incorrect Answers Chip
-                    _buildStatPill(
-                      label: '${submission.incorrectAnswers} Incorrect',
-                      color: const Color(0xFFEF4444),
-                      icon: Icons.close_rounded,
-                      isDarkMode: isDarkMode,
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Unattempted Chip
-                    if (submission.unattemptedAnswers > 0)
-                      _buildStatPill(
-                        label: '${submission.unattemptedAnswers} Skipped',
-                        color: const Color(0xFF94A3B8),
-                        icon: Icons.remove_rounded,
-                        isDarkMode: isDarkMode,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3.5,
                       ),
-
-                    const Spacer(),
-
-                    // Review chevron link
-                    Row(
-                      children: [
-                        Text(
-                          'Review',
-                          style: TextStyle(
-                            color: const Color(0xFF8B5CF6),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      decoration: BoxDecoration(
+                        color: isPassed
+                            ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isPassed
+                              ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                              : const Color(0xFFEF4444).withValues(alpha: 0.35),
+                          width: 0.8,
                         ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          size: 16,
-                          color: Color(0xFF8B5CF6),
+                      ),
+                      child: Text(
+                        isPassed ? 'Passed' : 'Needs Retake',
+                        style: TextStyle(
+                          color: isPassed
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFEF4444),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
                         ),
-                      ],
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: textMuted,
                     ),
                   ],
                 ),
@@ -998,37 +937,6 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  /// Compact Question Stat Pill
-  Widget _buildStatPill({
-    required String label,
-    required Color color,
-    required IconData icon,
-    required bool isDarkMode,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDarkMode ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
