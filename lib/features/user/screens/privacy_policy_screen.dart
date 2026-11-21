@@ -9,8 +9,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
     final isDarkMode = theme.brightness == Brightness.dark;
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : Colors.grey[700]!;
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : Colors.grey[700]!;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
     return Scaffold(
@@ -19,14 +20,19 @@ class PrivacyPolicyScreen extends StatelessWidget {
         preferredSize: const Size.fromHeight(75),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: containerColor,
                 borderRadius: BorderRadius.circular(100),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.05),
+                    color: Colors.black.withValues(
+                      alpha: isDarkMode ? 0.2 : 0.05,
+                    ),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -122,7 +128,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 content:
                     '• Personal Details: Name, email address, academic level, and major collected during registration.\n'
                     '• Photos & Avatars: User-selected profile pictures stored securely for identification.\n'
-                    '• Assessment Records: Exam submissions, scores, answers, time spent, and badge progression.\n'
+                    '• Assessment Records: Exam submissions, scores, answers, and time spent.\n'
                     '• Administrative Uploads: Question bank files (CSV/JSON) imported by authorized examiners.',
                 textColor: textColor,
                 subtitleColor: subtitleColor,
@@ -130,7 +136,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               _buildSection(
                 title: '2. Use of Information',
                 content:
-                    'Your data is used strictly for authentication, serving examinations, tracking study streaks, generating performance metrics, and preventing unauthorized test retakes (two-attempt limit enforcement). We do not display third-party advertisements or sell user information.',
+                    'Your data is used strictly for authentication, serving examinations, generating performance metrics, and preventing unauthorized test retakes (two-attempt limit enforcement). We do not display third-party advertisements or sell user information.',
                 textColor: textColor,
                 subtitleColor: subtitleColor,
               ),
@@ -184,11 +190,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             content,
-            style: TextStyle(
-              fontSize: 13,
-              color: subtitleColor,
-              height: 1.5,
-            ),
+            style: TextStyle(fontSize: 13, color: subtitleColor, height: 1.5),
           ),
         ],
       ),

@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:prep_mate/core/localization/app_localizations.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
@@ -19,9 +18,6 @@ class Settingscreen extends StatefulWidget {
 }
 
 class _SettingscreenState extends State<Settingscreen> {
-  bool _emailNotifications = true;
-  bool _examReminders = false;
-  String _selectedLanguage = 'English';
   bool _isDeleting = false;
 
   @override
@@ -33,82 +29,7 @@ class _SettingscreenState extends State<Settingscreen> {
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() {
-      _emailNotifications = prefs.getBool('email_notifications') ?? true;
-      _examReminders = prefs.getBool('exam_reminders') ?? false;
-      _selectedLanguage = prefs.getString('selected_language') ?? 'English';
-    });
-  }
-
-  Future<void> _updateEmailNotifications(bool val) async {
-    setState(() => _emailNotifications = val);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('email_notifications', val);
-  }
-
-  Future<void> _updateExamReminders(bool val) async {
-    setState(() => _examReminders = val);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('exam_reminders', val);
-  }
-
-  Future<void> _showLanguageDialog() async {
-    final languages = ['English', 'Spanish', 'French', 'Hindi', 'German'];
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = AppColors.card(isDark);
-    final borderColor = AppColors.border(isDark);
-    final textPrimary = AppColors.textPrimary(isDark);
-
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: borderColor),
-        ),
-        title: Text(
-          'Select Language',
-          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: languages.map((lang) {
-            final isCurrent = lang == _selectedLanguage;
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              title: Text(
-                lang,
-                style: TextStyle(
-                  color: isCurrent ? const Color(0xFF7C3AED) : textPrimary,
-                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              trailing: isCurrent ? const Icon(Icons.check_circle_rounded, color: Color(0xFF7C3AED)) : null,
-              onTap: () => Navigator.pop(ctx, lang),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-
-    if (selected != null && selected != _selectedLanguage) {
-      setState(() => _selectedLanguage = selected);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('selected_language', selected);
-      if (mounted) {
-        try {
-          Provider.of<AppLanguageProvider>(context, listen: false).setLanguage(selected);
-        } catch (_) {}
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Language updated to $selected'),
-            backgroundColor: const Color(0xFF10B981),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
+    setState(() {});
   }
 
   Future<void> _showPermissionsDialog() async {
@@ -133,7 +54,10 @@ class _SettingscreenState extends State<Settingscreen> {
             Expanded(
               child: Text(
                 'App Permissions',
-                style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -141,27 +65,55 @@ class _SettingscreenState extends State<Settingscreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildPermissionItem('Internet Access', 'Required for exam synchronization & auth', true, textPrimary, textSecondary),
+            _buildPermissionItem(
+              'Internet Access',
+              'Required for exam synchronization & auth',
+              true,
+              textPrimary,
+              textSecondary,
+            ),
             const SizedBox(height: 12),
-            _buildPermissionItem('Storage / Photos', 'Required for uploading profile photos', true, textPrimary, textSecondary),
+            _buildPermissionItem(
+              'Storage / Photos',
+              'Required for uploading profile photos',
+              true,
+              textPrimary,
+              textSecondary,
+            ),
             const SizedBox(height: 12),
-            _buildPermissionItem('Notifications', 'Required for study alerts and results', true, textPrimary, textSecondary),
+            _buildPermissionItem(
+              'Notifications',
+              'Required for study alerts and results',
+              true,
+              textPrimary,
+              textSecondary,
+            ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFF7C3AED).withOpacity(0.08),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.2)),
+                border: Border.all(
+                  color: const Color(0xFF7C3AED).withOpacity(0.2),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: Color(0xFF7C3AED), size: 16),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: Color(0xFF7C3AED),
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'If permissions are permanently denied, re-enable them in Device Settings > Apps > ExaMore > Permissions.',
-                      style: TextStyle(color: textSecondary, fontSize: 10.5, height: 1.3),
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 10.5,
+                        height: 1.3,
+                      ),
                     ),
                   ),
                 ],
@@ -183,7 +135,13 @@ class _SettingscreenState extends State<Settingscreen> {
     );
   }
 
-  Widget _buildPermissionItem(String name, String desc, bool granted, Color textPrimary, Color textSecondary) {
+  Widget _buildPermissionItem(
+    String name,
+    String desc,
+    bool granted,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Row(
       children: [
         Icon(
@@ -196,7 +154,14 @@ class _SettingscreenState extends State<Settingscreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13.5)),
+              Text(
+                name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: textPrimary,
+                  fontSize: 13.5,
+                ),
+              ),
               Text(desc, style: TextStyle(color: textSecondary, fontSize: 11)),
             ],
           ),
@@ -220,7 +185,10 @@ class _SettingscreenState extends State<Settingscreen> {
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: borderColor),
         ),
-        title: Text('Clear Cache?', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Clear Cache?',
+          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+        ),
         content: Text(
           'This will clear temporary files and cached test responses. Your saved exams and credentials will not be deleted.',
           style: TextStyle(color: textSecondary, fontSize: 13.5),
@@ -231,7 +199,10 @@ class _SettingscreenState extends State<Settingscreen> {
             child: Text('Cancel', style: TextStyle(color: textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED),
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Clear'),
           ),
@@ -268,7 +239,12 @@ class _SettingscreenState extends State<Settingscreen> {
           children: [
             const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
             const SizedBox(width: 8),
-            Expanded(child: Text('Delete Account?', style: TextStyle(color: textPrimary))),
+            Expanded(
+              child: Text(
+                'Delete Account?',
+                style: TextStyle(color: textPrimary),
+              ),
+            ),
           ],
         ),
         content: Text(
@@ -309,9 +285,11 @@ class _SettingscreenState extends State<Settingscreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.code == 'requires-recent-login'
-              ? 'Security Requirement: Please log out and log back in before deleting your account.'
-              : 'Failed to delete account: ${e.message}'),
+          content: Text(
+            e.code == 'requires-recent-login'
+                ? 'Security Requirement: Please log out and log back in before deleting your account.'
+                : 'Failed to delete account: ${e.message}',
+          ),
           backgroundColor: const Color(0xFFEF4444),
         ),
       );
@@ -407,8 +385,8 @@ class _SettingscreenState extends State<Settingscreen> {
                             themeProvider.themeMode == ThemeMode.dark
                                 ? Icons.dark_mode_outlined
                                 : (themeProvider.themeMode == ThemeMode.light
-                                    ? Icons.light_mode_outlined
-                                    : Icons.brightness_auto_outlined),
+                                      ? Icons.light_mode_outlined
+                                      : Icons.brightness_auto_outlined),
                             color: const Color(0xFF7C3AED),
                             size: 20,
                           ),
@@ -446,7 +424,8 @@ class _SettingscreenState extends State<Settingscreen> {
                           context,
                           title: 'Light',
                           icon: Icons.light_mode_rounded,
-                          isSelected: themeProvider.themeMode == ThemeMode.light,
+                          isSelected:
+                              themeProvider.themeMode == ThemeMode.light,
                           onTap: () => themeProvider.setLightTheme(),
                           isDark: isDark,
                         ),
@@ -464,7 +443,8 @@ class _SettingscreenState extends State<Settingscreen> {
                           context,
                           title: 'System',
                           icon: Icons.settings_brightness_rounded,
-                          isSelected: themeProvider.themeMode == ThemeMode.system,
+                          isSelected:
+                              themeProvider.themeMode == ThemeMode.system,
                           onTap: () => themeProvider.setSystemTheme(),
                           isDark: isDark,
                         ),
@@ -499,161 +479,6 @@ class _SettingscreenState extends State<Settingscreen> {
               ),
               child: Column(
                 children: [
-                  // Email Notifications
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.email_outlined,
-                            color: Color(0xFF7C3AED),
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Email Notifications',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: textPrimary,
-                                  fontSize: 13.5,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Receive exam results, scores, and updates via email',
-                                style: TextStyle(
-                                  color: textMuted,
-                                  fontSize: 11.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch.adaptive(
-                          value: _emailNotifications,
-                          activeColor: const Color(0xFF7C3AED),
-                          onChanged: _updateEmailNotifications,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Divider(height: 1, color: borderColor),
-
-                  // Study Streak Reminders
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                      vertical: 14.0,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.notifications_outlined,
-                            color: Color(0xFF7C3AED),
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Study Streak Reminders',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: textPrimary,
-                                  fontSize: 13.5,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Daily reminders to keep your active study streak',
-                                style: TextStyle(
-                                  color: textMuted,
-                                  fontSize: 11.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch.adaptive(
-                          value: _examReminders,
-                          activeColor: const Color(0xFF7C3AED),
-                          onChanged: _updateExamReminders,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  Divider(height: 1, color: borderColor),
-
-                  // Language Selection
-                  ListTile(
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.language_rounded,
-                        color: Color(0xFF7C3AED),
-                        size: 18,
-                      ),
-                    ),
-                    title: Text(
-                      'App Language',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _selectedLanguage,
-                      style: TextStyle(
-                        color: const Color(0xFF7C3AED),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: textMuted,
-                    ),
-                    onTap: _showLanguageDialog,
-                  ),
-
-                  Divider(height: 1, color: borderColor),
-
                   // App Permissions
                   ListTile(
                     leading: Container(
@@ -750,91 +575,13 @@ class _SettingscreenState extends State<Settingscreen> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const PersonalInformationScreen(),
+                          builder: (context) =>
+                              const PersonalInformationScreen(),
                         ),
                       );
                     },
                   ),
-                  Divider(height: 1, color: borderColor),
-                  ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.school_outlined,
-                        color: Color(0xFF10B981),
-                        size: 18,
-                      ),
-                    ),
-                    title: Text(
-                      'Instructor Code',
-                      style: TextStyle(
-                        color: textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Connect with your instructor',
-                      style: TextStyle(color: textMuted, fontSize: 11.5),
-                    ),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: textMuted,
-                    ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const PersonalInformationScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  Divider(height: 1, color: borderColor),
-                  ListTile(
-                    leading: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.bookmark_outline_rounded,
-                        color: Color(0xFF7C3AED),
-                        size: 18,
-                      ),
-                    ),
-                    title: Text(
-                      'Saved Exams',
-                      style: TextStyle(
-                        color: textPrimary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13.5,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'View your saved or bookmarked exams',
-                      style: TextStyle(color: textMuted, fontSize: 11.5),
-                    ),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: textMuted,
-                    ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const SavedExamsScreen(),
-                        ),
-                      );
-                    },
-                  ),
+
                   Divider(height: 1, color: borderColor),
                   ListTile(
                     leading: Container(
@@ -1003,7 +750,9 @@ class _SettingscreenState extends State<Settingscreen> {
             border: Border.all(
               color: isSelected
                   ? const Color(0xFF7C3AED)
-                  : (isDark ? const Color(0xFF28334D) : const Color(0xFFE2E8F0)),
+                  : (isDark
+                        ? const Color(0xFF28334D)
+                        : const Color(0xFFE2E8F0)),
               width: isSelected ? 1.5 : 1,
             ),
           ),
@@ -1013,7 +762,11 @@ class _SettingscreenState extends State<Settingscreen> {
               Icon(
                 icon,
                 size: 20,
-                color: isSelected ? const Color(0xFF7C3AED) : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                color: isSelected
+                    ? const Color(0xFF7C3AED)
+                    : (isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF64748B)),
               ),
               const SizedBox(height: 6),
               Text(
@@ -1021,7 +774,9 @@ class _SettingscreenState extends State<Settingscreen> {
                 style: TextStyle(
                   color: isSelected
                       ? const Color(0xFF7C3AED)
-                      : (isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A)),
+                      : (isDark
+                            ? const Color(0xFFF8FAFC)
+                            : const Color(0xFF0F172A)),
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 12.5,
                 ),

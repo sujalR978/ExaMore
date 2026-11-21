@@ -41,10 +41,7 @@ class ExamService {
         .collection('submissions')
         .where('userId', isEqualTo: studentId)
         .get();
-    return (totalAllowed - existingAttempts.docs.length).clamp(
-      0,
-      totalAllowed,
-    );
+    return (totalAllowed - existingAttempts.docs.length).clamp(0, totalAllowed);
   }
 
   Future<bool> canAttemptExam({
@@ -363,16 +360,22 @@ class ExamService {
       throw Exception('Exam is not yet open for attempts.');
     }
     if (exam.endDate != null && now.isAfter(exam.endDate!)) {
-      throw Exception('Exam is closed. The deadline for this assessment has passed.');
+      throw Exception(
+        'Exam is closed. The deadline for this assessment has passed.',
+      );
     }
 
     // 2. Strict attempt limit verification
-    final int allowedAttempts = exam.allowedAttempts > 0 ? exam.allowedAttempts : 1;
+    final int allowedAttempts = exam.allowedAttempts > 0
+        ? exam.allowedAttempts
+        : 1;
     final existingAttemptsQuery = await submissionsRef
         .where('userId', isEqualTo: studentId)
         .get();
     if (existingAttemptsQuery.docs.length >= allowedAttempts) {
-      throw Exception('Maximum attempts reached ($allowedAttempts of $allowedAttempts used).');
+      throw Exception(
+        'Maximum attempts reached ($allowedAttempts of $allowedAttempts used).',
+      );
     }
     final int currentAttemptNumber = existingAttemptsQuery.docs.length + 1;
 
@@ -585,8 +588,9 @@ class ExamService {
         if (role != 'super_admin' && adminId != null && adminId.isNotEmpty) {
           bankQuery = bankQuery.where('adminId', isEqualTo: adminId);
         }
-        final bankSnap =
-            await bankQuery.get(const GetOptions(source: Source.serverAndCache));
+        final bankSnap = await bankQuery.get(
+          const GetOptions(source: Source.serverAndCache),
+        );
         bankCount = bankSnap.docs.length;
       } catch (_) {
         bankCount = 0;
@@ -705,7 +709,8 @@ class ExamService {
               final data = doc.data();
               list.add({
                 'examId': (data['examId'] ?? '').toString(),
-                'category': (data['category'] ?? data['subject'] ?? '').toString(),
+                'category': (data['category'] ?? data['subject'] ?? '')
+                    .toString(),
                 'submission': StudentSubmissionModel.fromFirestore(doc),
                 'adminId': (data['adminId'] ?? '').toString(),
               });

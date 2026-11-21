@@ -53,8 +53,6 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           _nameController.text = data['name'] ?? '';
           _emailController.text = data['email'] ?? user.email ?? '';
           _phoneController.text = data['phone'] ?? '';
-          _levelController.text = data['academicLevel'] ?? 'Year 3';
-          _majorController.text = data['major'] ?? 'Science Major';
           _photoUrl = data['photoUrl'] ?? _photoUrl;
           _isLoading = false;
         });
@@ -98,7 +96,9 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Selected photo exceeds 5MB size limit. Please choose a smaller image.'),
+                content: Text(
+                  'Selected photo exceeds 5MB size limit. Please choose a smaller image.',
+                ),
                 backgroundColor: Colors.redAccent,
               ),
             );
@@ -112,7 +112,9 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Unsupported file format. Please upload JPG, PNG, or WEBP.'),
+                content: Text(
+                  'Unsupported file format. Please upload JPG, PNG, or WEBP.',
+                ),
                 backgroundColor: Colors.redAccent,
               ),
             );
@@ -230,8 +232,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       final updatedData = {
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'academicLevel': _levelController.text.trim(),
-        'major': _majorController.text.trim(),
+
         'photoUrl': finalPhotoUrl,
         'updatedAt': DateTime.now(),
       };
@@ -385,269 +386,260 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                         }
                       },
                     ),
-                  title: Text(
-                    'Personal Information',
-                    style: TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                    title: Text(
+                      'Personal Information',
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
-                  ),
-                  centerTitle: true,
-                  actions: [
-                    if (_isEditing)
+                    centerTitle: true,
+                    actions: [
+                      if (_isEditing)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.redAccent,
+                          ),
+                          tooltip: 'Cancel Edit',
+                          onPressed: _isSaving ? null : _cancelEditing,
+                        ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
-                        tooltip: 'Cancel Edit',
-                        onPressed: _isSaving ? null : _cancelEditing,
+                        icon: Icon(
+                          _isEditing ? Icons.check : Icons.edit_outlined,
+                          color: const Color(0xFFFBBF24),
+                        ),
+                        tooltip: _isEditing ? 'Save Changes' : 'Edit Profile',
+                        onPressed: _isSaving ? null : _toggleEditMode,
                       ),
-                    IconButton(
-                      icon: Icon(
-                        _isEditing ? Icons.check : Icons.edit_outlined,
-                        color: const Color(0xFFFBBF24),
-                      ),
-                      tooltip: _isEditing ? 'Save Changes' : 'Edit Profile',
-                      onPressed: _isSaving ? null : _toggleEditMode,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Profile Picture Section with Image Picker
-              Center(
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: _isEditing ? _pickImage : null,
-                      child: Stack(
-                        children: [
-                          ClipOval(
-                            child: SizedBox(
-                              width: 100,
-                              height: 100,
-                              child: _selectedImagePath != null || _photoUrl.isNotEmpty
-                                  ? AppImageView(
-                                      imageSource: _selectedImagePath ?? _photoUrl,
-                                      fit: BoxFit.cover,
-                                      width: 100,
-                                      height: 100,
-                                      placeholder: Container(
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Profile Picture Section with Image Picker
+                Center(
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _isEditing ? _pickImage : null,
+                        child: Stack(
+                          children: [
+                            ClipOval(
+                              child: SizedBox(
+                                width: 100,
+                                height: 100,
+                                child:
+                                    _selectedImagePath != null ||
+                                        _photoUrl.isNotEmpty
+                                    ? AppImageView(
+                                        imageSource:
+                                            _selectedImagePath ?? _photoUrl,
+                                        fit: BoxFit.cover,
+                                        width: 100,
+                                        height: 100,
+                                        placeholder: Container(
+                                          color: const Color(0xFF4C1D95),
+                                          alignment: Alignment.center,
+                                          child: const Icon(
+                                            Icons.person,
+                                            color: Colors.white,
+                                            size: 48,
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
                                         color: const Color(0xFF4C1D95),
                                         alignment: Alignment.center,
-                                        child: const Icon(Icons.person, color: Colors.white, size: 48),
+                                        child: const Icon(
+                                          Icons.person,
+                                          color: Colors.white,
+                                          size: 48,
+                                        ),
                                       ),
-                                    )
-                                  : Container(
-                                      color: const Color(0xFF4C1D95),
-                                      alignment: Alignment.center,
-                                      child: const Icon(Icons.person, color: Colors.white, size: 48),
-                                    ),
-                            ),
-                          ),
-                          if (_isEditing)
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFFBBF24),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  color: Color(0xFF1E1B4B),
-                                  size: 18,
-                                ),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _isEditing
-                          ? 'Tap image to select new photo'
-                          : 'Tap edit icon to update your details',
-                      style: TextStyle(color: subtitleColor, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Form Information Fields Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: containerColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTextField(
-                      label: 'Full Name',
-                      controller: _nameController,
-                      icon: Icons.person_outline,
-                      isEditing: _isEditing,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      keyboardType: TextInputType.name,
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Name cannot be empty'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      label: 'Email Address (Read-Only)',
-                      controller: _emailController,
-                      icon: Icons.email_outlined,
-                      isEditing: false,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      label: 'Phone Number',
-                      controller: _phoneController,
-                      icon: Icons.phone_outlined,
-                      isEditing: _isEditing,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      keyboardType: TextInputType.phone,
-                      validator: (val) =>
-                          val != null && val.isNotEmpty && val.length < 6
-                          ? 'Enter a valid phone number'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      label: 'Academic Level',
-                      controller: _levelController,
-                      icon: Icons.school_outlined,
-                      isEditing: _isEditing,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      keyboardType: TextInputType.text,
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Level cannot be empty'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      label: 'Major',
-                      controller: _majorController,
-                      icon: Icons.science_outlined,
-                      isEditing: _isEditing,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      keyboardType: TextInputType.text,
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Major cannot be empty'
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // Save Changes & Cancel Action Buttons (Visible only when editing)
-              if (_isEditing)
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 52,
-                        child: OutlinedButton(
-                          onPressed: _isSaving ? null : _cancelEditing,
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: isDarkMode ? const Color(0xFF64748B) : Colors.grey.shade400,
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: isDarkMode ? Colors.white70 : const Color(0xFF334155),
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SizedBox(
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isSaving ? null : _saveChanges,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFBBF24),
-                            foregroundColor: const Color(0xFF1E1B4B),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isSaving
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Text(
-                                  'Save Changes',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
+                            if (_isEditing)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFBBF24),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Color(0xFF1E1B4B),
+                                    size: 18,
                                   ),
                                 ),
+                              ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      Text(
+                        _isEditing
+                            ? 'Tap image to select new photo'
+                            : 'Tap edit icon to update your details',
+                        style: TextStyle(color: subtitleColor, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
-              const SizedBox(height: 30),
-            ],
+                const SizedBox(height: 24),
+
+                // Form Information Fields Card
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: containerColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: borderColor),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                          isDarkMode ? 0.2 : 0.02,
+                        ),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTextField(
+                        label: 'Full Name',
+                        controller: _nameController,
+                        icon: Icons.person_outline,
+                        isEditing: _isEditing,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        keyboardType: TextInputType.name,
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Name cannot be empty'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        label: 'Email Address (Read-Only)',
+                        controller: _emailController,
+                        icon: Icons.email_outlined,
+                        isEditing: false,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        label: 'Phone Number',
+                        controller: _phoneController,
+                        icon: Icons.phone_outlined,
+                        isEditing: _isEditing,
+                        textColor: textColor,
+                        subtitleColor: subtitleColor,
+                        borderColor: borderColor,
+                        isDarkMode: isDarkMode,
+                        keyboardType: TextInputType.phone,
+                        validator: (val) =>
+                            val != null && val.isNotEmpty && val.length < 6
+                            ? 'Enter a valid phone number'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+                // Save Changes & Cancel Action Buttons (Visible only when editing)
+                if (_isEditing)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: OutlinedButton(
+                            onPressed: _isSaving ? null : _cancelEditing,
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: isDarkMode
+                                    ? const Color(0xFF64748B)
+                                    : Colors.grey.shade400,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: isDarkMode
+                                    ? Colors.white70
+                                    : const Color(0xFF334155),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _isSaving ? null : _saveChanges,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFBBF24),
+                              foregroundColor: const Color(0xFF1E1B4B),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _isSaving
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Save Changes',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 

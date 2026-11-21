@@ -40,17 +40,20 @@ void main() {
       expect(find.text('Dark'), findsOneWidget);
       expect(find.text('System'), findsOneWidget);
       expect(find.text('Preferences'), findsOneWidget);
-      expect(find.text('Email Notifications'), findsOneWidget);
-      expect(find.text('Study Streak Reminders'), findsOneWidget);
-      expect(find.text('App Language'), findsOneWidget);
       expect(find.text('App Permissions'), findsOneWidget);
       expect(find.text('Account & Legal'), findsOneWidget);
       expect(find.text('Clear App Cache'), findsOneWidget);
       expect(find.text('Delete Account & Data'), findsOneWidget);
       expect(find.text('ExaMore v1.0.0 (Build 1)'), findsOneWidget);
+
+      // Verify removed items are not present
+      expect(find.text('Email Notifications'), findsNothing);
+      expect(find.text('Study Streak Reminders'), findsNothing);
+      expect(find.text('App Language'), findsNothing);
+      expect(find.text('Instructor Code'), findsNothing);
     });
 
-    testWidgets('App Language dialog opens and selects a new language',
+    testWidgets('Unrequired features (Streak, Language, Email Notifs, Instructor Code) are completely removed',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(500, 1200);
       tester.view.devicePixelRatio = 1.0;
@@ -59,25 +62,11 @@ void main() {
       await tester.pumpWidget(buildTestableSettings());
       await tester.pumpAndSettle();
 
-      // Tap App Language
-      await tester.tap(find.text('App Language'));
-      await tester.pumpAndSettle();
-
-      // Verify language options in dialog
-      expect(find.text('Select Language'), findsOneWidget);
-      expect(find.text('Spanish'), findsOneWidget);
-      expect(find.text('French'), findsOneWidget);
-
-      // Select Spanish
-      await tester.tap(find.text('Spanish'));
-      await tester.pumpAndSettle();
-
-      // Verify Spanish is now displayed
-      expect(find.text('Spanish'), findsOneWidget);
-
-      // Verify SharedPreferences persistence
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('selected_language'), 'Spanish');
+      expect(find.text('Email Notifications'), findsNothing);
+      expect(find.text('Study Streak Reminders'), findsNothing);
+      expect(find.text('App Language'), findsNothing);
+      expect(find.text('Select Language'), findsNothing);
+      expect(find.text('Instructor Code'), findsNothing);
     });
 
     testWidgets('App Permissions dialog displays required device permissions',
