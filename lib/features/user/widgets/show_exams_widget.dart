@@ -3,36 +3,46 @@ import 'package:prep_mate/core/theme/app_theme.dart';
 
 class ExamCardWidget extends StatelessWidget {
   final String badgeText;
-  final Color badgeColor;
-  final Color badgeTextColor;
   final String title;
-  final String description;
   final String time;
   final String mcqs;
-  final IconData icon;
+  final String marks;
+  final String statusText;
+  final bool isUpcoming;
   final bool isBookmarked;
   final String buttonText;
-  final Color buttonBgColor;
-  final Color buttonTextColor;
   final VoidCallback onButtonPressed;
-  final VoidCallback? onBookmarkToggle; // Added parameter
+  final VoidCallback? onBookmarkToggle;
+  final VoidCallback? onTap;
+
+  // Optional styling properties (kept for backwards compatibility)
+  final Color? badgeColor;
+  final Color? badgeTextColor;
+  final String? description;
+  final IconData? icon;
+  final Color? buttonBgColor;
+  final Color? buttonTextColor;
 
   const ExamCardWidget({
     super.key,
     required this.badgeText,
-    required this.badgeColor,
-    required this.badgeTextColor,
     required this.title,
-    required this.description,
     required this.time,
     required this.mcqs,
-    required this.icon,
+    this.marks = '',
+    this.statusText = '',
+    this.isUpcoming = false,
     this.isBookmarked = false,
     required this.buttonText,
-    required this.buttonBgColor,
-    required this.buttonTextColor,
     required this.onButtonPressed,
-    this.onBookmarkToggle, // Added to constructor
+    this.onBookmarkToggle,
+    this.onTap,
+    this.badgeColor,
+    this.badgeTextColor,
+    this.description,
+    this.icon,
+    this.buttonBgColor,
+    this.buttonTextColor,
   });
 
   @override
@@ -42,147 +52,262 @@ class ExamCardWidget extends StatelessWidget {
     final borderColor = AppColors.border(isDark);
     final textPrimary = AppColors.textPrimary(isDark);
     final textSecondary = AppColors.textSecondary(isDark);
+    final textMuted = AppColors.textMuted(isDark);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: borderColor,
+          color: isUpcoming
+              ? const Color(0xFFF59E0B).withValues(alpha: isDark ? 0.35 : 0.4)
+              : borderColor,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.35 : 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF7C3AED).withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFF7C3AED).withOpacity(0.4),
-                    width: 0.8,
-                  ),
-                ),
-                child: Text(
-                  badgeText,
-                  style: const TextStyle(
-                    color: Color(0xFFA78BFA),
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  color: isBookmarked ? const Color(0xFFF59E0B) : textSecondary,
-                  size: 22,
-                ),
-                onPressed: onBookmarkToggle,
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
-                splashRadius: 20,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF7C3AED).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF7C3AED).withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Icon(icon, color: const Color(0xFFA78BFA), size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap ?? onButtonPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top Row: Subject Pill + Status Pill + Bookmark Button
+                Row(
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                    // Subject Pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
                       ),
-                    ),
-                    if (description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: textSecondary,
-                          fontSize: 12.5,
-                          height: 1.4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+                          width: 0.8,
                         ),
                       ),
-                    ],
+                      child: Text(
+                        badgeText.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFA78BFA),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Status Pill (Upcoming or Available)
+                    if (statusText.isNotEmpty)
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isUpcoming
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                                : const Color(0xFF10B981).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isUpcoming
+                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                                  : const Color(0xFF10B981).withValues(alpha: 0.35),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isUpcoming
+                                    ? Icons.schedule_rounded
+                                    : Icons.check_circle_outline_rounded,
+                                size: 11,
+                                color: isUpcoming
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF10B981),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  statusText,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: isUpcoming
+                                        ? const Color(0xFFF59E0B)
+                                        : const Color(0xFF10B981),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    const Spacer(),
+
+                    // Bookmark Button
+                    IconButton(
+                      icon: Icon(
+                        isBookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        color: isBookmarked
+                            ? const Color(0xFFF59E0B)
+                            : textMuted,
+                        size: 20,
+                      ),
+                      onPressed: onBookmarkToggle,
+                      constraints: const BoxConstraints(),
+                      padding: const EdgeInsets.all(4),
+                      splashRadius: 18,
+                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Icon(Icons.access_time_rounded, size: 15, color: textSecondary),
-              const SizedBox(width: 4),
-              Text(time, style: TextStyle(color: textSecondary, fontSize: 12)),
-              const SizedBox(width: 14),
-              Icon(Icons.assignment_outlined, size: 15, color: textSecondary),
-              const SizedBox(width: 4),
-              Text(mcqs, style: TextStyle(color: textSecondary, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton(
-              onPressed: onButtonPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
-                foregroundColor: const Color(0xFF0F172A),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 8),
+
+                // Middle: Exam Title
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                    height: 1.25,
+                  ),
                 ),
-              ),
-              child: Text(
-                buttonText,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  color: Color(0xFF0F172A),
+                const SizedBox(height: 10),
+
+                // Bottom Row: Metadata Chips (Left) + Action CTA (Right)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Metadata inline
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 13,
+                            color: textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            time,
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '•',
+                            style: TextStyle(color: textMuted, fontSize: 10),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.assignment_outlined,
+                            size: 13,
+                            color: textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            mcqs,
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (marks.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '•',
+                              style: TextStyle(color: textMuted, fontSize: 10),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              marks,
+                              style: TextStyle(
+                                color: textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Action Button
+                    SizedBox(
+                      height: 32,
+                      child: ElevatedButton(
+                        onPressed: onButtonPressed,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isUpcoming
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.16)
+                              : const Color(0xFF7C3AED),
+                          foregroundColor: isUpcoming
+                              ? const Color(0xFFF59E0B)
+                              : Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: isUpcoming
+                                ? const BorderSide(
+                                    color: Color(0xFFF59E0B),
+                                    width: 1,
+                                  )
+                                : BorderSide.none,
+                          ),
+                        ),
+                        child: Text(
+                          buttonText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isUpcoming
+                                ? const Color(0xFFF59E0B)
+                                : Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
@@ -20,22 +21,25 @@ class Showexam extends StatefulWidget {
 
 class _ShowexamState extends State<Showexam> {
   final ExamService _examService = ExamService();
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  int _selectedCategoryIndex = 0;
+  User? get _currentUser {
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
   String _assignedAdminId = '';
   String _studentClassroomId = '';
   bool _isLoadingUser = true;
-
-  List<String> _categories = [
-    'All Subjects',
-  ];
   List<String> _enrolledSubjects = [];
 
-  late final Stream<List<dynamic>> _savedExamsStream;
+  Stream<List<dynamic>>? _savedExamsStream;
+  Stream<List<Map<String, dynamic>>>? _userAttemptsStream;
   Stream<List<ExamModel>>? _publishedExamsStream;
 
   @override
@@ -43,6 +47,7 @@ class _ShowexamState extends State<Showexam> {
     super.initState();
     final uid = _currentUser?.uid ?? '';
     _savedExamsStream = _examService.getSavedExamsStream(uid);
+    _userAttemptsStream = _examService.getUserExamAttemptsStream(uid);
 
     _fetchStudentAdminAndInitStream();
 
@@ -53,9 +58,11 @@ class _ShowexamState extends State<Showexam> {
     });
   }
 
-  /// Looks up the student's linked adminId & classroom from their Firestore profile
+  /// Looks up student's linked adminId & classroom from their Firestore profile
   Future<void> _fetchStudentAdminAndInitStream() async {
-    if (_currentUser == null) {
+    final user = _currentUser;
+    if (user == null) {
+      _updatePublishedExamsStream();
       if (mounted) setState(() => _isLoadingUser = false);
       return;
     }
@@ -63,7 +70,7 @@ class _ShowexamState extends State<Showexam> {
     try {
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(user.uid)
           .get();
 
       if (userDoc.exists) {
@@ -78,13 +85,7 @@ class _ShowexamState extends State<Showexam> {
               .get();
           if (classDoc.exists) {
             final cData = classDoc.data() ?? {};
-            final subs = List<String>.from(cData['subjects'] ?? []);
-            _enrolledSubjects = subs;
-            if (subs.isNotEmpty) {
-              _categories = ['All Subjects', ...subs];
-            } else {
-              _categories = ['All Subjects', 'General'];
-            }
+            _enrolledSubjects = List<String>.from(cData['subjects'] ?? []);
           }
         }
       }
@@ -100,13 +101,10 @@ class _ShowexamState extends State<Showexam> {
   }
 
   /// Updates the stream scoped to the student's assigned instructor & classroom
+  /// without subject/category filters to include all enrolled subjects
   void _updatePublishedExamsStream() {
-    final selectedCategory = _selectedCategoryIndex == 0
-        ? null
-        : _categories[_selectedCategoryIndex];
-
     _publishedExamsStream = _examService.getPublishedExamsStream(
-      category: selectedCategory,
+      category: null, // No category filter - show all subjects
       adminId: _assignedAdminId,
       classroomId: _studentClassroomId,
       enrolledSubjects: _enrolledSubjects,
@@ -118,13 +116,6 @@ class _ShowexamState extends State<Showexam> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _onCategorySelected(int index) {
-    setState(() {
-      _selectedCategoryIndex = index;
-      _updatePublishedExamsStream();
-    });
   }
 
   void _handleViewAll() {
@@ -170,23 +161,19 @@ class _ShowexamState extends State<Showexam> {
     }
   }
 
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'science':
-      case 'physics':
-      case 'chemistry':
-      case 'biology':
-        return Icons.science_outlined;
-      case 'mathematics':
-      case 'math':
-      case 'calculus':
-        return Icons.calculate_outlined;
-      case 'history':
-        return Icons.history_edu_outlined;
-      case 'computer science':
-        return Icons.computer_outlined;
-      default:
-        return Icons.assignment_outlined;
+  String _formatScheduleDate(DateTime dt) {
+    final now = DateTime.now();
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final tomorrow = now.add(const Duration(days: 1));
+    final isTomorrow =
+        dt.year == tomorrow.year && dt.month == tomorrow.month && dt.day == tomorrow.day;
+
+    if (isToday) {
+      return 'Today, ${DateFormat('h:mm a').format(dt)}';
+    } else if (isTomorrow) {
+      return 'Tomorrow, ${DateFormat('h:mm a').format(dt)}';
+    } else {
+      return DateFormat('MMM d, h:mm a').format(dt);
     }
   }
 
@@ -224,7 +211,7 @@ class _ShowexamState extends State<Showexam> {
             ),
             const SizedBox(height: 2),
             Text(
-              'Find practice tests and assessments across all subjects.',
+              'Upcoming and pending assessments for your classes.',
               style: TextStyle(
                 color: textSecondary,
                 fontSize: 12,
@@ -259,7 +246,7 @@ class _ShowexamState extends State<Showexam> {
                     controller: _searchController,
                     style: TextStyle(color: textPrimary, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: "Search for subjects, topics or exams...",
+                      hintText: "Search upcoming exams, subjects...",
                       hintStyle: TextStyle(
                         color: textMuted,
                         fontSize: 13,
@@ -302,71 +289,20 @@ class _ShowexamState extends State<Showexam> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
-                  // Category Filter Chips
-                  SizedBox(
-                    height: 38,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final isSelected = _selectedCategoryIndex == index;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () => _onCategorySelected(index),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF7C3AED)
-                                    : cardColor,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? const Color(0xFF7C3AED)
-                                      : borderColor,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                _categories[index],
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? Colors.white
-                                      : textSecondary,
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.w500,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-
-                  // Section Header: Recommended for You
+                  // Section Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(
-                          'Recommended for You',
+                          'Upcoming & Available Exams',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: textPrimary,
-                            fontSize: 17,
+                            fontSize: 16.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -390,7 +326,11 @@ class _ShowexamState extends State<Showexam> {
                               ),
                             ),
                             SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFFF59E0B)),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 14,
+                              color: Color(0xFFF59E0B),
+                            ),
                           ],
                         ),
                       ),
@@ -398,137 +338,184 @@ class _ShowexamState extends State<Showexam> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Synchronized Streams: Saved IDs + Scoped Published Exams
-                  StreamBuilder<List>(
-                    stream: _savedExamsStream,
-                    builder: (context, savedSnapshot) {
-                      final savedIds = (savedSnapshot.data ?? [])
-                          .map((item) => (item['exam'] as ExamModel).id)
+                  // Synchronized Streams: User Attempts (Given) + Bookmarks + Published Exams
+                  StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: _userAttemptsStream,
+                    builder: (context, attemptsSnapshot) {
+                      final attempts = attemptsSnapshot.data ?? [];
+                      final givenExamIds = attempts
+                          .map((a) => (a['examId'] ?? '').toString())
+                          .where((id) => id.isNotEmpty)
                           .toSet();
 
-                      return StreamBuilder<List<ExamModel>>(
-                        stream: _publishedExamsStream,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                                  ConnectionState.waiting &&
-                              !snapshot.hasData) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 40.0),
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          }
+                      return StreamBuilder<List<dynamic>>(
+                        stream: _savedExamsStream,
+                        builder: (context, savedSnapshot) {
+                          final savedIds = (savedSnapshot.data ?? [])
+                              .map((item) {
+                                if (item is Map && item['exam'] is ExamModel) {
+                                  return (item['exam'] as ExamModel).id;
+                                }
+                                return (item['examId'] ?? '').toString();
+                              })
+                              .where((id) => id.isNotEmpty)
+                              .toSet();
 
-                          if (snapshot.hasError) {
-                            return Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 20.0,
-                                ),
-                                child: Text(
-                                  'Error loading exams: ${snapshot.error}',
-                                  style: const TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            );
-                          }
-
-                          final allExams = snapshot.data ?? [];
-
-                          final filteredExams = allExams.where((exam) {
-                            return exam.title.toLowerCase().contains(
-                                  _searchQuery,
-                                ) ||
-                                exam.category.toLowerCase().contains(
-                                  _searchQuery,
-                                ) ||
-                                exam.examCode.toLowerCase().contains(
-                                  _searchQuery,
-                                );
-                          }).toList();
-
-                          if (filteredExams.isEmpty) {
-                            return Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(28),
-                              decoration: BoxDecoration(
-                                color: cardColor,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: borderColor),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _searchQuery.isNotEmpty
-                                      ? 'No exams found matching "$_searchQuery"'
-                                      : (_assignedAdminId.isEmpty
-                                            ? 'You are not linked to any instructor yet.'
-                                            : 'No published assessments available from your instructor under this category.'),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: textSecondary,
-                                    fontSize: 14,
+                          return StreamBuilder<List<ExamModel>>(
+                            stream: _publishedExamsStream,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                      ConnectionState.waiting &&
+                                  !snapshot.hasData) {
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 40.0),
+                                    child: CircularProgressIndicator(),
                                   ),
-                                ),
-                              ),
-                            );
-                          }
+                                );
+                              }
 
-                          return ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: filteredExams.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 16),
-                            itemBuilder: (context, index) {
-                              final exam = filteredExams[index];
-                              final isBookmarked = savedIds.contains(exam.id);
+                              if (snapshot.hasError) {
+                                return Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 20.0,
+                                    ),
+                                    child: Text(
+                                      'Error loading exams: ${snapshot.error}',
+                                      style: const TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                );
+                              }
 
-                              final isMath =
-                                  exam.category.toLowerCase().contains(
-                                    'math',
-                                  ) ||
-                                  exam.category.toLowerCase().contains('calc');
+                              final allExams = snapshot.data ?? [];
+                              final now = DateTime.now();
 
-                              final badgeBg = isMath
-                                  ? (isDarkMode
-                                        ? const Color(0xFF312E81)
-                                        : const Color(0xFFDBEAFE))
-                                  : (isDarkMode
-                                        ? const Color(0xFF2E2A72)
-                                        : const Color(0xFFDBEAFE));
+                              // Show only upcoming and non-given exams
+                              final filteredExams = allExams.where((exam) {
+                                // 1. Exclude already given/submitted exams
+                                if (givenExamIds.contains(exam.id)) {
+                                  return false;
+                                }
 
-                              final badgeText = isMath
-                                  ? (isDarkMode
-                                        ? const Color(0xFF93C5FD)
-                                        : const Color(0xFF1D4ED8))
-                                  : (isDarkMode
-                                        ? const Color(0xFF93C5FD)
-                                        : const Color(0xFF1D4ED8));
+                                // 2. Exclude closed/expired exams
+                                if (exam.endDate != null && now.isAfter(exam.endDate!)) {
+                                  return false;
+                                }
 
-                              return ExamCardWidget(
-                                badgeText: exam.category.toUpperCase(),
-                                badgeColor: badgeBg,
-                                badgeTextColor: badgeText,
-                                title: exam.title,
-                                description:
-                                    'Comprehensive test with ${exam.questions.length} questions. Total marks: ${exam.totalMarks.toInt()} pts. Passing requirement: ${exam.passingScorePercentage.toInt()}%.',
-                                time: '${exam.durationMinutes} mins',
-                                mcqs: '${exam.questions.length} MCQs',
-                                icon: _getCategoryIcon(exam.category),
-                                isBookmarked: isBookmarked,
-                                buttonText: index % 2 == 0
-                                    ? 'Start Exam'
-                                    : 'View Details',
-                                buttonBgColor: index % 2 == 0
-                                    ? const Color(0xFFFBBF24)
-                                    : const Color(0xFF5B21B6),
-                                buttonTextColor: index % 2 == 0
-                                    ? const Color(0xFF1E1B4B)
-                                    : Colors.white,
-                                onButtonPressed: () => _handleStartExam(exam),
-                                onBookmarkToggle: () =>
-                                    _handleBookmarkToggle(exam, userId),
+                                // 3. Search query filter
+                                if (_searchQuery.isNotEmpty) {
+                                  final q = _searchQuery;
+                                  final matches = exam.title.toLowerCase().contains(q) ||
+                                      exam.category.toLowerCase().contains(q) ||
+                                      exam.examCode.toLowerCase().contains(q);
+                                  if (!matches) return false;
+                                }
+
+                                return true;
+                              }).toList();
+
+                              if (filteredExams.isEmpty) {
+                                return Container(
+                                  width: double.infinity,
+                                  margin: const EdgeInsets.only(top: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 36,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: cardColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: borderColor),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF10B981)
+                                              .withValues(alpha: 0.12),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.assignment_turned_in_rounded,
+                                          size: 32,
+                                          color: Color(0xFF10B981),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        _searchQuery.isNotEmpty
+                                            ? 'No matching exams found'
+                                            : 'All Caught Up!',
+                                        style: TextStyle(
+                                          color: textPrimary,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _searchQuery.isNotEmpty
+                                            ? 'No upcoming or open exams matched "$_searchQuery".'
+                                            : (_assignedAdminId.isEmpty
+                                                ? 'You are not linked to any instructor yet.'
+                                                : 'No upcoming or pending exams are scheduled for you right now.'),
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: textSecondary,
+                                          fontSize: 13,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              return ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: filteredExams.length,
+                                itemBuilder: (context, index) {
+                                  final exam = filteredExams[index];
+                                  final isBookmarked = savedIds.contains(exam.id);
+
+                                  final isUpcoming = exam.startDate != null &&
+                                      now.isBefore(exam.startDate!);
+
+                                  final String statusText;
+                                  if (isUpcoming) {
+                                    statusText =
+                                        'Opens ${_formatScheduleDate(exam.startDate!)}';
+                                  } else if (exam.endDate != null) {
+                                    statusText =
+                                        'Closes ${_formatScheduleDate(exam.endDate!)}';
+                                  } else {
+                                    statusText = 'Available Now';
+                                  }
+
+                                  final String buttonText =
+                                      isUpcoming ? 'View Details' : 'Start Exam';
+
+                                  return ExamCardWidget(
+                                    badgeText: exam.category,
+                                    title: exam.title,
+                                    time: '${exam.durationMinutes} mins',
+                                    mcqs: '${exam.questions.length} MCQs',
+                                    marks: '${exam.totalMarks.toInt()} pts',
+                                    statusText: statusText,
+                                    isUpcoming: isUpcoming,
+                                    isBookmarked: isBookmarked,
+                                    buttonText: buttonText,
+                                    onButtonPressed: () => _handleStartExam(exam),
+                                    onBookmarkToggle: () =>
+                                        _handleBookmarkToggle(exam, userId),
+                                    onTap: () => _handleStartExam(exam),
+                                  );
+                                },
                               );
                             },
                           );
