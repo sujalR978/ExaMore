@@ -299,7 +299,7 @@ class _LoginState extends State<Login> {
                                       children: [
                                         Image.asset(
                                           'assets/image/examore_logo.png',
-                                          height: 150,
+                                          height: 84,
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) =>
@@ -310,6 +310,25 @@ class _LoginState extends State<Login> {
                                                   ),
                                         ),
                                         const SizedBox(height: 12),
+                                        Text(
+                                          "ExaMore Login",
+                                          style: TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: textPrimary,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          "Master your exams and elevate your learning",
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textSecondary,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),

@@ -224,24 +224,6 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 8),
-            Text(
-              isSuperAdmin ? 'Platform Exams' : 'Active Exams',
-              style: TextStyle(
-                color: textColor,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              isSuperAdmin
-                  ? 'Overview of all active and draft examinations across all instructors.'
-                  : 'Manage and review examinations created for your student cohorts.',
-              style: TextStyle(color: subtitleColor, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-
             // Search Bar
             TextField(
               controller: _searchController,
