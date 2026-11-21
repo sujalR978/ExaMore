@@ -284,218 +284,221 @@ class _LoginState extends State<Login> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SizedBox(
-                              height: MediaQuery.of(context).padding.top + 16,
-                            ),
-
-                            // 1. Top Section: Logo & Branding Header
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Image.asset(
-                                    'assets/image/examore_logo.png',
-                                    height: 76,
-                                    fit: BoxFit.contain,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const Icon(
-                                              Icons.school_rounded,
-                                              size: 64,
-                                              color: Color(0xFF8B5CF6),
-                                            ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Text(
-                                    "ExaMore Login",
-                                    style: TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: textPrimary,
-                                      letterSpacing: 0.3,
+                            // 1. Top Section: Logo & Branding Header (Balanced ~50% upper half)
+                            Expanded(
+                              child: SafeArea(
+                                bottom: false,
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 16,
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Image.asset(
+                                          'assets/image/examore_logo.png',
+                                          height: 84,
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
+                                                    Icons.school_rounded,
+                                                    size: 68,
+                                                    color: Color(0xFF8B5CF6),
+                                                  ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          "ExaMore Login",
+                                          style: TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: textPrimary,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          "Master your exams and elevate your learning",
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textSecondary,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "Master your exams and elevate your learning",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      color: textSecondary,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
 
-                            const SizedBox(height: 18),
-
-                            // 2. Bottom Sheet: Snug rounded container that fills remainder of screen
-                            Expanded(
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: cardBg,
-                                  borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(32),
-                                    topRight: Radius.circular(32),
-                                  ),
-                                  border: Border(
-                                    top: BorderSide(color: cardBorder, width: 1),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(
-                                        isDark ? 0.35 : 0.06,
-                                      ),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, -4),
-                                    ),
-                                  ],
+                            // 2. Bottom Sheet: Snug rounded container with form (no empty dead space below Google button)
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(32),
+                                  topRight: Radius.circular(32),
                                 ),
-                                child: SafeArea(
-                                  top: false,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      24,
-                                      24,
-                                      24,
-                                      20,
+                                border: Border(
+                                  top: BorderSide(color: cardBorder, width: 1),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(
+                                      isDark ? 0.35 : 0.06,
                                     ),
-                                    child: Form(
-                                      key: _formKey,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          // Email or Phone Field Label (LOG-001)
-                                          Text(
-                                            "Email or Phone Number",
-                                            style: TextStyle(
-                                              color: textPrimary,
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w600,
+                                    blurRadius: 16,
+                                    offset: const Offset(0, -4),
+                                  ),
+                                ],
+                              ),
+                              child: SafeArea(
+                                top: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    26,
+                                    24,
+                                    22,
+                                  ),
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        // Email or Phone Field Label (LOG-001)
+                                        Text(
+                                          "Email or Phone Number",
+                                          style: TextStyle(
+                                            color: textPrimary,
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Inputfield(
+                                          controller: _identifier,
+                                          hintText:
+                                              "Enter email or 10-digit phone number",
+                                          icon: Icons.person_outline_rounded,
+                                          isPassword: false,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          validator:
+                                              Validators.validateEmailOrPhone,
+                                        ),
+                                        const SizedBox(height: 14),
+                                        Text(
+                                          "Password",
+                                          style: TextStyle(
+                                            color: textPrimary,
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Inputfield(
+                                          controller: _password,
+                                          hintText: "Enter your password",
+                                          icon: Icons.lock_outline_rounded,
+                                          isPassword: true,
+                                          keyboardType:
+                                              TextInputType.visiblePassword,
+                                          validator:
+                                              Validators.validateBasicPassword,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Textbutton(
+                                            text: "Forgot Password?",
+                                            color: const Color(0xFFA78BFA),
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const ForgotPasswordPage(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Button(
+                                          text: "LOGIN",
+                                          isLoading: _isLogin,
+                                          isDisabled: _isLogin,
+                                          onPressed: _isLogin ? null : login,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              "Don't have an account? ",
+                                              style: TextStyle(
+                                                fontSize: 13.5,
+                                                color: Color(0xFF94A3B8),
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Inputfield(
-                                            controller: _identifier,
-                                            hintText:
-                                                "Enter email or 10-digit phone number",
-                                            icon: Icons.person_outline_rounded,
-                                            isPassword: false,
-                                            keyboardType:
-                                                TextInputType.emailAddress,
-                                            validator:
-                                                Validators.validateEmailOrPhone,
-                                          ),
-                                          const SizedBox(height: 14),
-                                          Text(
-                                            "Password",
-                                            style: TextStyle(
-                                              color: textPrimary,
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Inputfield(
-                                            controller: _password,
-                                            hintText: "Enter your password",
-                                            icon: Icons.lock_outline_rounded,
-                                            isPassword: true,
-                                            keyboardType:
-                                                TextInputType.visiblePassword,
-                                            validator:
-                                                Validators.validateBasicPassword,
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Align(
-                                            alignment: Alignment.centerRight,
-                                            child: Textbutton(
-                                              text: "Forgot Password?",
+                                            Textbutton(
+                                              text: "Register",
                                               color: const Color(0xFFA78BFA),
                                               onPressed: () {
-                                                Navigator.of(context).push(
+                                                Navigator.of(
+                                                  context,
+                                                ).pushReplacement(
                                                   MaterialPageRoute(
                                                     builder: (context) =>
-                                                        const ForgotPasswordPage(),
+                                                        const Registration(),
                                                   ),
                                                 );
                                               },
                                             ),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Button(
-                                            text: "LOGIN",
-                                            isLoading: _isLogin,
-                                            isDisabled: _isLogin,
-                                            onPressed: _isLogin ? null : login,
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              const Text(
-                                                "Don't have an account? ",
+                                          ],
+                                        ),
+                                        const SizedBox(height: 18),
+                                        const Row(
+                                          children: [
+                                            Expanded(
+                                              child: Divider(
+                                                thickness: 1,
+                                                color: Color(0xFF334155),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                              ),
+                                              child: Text(
+                                                "OR",
                                                 style: TextStyle(
-                                                  fontSize: 13.5,
-                                                  color: Color(0xFF94A3B8),
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF64748B),
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              Textbutton(
-                                                text: "Register",
-                                                color: const Color(0xFFA78BFA),
-                                                onPressed: () {
-                                                  Navigator.of(
-                                                    context,
-                                                  ).pushReplacement(
-                                                    MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          const Registration(),
-                                                    ),
-                                                  );
-                                                },
+                                            ),
+                                            Expanded(
+                                              child: Divider(
+                                                thickness: 1,
+                                                color: Color(0xFF334155),
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 18),
-                                          const Row(
-                                            children: [
-                                              Expanded(
-                                                child: Divider(
-                                                  thickness: 1,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                              Padding(
-                                                padding: EdgeInsets.symmetric(
-                                                  horizontal: 14,
-                                                ),
-                                                child: Text(
-                                                  "OR",
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Color(0xFF64748B),
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Divider(
-                                                  thickness: 1,
-                                                  color: Color(0xFF334155),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 18),
-                                          const Googlebutton(),
-                                        ],
-                                      ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 18),
+                                        const Googlebutton(),
+                                      ],
                                     ),
                                   ),
                                 ),
