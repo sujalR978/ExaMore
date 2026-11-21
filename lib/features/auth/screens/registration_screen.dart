@@ -664,6 +664,7 @@ class _RegistrationState extends State<Registration> {
                                       hintText: "Enter your full name",
                                       icon: Icons.person_outline_rounded,
                                       isPassword: false,
+                                      keyboardType: TextInputType.name,
                                       validator: (value) {
                                         if (value == null || value.trim().isEmpty) {
                                           return "Full name is required";
@@ -764,6 +765,7 @@ class _RegistrationState extends State<Registration> {
                                       hintText: "Enter strong password",
                                       icon: Icons.lock_outline_rounded,
                                       isPassword: true,
+                                      keyboardType: TextInputType.visiblePassword,
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
                                           return "Password is required";
@@ -806,6 +808,7 @@ class _RegistrationState extends State<Registration> {
                                       hintText: "Re-enter your password",
                                       icon: Icons.lock_outline_rounded,
                                       isPassword: true,
+                                      keyboardType: TextInputType.visiblePassword,
                                       validator: (value) {
                                         if (value == null || value.isEmpty) {
                                           return "Confirm Password is required";

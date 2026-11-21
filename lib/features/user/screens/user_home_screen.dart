@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
+import 'package:prep_mate/core/widgets/offline_banner.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
@@ -415,6 +416,10 @@ class _HomeScreenState extends State<Userhomescreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                OfflineBanner(
+                                  onRetry: () => _fetchStudentAdminAndInitStream(),
+                                ),
+                                const SizedBox(height: 12),
                                 // Four Quick Stats Cards arranged in responsive 2x2 grid (Classrooms, Exams Taken, Avg. Score, Progress)
                                 Row(
                                   children: [

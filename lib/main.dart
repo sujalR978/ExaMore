@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/localization/app_localizations.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,8 +16,11 @@ void main() async {
   }
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => AppLanguageProvider()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -27,17 +31,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'ExaMore',
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: themeProvider.themeMode,
-          home: const Splash(),
-        );
-      },
+    final themeProvider = Provider.of<ThemeProvider?>(context);
+    final languageProvider = Provider.of<AppLanguageProvider?>(context);
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'ExaMore',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider?.themeMode ?? ThemeMode.system,
+      locale: languageProvider?.locale,
+      home: const Splash(),
     );
   }
 }

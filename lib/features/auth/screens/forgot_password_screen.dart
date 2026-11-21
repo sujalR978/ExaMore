@@ -765,6 +765,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             hintText: "Enter strong new password",
             icon: Icons.lock_outline_rounded,
             isPassword: true,
+            keyboardType: TextInputType.visiblePassword,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return "New password is required";
@@ -805,6 +806,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             hintText: "Re-enter new password",
             icon: Icons.lock_outline_rounded,
             isPassword: true,
+            keyboardType: TextInputType.visiblePassword,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return "Confirm password is required";

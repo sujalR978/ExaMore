@@ -86,6 +86,12 @@ class _InputfieldState extends State<Inputfield> {
             ? AutovalidateMode.onUserInteraction
             : AutovalidateMode.disabled);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final hintColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+    final fieldFill = isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+
     return TextFormField(
       obscureText: widget.isPassword && !isPasswordVisible,
       controller: widget.controller,
@@ -95,21 +101,21 @@ class _InputfieldState extends State<Inputfield> {
       keyboardType: widget.keyboardType,
       inputFormatters: widget.inputFormatters,
       onChanged: widget.onChanged,
-      style: const TextStyle(
-        color: Color(0xFFF8FAFC),
+      style: TextStyle(
+        color: textColor,
         fontSize: 14.5,
         fontWeight: FontWeight.w400,
       ),
       cursorColor: const Color(0xFF8B5CF6),
       decoration: InputDecoration(
         hintText: widget.hintText,
-        hintStyle: const TextStyle(
-          color: Color(0xFF64748B),
+        hintStyle: TextStyle(
+          color: hintColor,
           fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
         filled: true,
-        fillColor: const Color(0xFF0F172A),
+        fillColor: fieldFill,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -119,7 +125,7 @@ class _InputfieldState extends State<Inputfield> {
           size: 20,
           color: isFocused
               ? const Color(0xFFA78BFA)
-              : const Color(0xFF64748B),
+              : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
         ),
         suffixIcon: widget.isPassword
             ? IconButton(
@@ -136,14 +142,14 @@ class _InputfieldState extends State<Inputfield> {
                   size: 20,
                   color: isFocused
                       ? const Color(0xFFA78BFA)
-                      : const Color(0xFF64748B),
+                      : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                 ),
               )
             : null,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFF334155),
+          borderSide: BorderSide(
+            color: borderColor,
             width: 1,
           ),
         ),

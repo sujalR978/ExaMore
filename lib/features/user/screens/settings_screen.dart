@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:prep_mate/core/localization/app_localizations.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
@@ -96,6 +97,9 @@ class _SettingscreenState extends State<Settingscreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('selected_language', selected);
       if (mounted) {
+        try {
+          Provider.of<AppLanguageProvider>(context, listen: false).setLanguage(selected);
+        } catch (_) {}
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Language updated to $selected'),
@@ -142,6 +146,27 @@ class _SettingscreenState extends State<Settingscreen> {
             _buildPermissionItem('Storage / Photos', 'Required for uploading profile photos', true, textPrimary, textSecondary),
             const SizedBox(height: 12),
             _buildPermissionItem('Notifications', 'Required for study alerts and results', true, textPrimary, textSecondary),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: Color(0xFF7C3AED), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'If permissions are permanently denied, re-enable them in Device Settings > Apps > ExaMore > Permissions.',
+                      style: TextStyle(color: textSecondary, fontSize: 10.5, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [

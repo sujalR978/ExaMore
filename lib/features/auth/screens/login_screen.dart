@@ -222,22 +222,36 @@ class _LoginState extends State<Login> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final gradientColors = isDark
+        ? const [
+            Color(0xFF2E1065),
+            Color(0xFF1E1B4B),
+            Color(0xFF0F172A),
+          ]
+        : const [
+            Color(0xFFEDE9FE),
+            Color(0xFFF3E8FF),
+            Color(0xFFF8FAFC),
+          ];
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: bgColor,
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF2E1065),
-                Color(0xFF1E1B4B),
-                Color(0xFF0F172A),
-              ],
+              colors: gradientColors,
             ),
           ),
           child: SafeArea(
@@ -264,22 +278,22 @@ class _LoginState extends State<Login> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             "ExaMore Login",
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFFF8FAFC),
+                              color: textPrimary,
                               letterSpacing: 0.3,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
+                          Text(
                             "Master your exams and elevate your learning",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF94A3B8),
+                              color: textSecondary,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
@@ -287,19 +301,19 @@ class _LoginState extends State<Login> {
                       ),
                     ),
 
-                    // 2. Bottom Sheet: Dark rounded container with form
+                    // 2. Bottom Sheet: Rounded container with form
                     Expanded(
                       child: Container(
                         width: double.infinity,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1E293B),
-                          borderRadius: BorderRadius.only(
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(32),
                             topRight: Radius.circular(32),
                           ),
                           border: Border(
                             top: BorderSide(
-                              color: Color(0xFF334155),
+                              color: cardBorder,
                               width: 1,
                             ),
                           ),
@@ -312,10 +326,10 @@ class _LoginState extends State<Login> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 // Email or Phone Field Label (LOG-001)
-                                const Text(
+                                Text(
                                   "Email or Phone Number",
                                   style: TextStyle(
-                                    color: Color(0xFFF8FAFC),
+                                    color: textPrimary,
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -356,10 +370,10 @@ class _LoginState extends State<Login> {
                                 const SizedBox(height: 16),
 
                                 // Password Field Label
-                                const Text(
+                                Text(
                                   "Password",
                                   style: TextStyle(
-                                    color: Color(0xFFF8FAFC),
+                                    color: textPrimary,
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -370,6 +384,7 @@ class _LoginState extends State<Login> {
                                   hintText: "Enter your password",
                                   icon: Icons.lock_outline_rounded,
                                   isPassword: true,
+                                  keyboardType: TextInputType.visiblePassword,
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
                                       return "Password is required";

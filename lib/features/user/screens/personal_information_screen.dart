@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prep_mate/core/widgets/app_image_view.dart';
 
 class PersonalInformationScreen extends StatefulWidget {
@@ -127,11 +128,75 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to select photo: $e')),
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Permission Required'),
+            content: const Text(
+              'Photo library access is required to update your profile photo.\n\nIf permanently denied, you can re-enable access anytime in Device Settings > Apps > ExaMore > Permissions.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     }
+  }
+
+  Future<void> _saveDraftLocally() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profile_draft_name', _nameController.text);
+      await prefs.setString('profile_draft_phone', _phoneController.text);
+      await prefs.setString('profile_draft_level', _levelController.text);
+      await prefs.setString('profile_draft_major', _majorController.text);
+    } catch (_) {}
+  }
+
+  Future<void> _clearDraftLocally() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('profile_draft_name');
+      await prefs.remove('profile_draft_phone');
+      await prefs.remove('profile_draft_level');
+      await prefs.remove('profile_draft_major');
+    } catch (_) {}
+  }
+
+  Future<bool> _showDiscardChangesDialog() async {
+    final theme = Theme.of(context);
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: theme.colorScheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Discard unsaved changes?'),
+        content: const Text(
+          'You have uncommitted changes to your profile. Leaving this screen will discard them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep Editing'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    return res ?? false;
   }
 
   void _cancelEditing() {
@@ -139,6 +204,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       _isEditing = false;
       _selectedImagePath = null;
     });
+    _clearDraftLocally();
     _loadUserData();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -174,6 +240,8 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           .collection('users')
           .doc(user.uid)
           .set(updatedData, SetOptions(merge: true));
+
+      await _clearDraftLocally();
 
       setState(() {
         _photoUrl = finalPhotoUrl;
@@ -241,6 +309,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       setState(() {
         _isEditing = true;
       });
+      _saveDraftLocally();
     }
   }
 
@@ -263,39 +332,59 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      // Capsule-shaped Top Bar
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(75),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: containerColor,
-                borderRadius: BorderRadius.circular(100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+    return PopScope(
+      canPop: !_isEditing,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final discard = await _showDiscardChangesDialog();
+        if (discard && mounted) {
+          _cancelEditing();
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        // Capsule-shaped Top Bar
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(75),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: Icon(Icons.arrow_back, color: textColor),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: containerColor,
+                  borderRadius: BorderRadius.circular(100),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(100),
+                  child: AppBar(
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    scrolledUnderElevation: 0,
+                    leading: IconButton(
+                      icon: Icon(Icons.arrow_back, color: textColor),
+                      onPressed: () async {
+                        if (_isEditing) {
+                          final discard = await _showDiscardChangesDialog();
+                          if (discard && mounted) {
+                            _cancelEditing();
+                            Navigator.pop(context);
+                          }
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
                   title: Text(
                     'Personal Information',
                     style: TextStyle(
@@ -424,6 +513,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       subtitleColor: subtitleColor,
                       borderColor: borderColor,
                       isDarkMode: isDarkMode,
+                      keyboardType: TextInputType.name,
                       validator: (val) => val == null || val.isEmpty
                           ? 'Name cannot be empty'
                           : null,
@@ -438,6 +528,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       subtitleColor: subtitleColor,
                       borderColor: borderColor,
                       isDarkMode: isDarkMode,
+                      keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -449,6 +540,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       subtitleColor: subtitleColor,
                       borderColor: borderColor,
                       isDarkMode: isDarkMode,
+                      keyboardType: TextInputType.phone,
                       validator: (val) =>
                           val != null && val.isNotEmpty && val.length < 6
                           ? 'Enter a valid phone number'
@@ -464,6 +556,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       subtitleColor: subtitleColor,
                       borderColor: borderColor,
                       isDarkMode: isDarkMode,
+                      keyboardType: TextInputType.text,
                       validator: (val) => val == null || val.isEmpty
                           ? 'Level cannot be empty'
                           : null,
@@ -478,6 +571,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                       subtitleColor: subtitleColor,
                       borderColor: borderColor,
                       isDarkMode: isDarkMode,
+                      keyboardType: TextInputType.text,
                       validator: (val) => val == null || val.isEmpty
                           ? 'Major cannot be empty'
                           : null,
@@ -553,6 +647,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -565,6 +660,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
     required Color subtitleColor,
     required Color borderColor,
     required bool isDarkMode,
+    TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -583,6 +679,7 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         TextFormField(
           controller: controller,
           enabled: isEditing,
+          keyboardType: keyboardType,
           validator: validator,
           style: TextStyle(
             color: textColor,
