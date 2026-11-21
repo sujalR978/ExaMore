@@ -30,6 +30,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
   final Set<String> _markedForReview = {}; // { questionId }
 
   late int _remainingSeconds;
+  late final ValueNotifier<int> _timeRemainingNotifier;
   Timer? _timer;
   bool _isSubmitting = false;
 
@@ -48,6 +49,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
     }
 
     _remainingSeconds = widget.exam.durationMinutes * 60;
+    _timeRemainingNotifier = ValueNotifier<int>(_remainingSeconds);
     _restoreCachedProgress();
   }
 
@@ -60,6 +62,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
       }
       setState(() {
         _remainingSeconds = cached['remainingSeconds'] as int;
+        _timeRemainingNotifier.value = _remainingSeconds;
         _selectedAnswers.addAll(cached['selectedAnswers'] as Map<String, String>);
         _appSwitchCount = cached['switchCount'] as int;
       });
@@ -115,8 +118,9 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        setState(() => _remainingSeconds--);
+      if (_timeRemainingNotifier.value > 0) {
+        _timeRemainingNotifier.value--;
+        _remainingSeconds = _timeRemainingNotifier.value;
         if (_remainingSeconds % 5 == 0) {
           _persistProgress();
         }
@@ -294,7 +298,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
                   const Divider(height: 10),
                   _buildSummaryRow(
                     'Remaining Time',
-                    _formatTimer(_remainingSeconds),
+                    _formatTimer(_timeRemainingNotifier.value),
                     Icons.access_time_outlined,
                     color: const Color(0xFF7C3AED),
                   ),
@@ -534,6 +538,7 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _timeRemainingNotifier.dispose();
     super.dispose();
   }
 
@@ -618,49 +623,57 @@ class _ActiveExamScreenState extends State<ActiveExamScreen>
           ),
           const SizedBox(width: 4),
 
-          // Timer Pill
+          // Timer Pill (Isolated rebuild with ValueListenableBuilder)
           Padding(
             padding: const EdgeInsets.only(right: 14.0),
             child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _remainingSeconds < 300
-                      ? Colors.red.withOpacity(0.18)
-                      : (isDarkMode
-                            ? const Color(0xFF1E293B)
-                            : const Color(0xFFEDE9FE)),
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: _remainingSeconds < 300
-                        ? Colors.redAccent
-                        : const Color(0xFF7C3AED).withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.access_time_rounded,
-                      size: 14,
-                      color: _remainingSeconds < 300
-                          ? Colors.redAccent
-                          : const Color(0xFF7C3AED),
+              child: ValueListenableBuilder<int>(
+                valueListenable: _timeRemainingNotifier,
+                builder: (context, secondsRemaining, _) {
+                  final isLowTime = secondsRemaining < 300;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
                     ),
-                    const SizedBox(width: 5),
-                    Text(
-                      _formatTimer(_remainingSeconds),
-                      style: TextStyle(
-                        color: _remainingSeconds < 300
+                    decoration: BoxDecoration(
+                      color: isLowTime
+                          ? Colors.red.withOpacity(0.18)
+                          : (isDarkMode
+                              ? const Color(0xFF1E293B)
+                              : const Color(0xFFEDE9FE)),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: isLowTime
                             ? Colors.redAccent
-                            : const Color(0xFF7C3AED),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5,
+                            : const Color(0xFF7C3AED).withOpacity(0.3),
                       ),
                     ),
-                  ],
-                ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 14,
+                          color: isLowTime
+                              ? Colors.redAccent
+                              : const Color(0xFF7C3AED),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          _formatTimer(secondsRemaining),
+                          style: TextStyle(
+                            color: isLowTime
+                                ? Colors.redAccent
+                                : const Color(0xFF7C3AED),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ),
