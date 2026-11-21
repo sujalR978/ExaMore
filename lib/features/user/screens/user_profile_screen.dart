@@ -1,9 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prep_mate/core/theme/app_theme.dart';
@@ -652,26 +650,6 @@ class _UserProfileState extends State<Userprofile> {
           ),
         );
       }
-    }
-  }
-
-  ImageProvider _getProfileImage(String photoUrl) {
-    if (photoUrl.isEmpty) {
-      return const AssetImage('assets/image/L_image.png');
-    } else if (photoUrl.startsWith('http')) {
-      return NetworkImage(photoUrl);
-    } else if (photoUrl.startsWith('assets/')) {
-      return AssetImage(photoUrl);
-    } else {
-      if (!kIsWeb) {
-        try {
-          final file = File(photoUrl);
-          if (file.existsSync()) {
-            return FileImage(file);
-          }
-        } catch (_) {}
-      }
-      return const AssetImage('assets/image/L_image.png');
     }
   }
 
@@ -1335,38 +1313,6 @@ class _UserProfileState extends State<Userprofile> {
                 const Icon(Icons.check_circle, color: Colors.green, size: 12),
               ],
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDashedBadge(
-    String title,
-    Color borderColor,
-    Color textColor,
-    bool isDarkMode,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDarkMode ? Colors.white30 : Colors.grey.shade400,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.dashboard_customize_outlined, color: textColor, size: 22),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-            ),
           ),
         ],
       ),

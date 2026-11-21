@@ -1,8 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prep_mate/core/widgets/app_image_view.dart';
@@ -93,6 +91,34 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
       );
 
       if (pickedFile != null) {
+        final length = await pickedFile.length();
+        // Validate image size <= 5MB (PRF-010)
+        if (length > 5 * 1024 * 1024) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Selected photo exceeds 5MB size limit. Please choose a smaller image.'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Validate image file format (PRF-010)
+        final ext = pickedFile.name.toLowerCase().split('.').last;
+        if (!['jpg', 'jpeg', 'png', 'webp'].contains(ext)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Unsupported file format. Please upload JPG, PNG, or WEBP.'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+          return;
+        }
+
         final bytes = await pickedFile.readAsBytes();
         final base64String = base64Encode(bytes);
         setState(() {
@@ -106,6 +132,20 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
         );
       }
     }
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _isEditing = false;
+      _selectedImagePath = null;
+    });
+    _loadUserData();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Changes discarded.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _saveChanges() async {
@@ -266,11 +306,18 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
                   ),
                   centerTitle: true,
                   actions: [
+                    if (_isEditing)
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Colors.redAccent),
+                        tooltip: 'Cancel Edit',
+                        onPressed: _isSaving ? null : _cancelEditing,
+                      ),
                     IconButton(
                       icon: Icon(
                         _isEditing ? Icons.check : Icons.edit_outlined,
                         color: const Color(0xFFFBBF24),
                       ),
+                      tooltip: _isEditing ? 'Save Changes' : 'Edit Profile',
                       onPressed: _isSaving ? null : _toggleEditMode,
                     ),
                   ],
@@ -440,35 +487,66 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
               ),
               const SizedBox(height: 30),
 
-              // Save Changes Action Button (Visible only when editing)
+              // Save Changes & Cancel Action Buttons (Visible only when editing)
               if (_isEditing)
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isSaving ? null : _saveChanges,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFBBF24),
-                      foregroundColor: const Color(0xFF1E1B4B),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isSaving
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(
-                            'Save Changes',
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 52,
+                        child: OutlinedButton(
+                          onPressed: _isSaving ? null : _cancelEditing,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: isDarkMode ? const Color(0xFF64748B) : Colors.grey.shade400,
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
                             style: TextStyle(
+                              color: isDarkMode ? Colors.white70 : const Color(0xFF334155),
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                  ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _saveChanges,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFBBF24),
+                            foregroundColor: const Color(0xFF1E1B4B),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text(
+                                  'Save Changes',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               const SizedBox(height: 30),
             ],

@@ -12,7 +12,6 @@ import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
-import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 
@@ -406,121 +405,138 @@ class _HomeScreenState extends State<Userhomescreen> {
                             ? (totalPercentSum / examsTakenCount)
                             : 0;
 
-                        return SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 80),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Four Quick Stats Cards (Classrooms, Exams Taken, Avg. Score, Progress)
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildHomeMetricCard(
-                                      icon: Icons.layers_outlined,
-                                      iconColor: const Color(0xFFA78BFA),
-                                      value: '$classroomsCount',
-                                      label: 'Classrooms',
-                                      isDark: isDark,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _buildHomeMetricCard(
-                                      icon: Icons.assignment_outlined,
-                                      iconColor: const Color(0xFFA78BFA),
-                                      value: '$examsTakenCount',
-                                      label: 'Exams Taken',
-                                      isDark: isDark,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _buildHomeMetricCard(
-                                      icon: Icons.emoji_events_outlined,
-                                      iconColor: const Color(0xFFF59E0B),
-                                      value: examsTakenCount > 0
-                                          ? '${avgScore.toInt()}%'
-                                          : '-',
-                                      label: 'Avg. Score',
-                                      isDark: isDark,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _buildHomeMetricCard(
-                                      icon: Icons.trending_up_rounded,
-                                      iconColor: const Color(0xFF34D399),
-                                      value: examsTakenCount > 0
-                                          ? '${avgScore.toInt()}%'
-                                          : '0%',
-                                      label: 'Progress',
-                                      isDark: isDark,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // Section: Enrolled Classrooms
-                              if (classrooms.isNotEmpty) ...[
+                        return RefreshIndicator(
+                          onRefresh: () async {
+                            await _fetchStudentAdminAndInitStream();
+                          },
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 80),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Four Quick Stats Cards arranged in responsive 2x2 grid (Classrooms, Exams Taken, Avg. Score, Progress)
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Enrolled Classrooms',
-                                      style: TextStyle(
-                                        color: textPrimary,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold,
+                                    Expanded(
+                                      child: _buildHomeMetricCard(
+                                        icon: Icons.layers_outlined,
+                                        iconColor: const Color(0xFFA78BFA),
+                                        value: '$classroomsCount',
+                                        label: 'Classrooms',
+                                        isDark: isDark,
                                       ),
                                     ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF7C3AED).withOpacity(0.18),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        '${classrooms.length}',
-                                        style: const TextStyle(
-                                          color: Color(0xFFA78BFA),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _buildHomeMetricCard(
+                                        icon: Icons.assignment_outlined,
+                                        iconColor: const Color(0xFFA78BFA),
+                                        value: '$examsTakenCount',
+                                        label: 'Exams Taken',
+                                        isDark: isDark,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
-                                GridView.builder(
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  shrinkWrap: true,
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: 12,
-                                        mainAxisSpacing: 12,
-                                        childAspectRatio: 1.05,
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildHomeMetricCard(
+                                        icon: Icons.emoji_events_outlined,
+                                        iconColor: const Color(0xFFF59E0B),
+                                        value: examsTakenCount > 0
+                                            ? '${avgScore.toInt()}%'
+                                            : '-',
+                                        label: 'Avg. Score',
+                                        isDark: isDark,
                                       ),
-                                  itemCount: classrooms.length,
-                                  itemBuilder: (context, index) {
-                                    final classroom = classrooms[index];
-                                    return _buildGoogleClassroomStudentCard(
-                                      classroom: classroom,
-                                      cardIndex: index,
-                                      allExams: allExams,
-                                      attempts: attempts,
-                                      isDarkMode: isDark,
-                                      surfaceColor: cardColor,
-                                      borderColor: borderColor,
-                                      textColor: textPrimary,
-                                      subtitleColor: textSecondary,
-                                    );
-                                  },
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: _buildHomeMetricCard(
+                                        icon: Icons.trending_up_rounded,
+                                        iconColor: const Color(0xFF34D399),
+                                        value: examsTakenCount > 0
+                                            ? '${avgScore.toInt()}%'
+                                            : '0%',
+                                        label: 'Progress',
+                                        isDark: isDark,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+
+                                const SizedBox(height: 24),
+
+                                // Section: Enrolled Classrooms
+                                if (classrooms.isNotEmpty) ...[
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Enrolled Classrooms',
+                                        style: TextStyle(
+                                          color: textPrimary,
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF7C3AED).withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          '${classrooms.length}',
+                                          style: const TextStyle(
+                                            color: Color(0xFFA78BFA),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  GridView.builder(
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    shrinkWrap: true,
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: 2,
+                                          crossAxisSpacing: 12,
+                                          mainAxisSpacing: 12,
+                                          childAspectRatio: 1.05,
+                                        ),
+                                    itemCount: classrooms.length,
+                                    itemBuilder: (context, index) {
+                                      final classroom = classrooms[index];
+                                      return _buildGoogleClassroomStudentCard(
+                                        classroom: classroom,
+                                        cardIndex: index,
+                                        allExams: allExams,
+                                        attempts: attempts,
+                                        isDarkMode: isDark,
+                                        surfaceColor: cardColor,
+                                        borderColor: borderColor,
+                                        textColor: textPrimary,
+                                        subtitleColor: textSecondary,
+                                      );
+                                    },
+                                  ),
+                                ] else ...[
+                                  _buildEmptyEnrolledClassroomsState(
+                                    isDarkMode: isDark,
+                                    containerColor: cardColor,
+                                    borderColor: borderColor,
+                                    subtitleColor: textSecondary,
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         );
                       },

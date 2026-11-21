@@ -8,6 +8,8 @@ import 'package:prep_mate/features/admin/screens/question_bank_screen.dart';
 import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
 import 'package:prep_mate/features/admin/screens/user_result_screen.dart';
 import 'package:prep_mate/features/auth/screens/logout_screen.dart';
+import 'package:prep_mate/features/user/screens/settings_screen.dart';
+import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 
 class AdminMenuDrawer extends StatelessWidget {
   const AdminMenuDrawer({super.key});
@@ -183,6 +185,36 @@ class AdminMenuDrawer extends StatelessWidget {
                 );
               }
               return const SizedBox.shrink();
+            },
+          ),
+
+          const Divider(height: 24, thickness: 1),
+
+          ListTile(
+            leading: const Icon(Icons.person_outline_rounded, color: Color(0xFF7C3AED)),
+            title: Text(
+              'My Profile',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+            ),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const Userprofile()),
+              );
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.settings_outlined, color: Color(0xFF64748B)),
+            title: Text(
+              'Settings',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+            ),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const Settingscreen()),
+              );
             },
           ),
 

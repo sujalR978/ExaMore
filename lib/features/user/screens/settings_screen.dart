@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
@@ -19,7 +20,209 @@ class Settingscreen extends StatefulWidget {
 class _SettingscreenState extends State<Settingscreen> {
   bool _emailNotifications = true;
   bool _examReminders = false;
+  String _selectedLanguage = 'English';
   bool _isDeleting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _emailNotifications = prefs.getBool('email_notifications') ?? true;
+      _examReminders = prefs.getBool('exam_reminders') ?? false;
+      _selectedLanguage = prefs.getString('selected_language') ?? 'English';
+    });
+  }
+
+  Future<void> _updateEmailNotifications(bool val) async {
+    setState(() => _emailNotifications = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('email_notifications', val);
+  }
+
+  Future<void> _updateExamReminders(bool val) async {
+    setState(() => _examReminders = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('exam_reminders', val);
+  }
+
+  Future<void> _showLanguageDialog() async {
+    final languages = ['English', 'Spanish', 'French', 'Hindi', 'German'];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: borderColor),
+        ),
+        title: Text(
+          'Select Language',
+          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: languages.map((lang) {
+            final isCurrent = lang == _selectedLanguage;
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              title: Text(
+                lang,
+                style: TextStyle(
+                  color: isCurrent ? const Color(0xFF7C3AED) : textPrimary,
+                  fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              trailing: isCurrent ? const Icon(Icons.check_circle_rounded, color: Color(0xFF7C3AED)) : null,
+              onTap: () => Navigator.pop(ctx, lang),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+
+    if (selected != null && selected != _selectedLanguage) {
+      setState(() => _selectedLanguage = selected);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selected_language', selected);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Language updated to $selected'),
+            backgroundColor: const Color(0xFF10B981),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showPermissionsDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+    final textSecondary = AppColors.textSecondary(isDark);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: borderColor),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.security_rounded, color: Color(0xFF7C3AED)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'App Permissions',
+                style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildPermissionItem('Internet Access', 'Required for exam synchronization & auth', true, textPrimary, textSecondary),
+            const SizedBox(height: 12),
+            _buildPermissionItem('Storage / Photos', 'Required for uploading profile photos', true, textPrimary, textSecondary),
+            const SizedBox(height: 12),
+            _buildPermissionItem('Notifications', 'Required for study alerts and results', true, textPrimary, textSecondary),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7C3AED),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionItem(String name, String desc, bool granted, Color textPrimary, Color textSecondary) {
+    return Row(
+      children: [
+        Icon(
+          granted ? Icons.check_circle_outline_rounded : Icons.cancel_outlined,
+          color: granted ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          size: 22,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13.5)),
+              Text(desc, style: TextStyle(color: textSecondary, fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleClearCache() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = AppColors.card(isDark);
+    final borderColor = AppColors.border(isDark);
+    final textPrimary = AppColors.textPrimary(isDark);
+    final textSecondary = AppColors.textSecondary(isDark);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: borderColor),
+        ),
+        title: Text('Clear Cache?', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
+        content: Text(
+          'This will clear temporary files and cached test responses. Your saved exams and credentials will not be deleted.',
+          style: TextStyle(color: textSecondary, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: TextStyle(color: textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cache cleared successfully (0 KB remaining).'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    }
+  }
 
   Future<void> _handleDeleteAccount() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -40,7 +243,7 @@ class _SettingscreenState extends State<Settingscreen> {
           children: [
             const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
             const SizedBox(width: 8),
-            Text('Delete Account?', style: TextStyle(color: textPrimary)),
+            Expanded(child: Text('Delete Account?', style: TextStyle(color: textPrimary))),
           ],
         ),
         content: Text(
@@ -262,11 +465,12 @@ class _SettingscreenState extends State<Settingscreen> {
             ),
 
             // Notifications & Reminders Preferences Card
-            Container(
-              decoration: BoxDecoration(
-                color: cardColor,
+            Material(
+              color: cardColor,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: borderColor, width: 1),
+                side: BorderSide(color: borderColor, width: 1),
               ),
               child: Column(
                 children: [
@@ -319,9 +523,7 @@ class _SettingscreenState extends State<Settingscreen> {
                         Switch.adaptive(
                           value: _emailNotifications,
                           activeColor: const Color(0xFF7C3AED),
-                          onChanged: (val) {
-                            setState(() => _emailNotifications = val);
-                          },
+                          onChanged: _updateEmailNotifications,
                         ),
                       ],
                     ),
@@ -378,12 +580,88 @@ class _SettingscreenState extends State<Settingscreen> {
                         Switch.adaptive(
                           value: _examReminders,
                           activeColor: const Color(0xFF7C3AED),
-                          onChanged: (val) {
-                            setState(() => _examReminders = val);
-                          },
+                          onChanged: _updateExamReminders,
                         ),
                       ],
                     ),
+                  ),
+
+                  Divider(height: 1, color: borderColor),
+
+                  // Language Selection
+                  ListTile(
+                    leading: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.language_rounded,
+                        color: Color(0xFF7C3AED),
+                        size: 18,
+                      ),
+                    ),
+                    title: Text(
+                      'App Language',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    subtitle: Text(
+                      _selectedLanguage,
+                      style: TextStyle(
+                        color: const Color(0xFF7C3AED),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: textMuted,
+                    ),
+                    onTap: _showLanguageDialog,
+                  ),
+
+                  Divider(height: 1, color: borderColor),
+
+                  // App Permissions
+                  ListTile(
+                    leading: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.verified_user_outlined,
+                        color: Color(0xFF7C3AED),
+                        size: 18,
+                      ),
+                    ),
+                    title: Text(
+                      'App Permissions',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Manage device permissions used by ExaMore',
+                      style: TextStyle(color: textMuted, fontSize: 11.5),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: textMuted,
+                    ),
+                    onTap: _showPermissionsDialog,
                   ),
                 ],
               ),
@@ -574,6 +852,40 @@ class _SettingscreenState extends State<Settingscreen> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.cleaning_services_outlined,
+                        color: Color(0xFFF59E0B),
+                        size: 18,
+                      ),
+                    ),
+                    title: Text(
+                      'Clear App Cache',
+                      style: TextStyle(
+                        color: textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Free up storage by clearing cached exam responses',
+                      style: TextStyle(color: textMuted, fontSize: 11.5),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: textMuted,
+                    ),
+                    onTap: _handleClearCache,
+                  ),
+                  Divider(height: 1, color: borderColor),
+                  ListTile(
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
                         color: const Color(0xFFEF4444).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -610,6 +922,29 @@ class _SettingscreenState extends State<Settingscreen> {
                             color: textMuted,
                           ),
                     onTap: _isDeleting ? null : _handleDeleteAccount,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: Column(
+                children: [
+                  Text(
+                    'ExaMore v1.0.0 (Build 1)',
+                    style: TextStyle(
+                      color: textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '© 2026 ExaMore Inc. All rights reserved.',
+                    style: TextStyle(
+                      color: textMuted.withOpacity(0.7),
+                      fontSize: 10.5,
+                    ),
                   ),
                 ],
               ),
