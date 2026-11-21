@@ -1,19 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
-import 'package:prep_mate/features/auth/screens/email_verification_screen.dart';
-import 'package:prep_mate/features/auth/screens/login_screen.dart';
-import 'package:prep_mate/features/user/navigation/main_navigator.dart';
+import 'package:prep_mate/features/auth/screens/splash_screen.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint('Firebase initialization error in main(): $e');
+  }
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
@@ -31,83 +31,11 @@ class MyApp extends StatelessWidget {
       builder: (context, themeProvider, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Examora',
+          title: 'ExaMore',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeProvider.themeMode,
-          home: StreamBuilder<User?>(
-            stream: FirebaseAuth.instance.authStateChanges(),
-            builder: (context, authSnapshot) {
-              if (authSnapshot.connectionState == ConnectionState.waiting) {
-                return const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              if (authSnapshot.hasData && authSnapshot.data != null) {
-                final user = authSnapshot.data!;
-
-                // Check email verification guard for non-superadmin accounts
-                final bool isGoogleAuth = user.providerData
-                    .any((p) => p.providerId == 'google.com');
-
-                return StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(user.uid)
-                      .snapshots(),
-                  builder: (context, roleSnapshot) {
-                    if (roleSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-
-                    if (roleSnapshot.hasError) {
-                      return Scaffold(
-                        body: Center(
-                          child: Text(
-                            'Error loading role: ${roleSnapshot.error}',
-                          ),
-                        ),
-                      );
-                    }
-
-                    String role = 'student';
-
-                    if (roleSnapshot.hasData && roleSnapshot.data!.exists) {
-                      final data =
-                          roleSnapshot.data!.data() as Map<String, dynamic>?;
-                      role = (data?['role'] ?? 'student')
-                          .toString()
-                          .toLowerCase()
-                          .trim();
-                    }
-
-                    // Enforce email verification protection
-                    if (!user.emailVerified &&
-                        !isGoogleAuth &&
-                        role != 'super_admin') {
-                      return EmailVerificationScreen(
-                        email: user.email,
-                        targetRole: role,
-                      );
-                    }
-
-                    // Role-based routing gate
-                    if (role == 'super_admin' || role == 'admin') {
-                      return const AdminHomeScreen();
-                    } else {
-                      return const MainNavigator();
-                    }
-                  },
-                );
-              }
-
-              return const Login();
-            },
-          ),
+          home: const Splash(),
         );
       },
     );
