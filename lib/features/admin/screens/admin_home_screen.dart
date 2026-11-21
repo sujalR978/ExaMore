@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prep_mate/core/utils/dialog_utils.dart';
 import 'package:prep_mate/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
@@ -403,55 +404,69 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         : Colors.grey.shade600;
     final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: theme.scaffoldBackgroundColor,
-      drawer: const AdminMenuDrawer(),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildClassroomsDashboard(
-            theme: theme,
-            isDarkMode: isDarkMode,
-            isSuperAdmin: isSuperAdmin,
-            surfaceColor: surfaceColor,
-            textColor: textColor,
-            subtitleColor: subtitleColor,
-            borderColor: borderColor,
-          ),
-          const Showexamesscreen(),
-          const QuestionBankScreen(),
-          const StudentDirectoryScreen(),
-        ],
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          setState(() => _currentIndex = 0);
+          return;
+        }
+        final shouldExit = await DialogUtils.showExitConfirmation(context);
+        if (shouldExit) {
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        drawer: const AdminMenuDrawer(),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: [
+            _buildClassroomsDashboard(
+              theme: theme,
+              isDarkMode: isDarkMode,
+              isSuperAdmin: isSuperAdmin,
+              surfaceColor: surfaceColor,
+              textColor: textColor,
+              subtitleColor: subtitleColor,
+              borderColor: borderColor,
+            ),
+            const Showexamesscreen(),
+            const QuestionBankScreen(),
+            const StudentDirectoryScreen(),
+          ],
+        ),
+        bottomNavigationBar: CustomBottomNavBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          activeColor: const Color(0xFF7C3AED),
+          items: const [
+            CustomBottomNavItem(
+              activeIcon: Icons.school_rounded,
+              inactiveIcon: Icons.school_outlined,
+              label: 'Classes',
+            ),
+            CustomBottomNavItem(
+              activeIcon: Icons.assignment_rounded,
+              inactiveIcon: Icons.assignment_outlined,
+              label: 'Exams',
+            ),
+            CustomBottomNavItem(
+              activeIcon: Icons.layers_rounded,
+              inactiveIcon: Icons.layers_outlined,
+              label: 'Questions',
+            ),
+            CustomBottomNavItem(
+              activeIcon: Icons.people_rounded,
+              inactiveIcon: Icons.people_outline_rounded,
+              label: 'Students',
+            ),
+          ],
+        ),
+        floatingActionButton: _buildFloatingActionButton(),
       ),
-      bottomNavigationBar: CustomBottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        activeColor: const Color(0xFF7C3AED),
-        items: const [
-          CustomBottomNavItem(
-            activeIcon: Icons.school_rounded,
-            inactiveIcon: Icons.school_outlined,
-            label: 'Classes',
-          ),
-          CustomBottomNavItem(
-            activeIcon: Icons.assignment_rounded,
-            inactiveIcon: Icons.assignment_outlined,
-            label: 'Exams',
-          ),
-          CustomBottomNavItem(
-            activeIcon: Icons.layers_rounded,
-            inactiveIcon: Icons.layers_outlined,
-            label: 'Questions',
-          ),
-          CustomBottomNavItem(
-            activeIcon: Icons.people_rounded,
-            inactiveIcon: Icons.people_outline_rounded,
-            label: 'Students',
-          ),
-        ],
-      ),
-      floatingActionButton: _buildFloatingActionButton(),
     );
   }
 

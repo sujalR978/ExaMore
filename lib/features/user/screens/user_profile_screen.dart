@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prep_mate/core/theme/app_theme.dart';
+import 'package:prep_mate/core/utils/dialog_utils.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/user/screens/personal_information_screen.dart';
@@ -90,6 +91,9 @@ class _UserProfileState extends State<Userprofile> {
   }
 
   void _handleLogout() async {
+    final bool confirm = await DialogUtils.showLogoutConfirmation(context);
+    if (!confirm) return;
+
     // 1. Set logging out state to prevent UI flickers
     setState(() => _isLoggingOut = true);
 

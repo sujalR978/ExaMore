@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
+import 'package:prep_mate/core/utils/dialog_utils.dart';
 import 'package:prep_mate/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/user/screens/exam_attempts_history_screen.dart';
@@ -49,49 +51,9 @@ class MainNavigatorState extends State<MainNavigator> {
   }
 
   void _handleLogout() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = AppColors.card(isDark);
-    final borderColor = AppColors.border(isDark);
-    final textPrimary = AppColors.textPrimary(isDark);
-    final textSecondary = AppColors.textSecondary(isDark);
+    final confirm = await DialogUtils.showLogoutConfirmation(context);
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: cardColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: borderColor),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
-            const SizedBox(width: 10),
-            Text('Logout', style: TextStyle(color: textPrimary)),
-          ],
-        ),
-        content: Text(
-          'Are you sure you want to log out of ExaMore?',
-          style: TextStyle(color: textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: TextStyle(color: textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
+    if (confirm) {
       await FirebaseAuth.instance.signOut();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
@@ -151,8 +113,21 @@ class MainNavigatorState extends State<MainNavigator> {
     final textPrimary = AppColors.textPrimary(isDark);
     final textSecondary = AppColors.textSecondary(isDark);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          _onItemTapped(0);
+          return;
+        }
+        final shouldExit = await DialogUtils.showExitConfirmation(context);
+        if (shouldExit) {
+          SystemNavigator.pop();
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 900;
 
         if (isDesktop) {
@@ -319,6 +294,7 @@ class MainNavigatorState extends State<MainNavigator> {
           ),
         );
       },
-    );
+    ),
+  );
   }
 }

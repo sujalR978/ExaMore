@@ -1,13 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/utils/dialog_utils.dart';
 import 'package:prep_mate/features/admin/screens/student_directory_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_directory_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
 import 'package:prep_mate/features/admin/screens/question_bank_screen.dart';
 import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
 import 'package:prep_mate/features/admin/screens/user_result_screen.dart';
-import 'package:prep_mate/features/auth/screens/logout_screen.dart';
+import 'package:prep_mate/features/auth/screens/login_screen.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
 import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 
@@ -237,10 +239,18 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               'Log Out',
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const LogoutPage()),
-              );
+            onTap: () async {
+              Navigator.pop(context); // Close drawer
+              final confirm = await DialogUtils.showLogoutConfirmation(context);
+              if (confirm) {
+                await AuthService().signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const Login()),
+                    (route) => false,
+                  );
+                }
+              }
             },
           ),
         ],
