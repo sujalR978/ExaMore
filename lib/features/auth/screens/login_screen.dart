@@ -60,8 +60,9 @@ class _LoginState extends State<Login> {
             ),
           ],
         ),
-        backgroundColor:
-            isError ? Colors.redAccent.shade700 : const Color(0xFF10B981),
+        backgroundColor: isError
+            ? Colors.redAccent.shade700
+            : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
@@ -76,13 +77,15 @@ class _LoginState extends State<Login> {
       return true;
     }
     try {
-      final lookup = await InternetAddress.lookup('google.com')
-          .timeout(const Duration(seconds: 4));
+      final lookup = await InternetAddress.lookup(
+        'google.com',
+      ).timeout(const Duration(seconds: 4));
       return lookup.isNotEmpty && lookup[0].rawAddress.isNotEmpty;
     } catch (_) {
       try {
-        final fallback = await InternetAddress.lookup('1.1.1.1')
-            .timeout(const Duration(seconds: 3));
+        final fallback = await InternetAddress.lookup(
+          '1.1.1.1',
+        ).timeout(const Duration(seconds: 3));
         return fallback.isNotEmpty && fallback[0].rawAddress.isNotEmpty;
       } catch (_) {
         return false;
@@ -136,7 +139,9 @@ class _LoginState extends State<Login> {
             if (mounted) setState(() => _isLogin = false);
             return;
           }
-          emailToAuth = (phoneQuery.docs.first.data()['email'] ?? '').toString().toLowerCase();
+          emailToAuth = (phoneQuery.docs.first.data()['email'] ?? '')
+              .toString()
+              .toLowerCase();
         } catch (_) {
           // If Firestore query is blocked, proceed with direct auth
         }
@@ -181,9 +186,8 @@ class _LoginState extends State<Login> {
       } else if (e.code == 'email-not-verified') {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => EmailVerificationScreen(
-              email: _identifier.text.trim(),
-            ),
+            builder: (context) =>
+                EmailVerificationScreen(email: _identifier.text.trim()),
           ),
         );
       } else if (e.code == 'invalid-email') {
@@ -193,7 +197,9 @@ class _LoginState extends State<Login> {
           "This account has been disabled by an administrator.",
         );
       } else if (e.code == 'too-many-requests') {
-        _showFriendlyToast("Too many failed attempts. Please try again later or reset your password.");
+        _showFriendlyToast(
+          "Too many failed attempts. Please try again later or reset your password.",
+        );
       } else if (e.code == 'network-request-failed') {
         _showFriendlyToast(
           "No internet connection. Please check your network and try again.",
@@ -225,20 +231,18 @@ class _LoginState extends State<Login> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
     final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final cardBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final cardBorder = isDark
+        ? const Color(0xFF334155)
+        : const Color(0xFFE2E8F0);
+    final textPrimary = isDark
+        ? const Color(0xFFF8FAFC)
+        : const Color(0xFF0F172A);
+    final textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
     final gradientColors = isDark
-        ? const [
-            Color(0xFF2E1065),
-            Color(0xFF1E1B4B),
-            Color(0xFF0F172A),
-          ]
-        : const [
-            Color(0xFFEDE9FE),
-            Color(0xFFF3E8FF),
-            Color(0xFFF8FAFC),
-          ];
+        ? const [Color(0xFF2E1065), Color(0xFF1E1B4B), Color(0xFF0F172A)]
+        : const [Color(0xFFEDE9FE), Color(0xFFF3E8FF), Color(0xFFF8FAFC)];
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -254,250 +258,289 @@ class _LoginState extends State<Login> {
               colors: gradientColors,
             ),
           ),
-          child: SafeArea(
-            bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Column(
-                  children: [
-                    // 1. Top Section: Logo & Branding Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                      child: Column(
-                        children: [
-                          Image.asset(
-                            'assets/image/examore_logo.png',
-                            height: 85,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(
-                              Icons.school_rounded,
-                              size: 70,
-                              color: Color(0xFF8B5CF6),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "ExaMore Login",
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: textPrimary,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Master your exams and elevate your learning",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: textSecondary,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // 2. Bottom Sheet: Rounded container with form
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(32),
-                            topRight: Radius.circular(32),
-                          ),
-                          border: Border(
-                            top: BorderSide(
-                              color: cardBorder,
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Email or Phone Field Label (LOG-001)
-                                Text(
-                                  "Email or Phone Number",
-                                  style: TextStyle(
-                                    color: textPrimary,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 480),
+                        child: Column(
+                          children: [
+                            // 1. Top Section: Logo & Branding Header (Flexible, vertically centered)
+                            Expanded(
+                              child: SafeArea(
+                                bottom: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 24,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Inputfield(
-                                  controller: _identifier,
-                                  hintText: "Enter email or 10-digit phone number",
-                                  icon: Icons.person_outline_rounded,
-                                  isPassword: false,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return "Email or phone number is required";
-                                    }
-                                    if (value != value.trim() || value.contains(' ')) {
-                                      return "Leading, trailing, or embedded spaces are not allowed";
-                                    }
-                                    final clean = value.trim();
-                                    // Check if user entered phone digits
-                                    if (RegExp(r'^\d+$').hasMatch(clean)) {
-                                      if (clean.length != 10) {
-                                        return "Phone number must be exactly 10 digits";
-                                      }
-                                      return null;
-                                    }
-                                    // Otherwise validate email format
-                                    final emailRegex = RegExp(
-                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                    );
-                                    if (!emailRegex.hasMatch(clean)) {
-                                      return "Enter a valid email address or 10-digit phone number";
-                                    }
-                                    return null;
-                                  },
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                // Password Field Label
-                                Text(
-                                  "Password",
-                                  style: TextStyle(
-                                    color: textPrimary,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Inputfield(
-                                  controller: _password,
-                                  hintText: "Enter your password",
-                                  icon: Icons.lock_outline_rounded,
-                                  isPassword: true,
-                                  keyboardType: TextInputType.visiblePassword,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return "Password is required";
-                                    }
-                                    if (value.length < 6) {
-                                      return "Password must be at least 6 characters";
-                                    }
-                                    return null;
-                                  },
-                                ),
-
-                                const SizedBox(height: 10),
-
-                                // Forgot Password link aligned right
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Textbutton(
-                                    text: "Forgot Password?",
-                                    color: const Color(0xFFA78BFA),
-                                    onPressed: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const ForgotPasswordPage(),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Image.asset(
+                                          'assets/image/examore_logo.png',
+                                          height: 90,
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
+                                                    Icons.school_rounded,
+                                                    size: 72,
+                                                    color: Color(0xFF8B5CF6),
+                                                  ),
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ),
+                                        const SizedBox(height: 12),
 
-                                const SizedBox(height: 20),
-
-                                // Login CTA Button (LOG-007, LOG-008)
-                                Button(
-                                  text: "LOGIN",
-                                  isLoading: _isLogin,
-                                  isDisabled: _isLogin,
-                                  onPressed: _isLogin ? null : login,
-                                ),
-
-                                const SizedBox(height: 20),
-
-                                // Register navigation prompt
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      "Don't have an account? ",
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        color: Color(0xFF94A3B8),
-                                      ),
-                                    ),
-                                    Textbutton(
-                                      text: "Register",
-                                      color: const Color(0xFFA78BFA),
-                                      onPressed: () {
-                                        Navigator.of(context).pushReplacement(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const Registration(),
+                                        Text(
+                                          "Master your exams and elevate your learning",
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: textSecondary,
+                                            fontWeight: FontWeight.w400,
                                           ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 22),
-
-                                // OR Divider
-                                const Row(
-                                  children: [
-                                    Expanded(
-                                      child: Divider(
-                                        thickness: 1,
-                                        color: Color(0xFF334155),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: EdgeInsets.symmetric(horizontal: 14),
-                                      child: Text(
-                                        "OR",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF64748B),
-                                          fontSize: 12,
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    Expanded(
-                                      child: Divider(
-                                        thickness: 1,
-                                        color: Color(0xFF334155),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-
-                                const SizedBox(height: 22),
-
-                                // Sign in with Google
-                                const Googlebutton(),
-                              ],
+                              ),
                             ),
-                          ),
+
+                            // 2. Bottom Sheet: Snug rounded container with form (no dead space below)
+                            Container(
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(32),
+                                  topRight: Radius.circular(32),
+                                ),
+                                border: Border(
+                                  top: BorderSide(color: cardBorder, width: 1),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(
+                                      isDark ? 0.3 : 0.06,
+                                    ),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, -6),
+                                  ),
+                                ],
+                              ),
+                              child: SafeArea(
+                                top: false,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    28,
+                                    24,
+                                    28,
+                                  ),
+                                  child: Form(
+                                    key: _formKey,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        // Email or Phone Field Label (LOG-001)
+                                        Text(
+                                          "Email or Phone Number",
+                                          style: TextStyle(
+                                            color: textPrimary,
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Inputfield(
+                                          controller: _identifier,
+                                          hintText:
+                                              "Enter email or 10-digit phone number",
+                                          icon: Icons.person_outline_rounded,
+                                          isPassword: false,
+                                          keyboardType:
+                                              TextInputType.emailAddress,
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
+                                              return "Email or phone number is required";
+                                            }
+                                            if (value != value.trim() ||
+                                                value.contains(' ')) {
+                                              return "Leading, trailing, or embedded spaces are not allowed";
+                                            }
+                                            final clean = value.trim();
+                                            // Check if user entered phone digits
+                                            if (RegExp(
+                                              r'^\d+$',
+                                            ).hasMatch(clean)) {
+                                              if (clean.length != 10) {
+                                                return "Phone number must be exactly 10 digits";
+                                              }
+                                              return null;
+                                            }
+                                            // Otherwise validate email format
+                                            final emailRegex = RegExp(
+                                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                                            );
+                                            if (!emailRegex.hasMatch(clean)) {
+                                              return "Enter a valid email address or 10-digit phone number";
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        const SizedBox(height: 16),
+
+                                        // Password Field Label
+                                        Text(
+                                          "Password",
+                                          style: TextStyle(
+                                            color: textPrimary,
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Inputfield(
+                                          controller: _password,
+                                          hintText: "Enter your password",
+                                          icon: Icons.lock_outline_rounded,
+                                          isPassword: true,
+                                          keyboardType:
+                                              TextInputType.visiblePassword,
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.isEmpty) {
+                                              return "Password is required";
+                                            }
+                                            if (value.length < 6) {
+                                              return "Password must be at least 6 characters";
+                                            }
+                                            return null;
+                                          },
+                                        ),
+
+                                        const SizedBox(height: 10),
+
+                                        // Forgot Password link aligned right
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: Textbutton(
+                                            text: "Forgot Password?",
+                                            color: const Color(0xFFA78BFA),
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const ForgotPasswordPage(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 20),
+
+                                        // Login CTA Button (LOG-007, LOG-008)
+                                        Button(
+                                          text: "LOGIN",
+                                          isLoading: _isLogin,
+                                          isDisabled: _isLogin,
+                                          onPressed: _isLogin ? null : login,
+                                        ),
+
+                                        const SizedBox(height: 20),
+
+                                        // Register navigation prompt
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            const Text(
+                                              "Don't have an account? ",
+                                              style: TextStyle(
+                                                fontSize: 13.5,
+                                                color: Color(0xFF94A3B8),
+                                              ),
+                                            ),
+                                            Textbutton(
+                                              text: "Register",
+                                              color: const Color(0xFFA78BFA),
+                                              onPressed: () {
+                                                Navigator.of(
+                                                  context,
+                                                ).pushReplacement(
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        const Registration(),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+
+                                        const SizedBox(height: 22),
+
+                                        // OR Divider
+                                        const Row(
+                                          children: [
+                                            Expanded(
+                                              child: Divider(
+                                                thickness: 1,
+                                                color: Color(0xFF334155),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                              ),
+                                              child: Text(
+                                                "OR",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Color(0xFF64748B),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Divider(
+                                                thickness: 1,
+                                                color: Color(0xFF334155),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+
+                                        const SizedBox(height: 22),
+
+                                        // Sign in with Google
+                                        const Googlebutton(),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
