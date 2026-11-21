@@ -24,12 +24,16 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
   final ExamService _examService = ExamService();
   late ClassroomModel _classroom;
   late Future<List<UserModel>> _studentsFuture;
+  late Stream<ClassroomModel?> _classroomStream;
+  late Stream<List<ExamModel>> _examsStream;
 
   @override
   void initState() {
     super.initState();
     _classroom = widget.classroom;
     _studentsFuture = ClassroomService.getStudentsByUids(_classroom.studentUids);
+    _classroomStream = ClassroomService.getSingleClassroomStream(_classroom.id);
+    _examsStream = _examService.getExamsStream(adminId: _classroom.adminId);
     _tabController = TabController(length: 3, vsync: this);
   }
 
@@ -462,7 +466,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
         },
       ),
       body: StreamBuilder<ClassroomModel?>(
-        stream: ClassroomService.getSingleClassroomStream(_classroom.id),
+        stream: _classroomStream,
         builder: (context, snapshot) {
           if (snapshot.hasData && snapshot.data != null) {
             _classroom = snapshot.data!;
@@ -783,7 +787,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
 
   Widget _buildExamsTab(ThemeData theme, bool isDarkMode) {
     return StreamBuilder<List<ExamModel>>(
-      stream: _examService.getExamsStream(adminId: _classroom.adminId),
+      stream: _examsStream,
       builder: (context, snapshot) {
         final allExams = snapshot.data ?? [];
         // Strictly isolate exams belonging only to this classroom

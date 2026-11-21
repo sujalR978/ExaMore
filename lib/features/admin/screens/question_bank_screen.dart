@@ -10,9 +10,17 @@ import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/question_file_parser.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class QuestionBankScreen extends StatefulWidget {
-  const QuestionBankScreen({super.key});
+  final bool isTab;
+  final VoidCallback? onMenuPressed;
+
+  const QuestionBankScreen({
+    super.key,
+    this.isTab = false,
+    this.onMenuPressed,
+  });
 
   @override
   State<QuestionBankScreen> createState() => _QuestionBankScreenState();
@@ -64,7 +72,7 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
       return;
     }
 
-    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+    if (AuthService.isSuperAdminUser(_currentUser)) {
       _userRole = 'super_admin';
     } else {
       try {
@@ -74,7 +82,8 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
             .get();
 
         if (doc.exists) {
-          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          final role = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
         }
       } catch (_) {}
     }
@@ -450,11 +459,13 @@ class _QuestionBankScreenState extends State<QuestionBankScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
+      drawer: widget.isTab ? null : const AdminMenuDrawer(),
       appBar: AdminTopBar(
-        title: isSuperAdmin ? 'Examora (All Banks)' : 'Examora Question Bank',
+        title: isSuperAdmin ? 'ExaMore (All Banks)' : 'ExaMore Question Bank',
         subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Centralized Questions',
-        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        showBackButton: !widget.isTab && Navigator.canPop(context),
+        onBackPressed: () => Navigator.pop(context),
+        onMenuPressed: widget.onMenuPressed ?? () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<List<QuestionModel>>(
         stream: _questionStream,

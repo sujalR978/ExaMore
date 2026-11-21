@@ -5,15 +5,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class Showexamesscreen extends StatefulWidget {
-  const Showexamesscreen({super.key});
+  final bool isTab;
+  final VoidCallback? onMenuPressed;
+
+  const Showexamesscreen({
+    super.key,
+    this.isTab = false,
+    this.onMenuPressed,
+  });
 
   @override
   State<Showexamesscreen> createState() => _ActiveExamsScreenState();
@@ -25,21 +34,13 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   final ExamService _examService = ExamService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  int _selectedCategoryIndex = 0;
   String _searchQuery = '';
+  String _selectedStatusFilter = 'All'; // 'All', 'Published', 'Draft'
   String _userRole = 'admin';
   String _adminUid = '';
   bool _isLoadingRole = true;
 
   Stream<List<ExamModel>>? _examsStream;
-
-  final List<String> _categories = [
-    'All',
-    'Mathematics',
-    'Science',
-    'History',
-    'Computer Science',
-  ];
 
   @override
   void initState() {
@@ -62,7 +63,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
       return;
     }
 
-    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+    if (AuthService.isSuperAdminUser(_currentUser)) {
       _userRole = 'super_admin';
     } else {
       try {
@@ -72,30 +73,22 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
             .get();
 
         if (doc.exists) {
-          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          final role = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
         }
       } catch (_) {}
     }
 
-    _updateExamsStream();
+    _examsStream = _examService.getExamsStream(
+      adminId: _adminUid,
+      role: _userRole,
+    );
 
     if (mounted) {
       setState(() {
         _isLoadingRole = false;
       });
     }
-  }
-
-  void _updateExamsStream() {
-    final selectedCategory = _selectedCategoryIndex == 0
-        ? null
-        : _categories[_selectedCategoryIndex];
-
-    _examsStream = _examService.getExamsStream(
-      category: selectedCategory,
-      adminId: _adminUid,
-      role: _userRole,
-    );
   }
 
   @override
@@ -112,21 +105,25 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     );
   }
 
-  Future<void> _handlePublishExam(ExamModel exam) async {
+  Future<void> _togglePublishStatus(ExamModel exam) async {
+    final newStatus = exam.status.toLowerCase() == 'published'
+        ? 'Draft'
+        : 'Published';
     try {
-      await _examService.publishExam(exam.id);
+      await _examService.updateExam(exam.copyWith(status: newStatus));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${exam.title} published successfully!'),
-          backgroundColor: Colors.green,
+          content: Text('Exam status updated to $newStatus'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to publish exam: $e'),
+          content: Text('Failed to update status: $e'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -184,9 +181,25 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     );
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'Not scheduled';
-    return DateFormat('MMM dd, hh:mm a').format(date);
+  String _getDateHeader(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final examDate = DateTime(date.year, date.month, date.day);
+
+    if (examDate == today) {
+      return 'Today';
+    } else if (examDate == yesterday) {
+      return 'Yesterday';
+    } else if (date.year == now.year) {
+      return DateFormat('EEEE, MMM d').format(date);
+    } else {
+      return DateFormat('MMM d, yyyy').format(date);
+    }
+  }
+
+  String _formatTime(DateTime date) {
+    return DateFormat('h:mm a').format(date);
   }
 
   @override
@@ -194,12 +207,11 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    final containerColor = theme.colorScheme.surface;
-    final textColor = theme.colorScheme.onSurface;
-    final subtitleColor = isDarkMode
-        ? const Color(0xFF94A3B8)
-        : Colors.grey[600]!;
-    final borderColor = isDarkMode ? Colors.white12 : Colors.grey.shade200;
+    final containerColor = AppColors.card(isDarkMode);
+    final textColor = AppColors.textPrimary(isDarkMode);
+    final subtitleColor = AppColors.textSecondary(isDarkMode);
+    final textMuted = AppColors.textMuted(isDarkMode);
+    final borderColor = AppColors.border(isDarkMode);
 
     if (_isLoadingRole || _examsStream == null) {
       return Scaffold(
@@ -213,215 +225,338 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
+      drawer: widget.isTab ? null : const AdminMenuDrawer(),
       appBar: AdminTopBar(
         title: isSuperAdmin ? 'All Platform Exams' : 'My Active Exams',
-        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Published Assessments',
-        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Published & Draft Assessments',
+        showBackButton: !widget.isTab && Navigator.canPop(context),
+        onBackPressed: () => Navigator.pop(context),
+        onMenuPressed: widget.onMenuPressed ?? () => _scaffoldKey.currentState?.openDrawer(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+            tooltip: 'Create New Exam',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ExamConfigurationScreen(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search Bar
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Search exams by title or ID...",
-                hintStyle: TextStyle(color: subtitleColor, fontSize: 13),
-                prefixIcon: Icon(Icons.search, color: subtitleColor),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(Icons.clear, color: subtitleColor, size: 18),
-                        onPressed: () => _searchController.clear(),
-                      )
-                    : null,
-                filled: true,
-                fillColor: containerColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16.0),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF7C3AED),
-                    width: 1.5,
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-            const SizedBox(height: 16),
+      body: StreamBuilder<List<ExamModel>>(
+        stream: _examsStream,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-            // Filter Category Chips
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final isSelected = _selectedCategoryIndex == index;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(_categories[index]),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                          _updateExamsStream();
-                        });
-                      },
-                      selectedColor: const Color(0xFF1E1B4B),
-                      backgroundColor: containerColor,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? Colors.white
-                            : (isDarkMode
-                                  ? Colors.white70
-                                  : const Color(0xFF1E1B4B)),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  'Error loading exams: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            );
+          }
+
+          final allExams = snapshot.data ?? [];
+
+          // Overview Metrics Calculations
+          final totalExamsCount = allExams.length;
+          final publishedCount = allExams.where(
+            (e) => e.status.toLowerCase() == 'published',
+          ).length;
+          final draftCount = allExams.where(
+            (e) => e.status.toLowerCase() != 'published',
+          ).length;
+          final totalQuestionsCount = allExams.fold<int>(
+            0,
+            (acc, e) => acc + e.questions.length,
+          );
+
+          // Filtering
+          final filteredExams = allExams.where((exam) {
+            final matchesSearch = _searchQuery.isEmpty ||
+                exam.title.toLowerCase().contains(_searchQuery) ||
+                exam.examCode.toLowerCase().contains(_searchQuery) ||
+                exam.category.toLowerCase().contains(_searchQuery);
+
+            final status = exam.status.toLowerCase();
+            final matchesStatus = _selectedStatusFilter == 'All' ||
+                (_selectedStatusFilter == 'Published' && status == 'published') ||
+                (_selectedStatusFilter == 'Draft' && status != 'published');
+
+            return matchesSearch && matchesStatus;
+          }).toList();
+
+          // Sort descending by created/start date
+          filteredExams.sort((a, b) {
+            final dateA = a.startDate ?? a.createdAt;
+            final dateB = b.startDate ?? b.createdAt;
+            return dateB.compareTo(dateA);
+          });
+
+          // Group by Date Header
+          final Map<String, List<ExamModel>> groupedExams = {};
+          for (final exam in filteredExams) {
+            final date = exam.startDate ?? exam.createdAt;
+            final header = _getDateHeader(date);
+            groupedExams.putIfAbsent(header, () => []).add(exam);
+          }
+
+          return CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Overview Metric Cards
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricMiniCard(
+                              label: 'Total Exams',
+                              value: '$totalExamsCount',
+                              icon: Icons.layers_rounded,
+                              iconColor: const Color(0xFF7C3AED),
+                              cardColor: containerColor,
+                              borderColor: borderColor,
+                              textPrimary: textColor,
+                              textSecondary: subtitleColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildMetricMiniCard(
+                              label: 'Published',
+                              value: '$publishedCount',
+                              icon: Icons.check_circle_rounded,
+                              iconColor: const Color(0xFF10B981),
+                              cardColor: containerColor,
+                              borderColor: borderColor,
+                              textPrimary: textColor,
+                              textSecondary: subtitleColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildMetricMiniCard(
+                              label: 'Drafts',
+                              value: '$draftCount',
+                              icon: Icons.edit_note_rounded,
+                              iconColor: const Color(0xFFF59E0B),
+                              cardColor: containerColor,
+                              borderColor: borderColor,
+                              textPrimary: textColor,
+                              textSecondary: subtitleColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildMetricMiniCard(
+                              label: 'Questions',
+                              value: '$totalQuestionsCount',
+                              icon: Icons.format_list_numbered_rounded,
+                              iconColor: const Color(0xFF3B82F6),
+                              cardColor: containerColor,
+                              borderColor: borderColor,
+                              textPrimary: textColor,
+                              textSecondary: subtitleColor,
+                            ),
+                          ),
+                        ],
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
-                        side: BorderSide(
-                          color: isSelected ? Colors.transparent : borderColor,
+                      const SizedBox(height: 12),
+
+                      // Search Input Field
+                      TextField(
+                        controller: _searchController,
+                        style: TextStyle(color: textColor, fontSize: 13.5),
+                        decoration: InputDecoration(
+                          hintText: 'Search by title, category, or #code...',
+                          hintStyle: TextStyle(color: textMuted, fontSize: 13),
+                          prefixIcon: Icon(Icons.search_rounded, color: subtitleColor, size: 20),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(Icons.clear_rounded, color: subtitleColor, size: 18),
+                                  onPressed: () => _searchController.clear(),
+                                )
+                              : null,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          filled: true,
+                          fillColor: containerColor,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                      const SizedBox(height: 10),
+
+                      // Status Filter Chips
+                      Row(
+                        children: ['All', 'Published', 'Draft'].map((status) {
+                          final isSelected = _selectedStatusFilter == status;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text(status),
+                              selected: isSelected,
+                              labelStyle: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected ? Colors.white : subtitleColor,
+                              ),
+                              selectedColor: const Color(0xFF7C3AED),
+                              backgroundColor: containerColor,
+                              side: BorderSide(
+                                color: isSelected ? const Color(0xFF7C3AED) : borderColor,
+                                width: 1,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              showCheckmark: false,
+                              onSelected: (_) {
+                                setState(() => _selectedStatusFilter = status);
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
 
-            // Live Exams Stream
-            StreamBuilder<List<ExamModel>>(
-              stream: _examsStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
+              // Empty State
+              if (groupedExams.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 40.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40.0),
-                      child: Text(
-                        'Error loading exams: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.assignment_late_outlined,
+                            size: 48,
+                            color: subtitleColor.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _searchQuery.isNotEmpty
+                                ? 'No exams found matching "$_searchQuery"'
+                                : 'No exams available in this view.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 14, color: subtitleColor),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final keys = groupedExams.keys.toList();
+                        final dateHeader = keys[index];
+                        final examsForDate = groupedExams[dateHeader]!;
 
-                final allExams = snapshot.data ?? [];
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Chat-Style Date Badge Header
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isDarkMode ? Colors.white12 : Colors.grey.shade300,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    dateHeader,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: subtitleColor,
+                                      letterSpacing: 0.2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
 
-                // Local Search Filter
-                final filteredExams = allExams.where((exam) {
-                  return exam.title.toLowerCase().contains(_searchQuery) ||
-                      exam.examCode.toLowerCase().contains(_searchQuery);
-                }).toList();
-
-                if (filteredExams.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40.0),
-                    child: Center(
-                      child: Text(
-                        _searchQuery.isNotEmpty
-                            ? 'No exams found matching "$_searchQuery"'
-                            : (isSuperAdmin
-                                  ? 'No exams available on the platform.'
-                                  : 'You have not created any exams in this category.'),
-                        style: TextStyle(color: subtitleColor, fontSize: 14),
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredExams.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 20),
-                  itemBuilder: (context, index) {
-                    final exam = filteredExams[index];
-                    final isPublished =
-                        exam.status.toLowerCase() == 'published';
-
-                    return _buildExamCard(
-                      exam: exam,
-                      isPublished: isPublished,
-                      startDate: _formatDate(exam.startDate ?? exam.createdAt),
-                      containerColor: containerColor,
-                      textColor: textColor,
-                      subtitleColor: subtitleColor,
-                      borderColor: borderColor,
-                      isDarkMode: isDarkMode,
-                      onPrimaryAction: () {
-                        if (isPublished) {
-                          _handleViewResults(exam);
-                        } else {
-                          _handlePublishExam(exam);
-                        }
+                            // Exam cards for this date
+                            ...examsForDate.map(
+                              (exam) => _buildCompactExamCard(
+                                exam: exam,
+                                cardColor: containerColor,
+                                borderColor: borderColor,
+                                textPrimary: textColor,
+                                textSecondary: subtitleColor,
+                                textMuted: textMuted,
+                                isDarkMode: isDarkMode,
+                              ),
+                            ),
+                          ],
+                        );
                       },
-                      onEdit: () => _handleEditExam(exam),
-                      onDelete: () => _handleDeleteExam(exam),
-                    );
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
+                      childCount: groupedExams.keys.length,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildExamCard({
-    required ExamModel exam,
-    required bool isPublished,
-    required String startDate,
-    required Color containerColor,
-    required Color textColor,
-    required Color subtitleColor,
+  Widget _buildMetricMiniCard({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required Color cardColor,
     required Color borderColor,
-    required bool isDarkMode,
-    required VoidCallback onPrimaryAction,
-    required VoidCallback onEdit,
-    required VoidCallback onDelete,
+    required Color textPrimary,
+    required Color textSecondary,
   }) {
-    final submissionsDisplay = isPublished
-        ? '${exam.submissionsCount} / ${exam.enrolledCount}'
-        : '${exam.questions.length} Qs';
-
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: containerColor,
-        borderRadius: BorderRadius.circular(24),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,283 +564,301 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isPublished
-                          ? (isDarkMode
-                                ? const Color(0xFF064E3B)
-                                : const Color(0xFFD1FAE5))
-                          : (isDarkMode
-                                ? const Color(0xFF451A03)
-                                : const Color(0xFFFEF3C7)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      exam.status,
-                      style: TextStyle(
-                        color: isPublished
-                            ? (isDarkMode
-                                  ? const Color(0xFF34D399)
-                                  : const Color(0xFF065F46))
-                            : const Color(0xFFB45309),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: textSecondary,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'ID: ${exam.examCode.isNotEmpty ? exam.examCode : exam.id.substring(0, 6)}',
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: subtitleColor, size: 20),
-                onSelected: (val) {
-                  if (val == 'edit') onEdit();
-                  if (val == 'delete') onDelete();
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Edit Exam')),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text(
-                      'Delete Exam',
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
-                ],
-              ),
+              Icon(icon, color: iconColor, size: 14),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
-            exam.title,
+            value,
             style: TextStyle(
-              color: textColor,
-              fontSize: 22,
+              color: textPrimary,
+              fontSize: 16,
               fontWeight: FontWeight.bold,
-              height: 1.2,
             ),
           ),
-          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
 
-          // Details Grid
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 16,
-                      color: subtitleColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Start Date',
-                          style: TextStyle(color: subtitleColor, fontSize: 11),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          startDate,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(Icons.access_time, size: 16, color: subtitleColor),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Duration',
-                          style: TextStyle(color: subtitleColor, fontSize: 11),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${exam.durationMinutes} mins',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(Icons.people_outline, size: 16, color: subtitleColor),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Enrolled',
-                          style: TextStyle(color: subtitleColor, fontSize: 11),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${exam.enrolledCount} Students',
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      isPublished
-                          ? Icons.assignment_turned_in_outlined
-                          : Icons.list_alt,
-                      size: 16,
-                      color: subtitleColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isPublished ? 'Submissions' : 'Questions',
-                          style: TextStyle(color: subtitleColor, fontSize: 11),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          submissionsDisplay,
-                          style: TextStyle(
-                            color: textColor,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Divider(color: borderColor, height: 1),
-          const SizedBox(height: 16),
+  Widget _buildCompactExamCard({
+    required ExamModel exam,
+    required Color cardColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color textMuted,
+    required bool isDarkMode,
+  }) {
+    final title = exam.title.trim().isNotEmpty ? exam.title.trim() : 'Untitled Exam';
+    final category = exam.category.trim().isNotEmpty ? exam.category.trim() : 'General';
+    final isPublished = exam.status.toLowerCase() == 'published';
+    final questionCount = exam.questions.length;
+    final duration = exam.durationMinutes;
+    final totalMarks = exam.totalMarks.toInt();
+    final submissionsCount = exam.submissionsCount;
+    final date = exam.startDate ?? exam.createdAt;
+    final timeStr = _formatTime(date);
+    final examCode = exam.examCode.isNotEmpty
+        ? exam.examCode
+        : (exam.id.length >= 6 ? '#${exam.id.substring(0, 6).toUpperCase()}' : '#${exam.id}');
 
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: SizedBox(
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: onPrimaryAction,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isPublished
-                          ? const Color(0xFF4C1D95)
-                          : const Color(0xFFFBBF24),
-                      foregroundColor: isPublished
-                          ? Colors.white
-                          : const Color(0xFF1E1B4B),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          isPublished
-                              ? Icons.visibility_outlined
-                              : Icons.cloud_upload_outlined,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isPublished ? 'View Results' : 'Publish Exam',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: onEdit,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: textColor,
-                      side: BorderSide(color: borderColor, width: 1.5),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.edit_outlined, size: 16),
-                        SizedBox(width: 6),
-                        Text(
-                          'Edit',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isPublished
+              ? const Color(0xFF10B981).withValues(alpha: 0.25)
+              : const Color(0xFFF59E0B).withValues(alpha: 0.25),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _handleEditExam(exam),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                // Leading: Compact Status / Type Emblem (44x44)
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isPublished
+                        ? const Color(0xFF10B981).withValues(alpha: 0.14)
+                        : const Color(0xFFF59E0B).withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isPublished
+                          ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isPublished
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.edit_note_rounded,
+                      size: 22,
+                      color: isPublished
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFF59E0B),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Center Column: Category + Code + Time, Title, Metrics
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Row 1: Category badge + Exam Code + Time
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Text(
+                                category.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFFA78BFA),
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.4,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text('•', style: TextStyle(color: textMuted, fontSize: 10)),
+                          const SizedBox(width: 6),
+                          Text(
+                            examCode,
+                            style: TextStyle(
+                              color: textMuted,
+                              fontSize: 10.5,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            timeStr,
+                            style: TextStyle(
+                              color: textMuted,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+
+                      // Row 2: Exam Title (Single-line bold)
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textPrimary,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+
+                      // Row 3: Inline Metrics (Duration, Questions, Marks, Submissions)
+                      Row(
+                        children: [
+                          Icon(Icons.schedule_rounded, size: 12, color: textSecondary),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${duration}m',
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.help_outline_rounded, size: 12, color: textSecondary),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$questionCount Qs',
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.stars_rounded, size: 12, color: textSecondary),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$totalMarks pts',
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(Icons.people_outline_rounded, size: 12, color: textSecondary),
+                          const SizedBox(width: 3),
+                          Text(
+                            '$submissionsCount subs',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isPublished ? const Color(0xFF10B981) : textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Trailing 3-Dots Action Menu
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert_rounded, color: textSecondary, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 160),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  color: cardColor,
+                  onSelected: (value) {
+                    if (value == 'results') {
+                      _handleViewResults(exam);
+                    } else if (value == 'edit') {
+                      _handleEditExam(exam);
+                    } else if (value == 'toggle') {
+                      _togglePublishStatus(exam);
+                    } else if (value == 'delete') {
+                      _handleDeleteExam(exam);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'results',
+                      child: Row(
+                        children: [
+                          Icon(Icons.analytics_outlined, size: 16, color: textPrimary),
+                          const SizedBox(width: 8),
+                          Text('View Submissions', style: TextStyle(fontSize: 12.5, color: textPrimary)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 16, color: textPrimary),
+                          const SizedBox(width: 8),
+                          Text('Edit Configuration', style: TextStyle(fontSize: 12.5, color: textPrimary)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'toggle',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isPublished ? Icons.cloud_off_rounded : Icons.cloud_upload_rounded,
+                            size: 16,
+                            color: isPublished ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isPublished ? 'Unpublish to Draft' : 'Publish Live',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: isPublished ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(height: 1),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                          SizedBox(width: 8),
+                          Text('Delete Exam', style: TextStyle(fontSize: 12.5, color: Colors.redAccent)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

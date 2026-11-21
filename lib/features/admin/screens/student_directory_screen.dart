@@ -7,9 +7,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class StudentDirectoryScreen extends StatefulWidget {
-  const StudentDirectoryScreen({super.key});
+  final bool isTab;
+  final VoidCallback? onMenuPressed;
+
+  const StudentDirectoryScreen({
+    super.key,
+    this.isTab = false,
+    this.onMenuPressed,
+  });
 
   @override
   State<StudentDirectoryScreen> createState() => _StudentDirectoryScreenState();
@@ -41,7 +49,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       return;
     }
 
-    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+    if (AuthService.isSuperAdminUser(_currentUser)) {
       _userRole = 'super_admin';
     } else {
       try {
@@ -51,14 +59,13 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             .get();
 
         if (doc.exists) {
-          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          final role = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
         }
       } catch (_) {}
     }
 
-    final bool isSuperAdmin =
-        _userRole == 'super_admin' ||
-        _currentUser.email?.toLowerCase() == 'admin@gmail.com';
+    final bool isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
     final uid = _currentUser.uid;
 
     // Initialize the stream ONCE
@@ -439,18 +446,18 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       );
     }
 
-    final isSuperAdmin =
-        _userRole == 'super_admin' ||
-        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
+    final isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
+      drawer: widget.isTab ? null : const AdminMenuDrawer(),
       appBar: AdminTopBar(
         title: isSuperAdmin ? 'All System Students' : 'My Students',
         subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Student Directory',
-        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        showBackButton: !widget.isTab && Navigator.canPop(context),
+        onBackPressed: () => Navigator.pop(context),
+        onMenuPressed: widget.onMenuPressed ?? () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _studentStream,

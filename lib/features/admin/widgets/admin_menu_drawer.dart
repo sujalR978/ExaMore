@@ -14,7 +14,9 @@ import 'package:prep_mate/features/user/screens/settings_screen.dart';
 import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 
 class AdminMenuDrawer extends StatefulWidget {
-  const AdminMenuDrawer({super.key});
+  final void Function(int tabIndex)? onSelectTab;
+
+  const AdminMenuDrawer({super.key, this.onSelectTab});
 
   @override
   State<AdminMenuDrawer> createState() => _AdminMenuDrawerState();
@@ -33,8 +35,7 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;
 
-    // Hardcoded Super Admin check
-    if (user.email?.toLowerCase() == 'admin@gmail.com') {
+    if (AuthService.isSuperAdminUser(user)) {
       return true;
     }
 
@@ -45,8 +46,8 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
           .get();
 
       if (doc.exists) {
-        final role = (doc.data()?['role'] ?? '').toString().toLowerCase();
-        return role == 'super_admin';
+        final role = (doc.data()?['role'] ?? '').toString();
+        return AuthService.isSuperAdminUser(user, role);
       }
     } catch (_) {}
 
@@ -76,7 +77,7 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 const Text(
-                  'Examora Admin',
+                  'ExaMore Admin',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -101,11 +102,17 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const AdminHomeScreen(),
-                ),
-              );
+              Navigator.of(context).pop();
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(0);
+              } else {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (context) => const AdminHomeScreen(initialIndex: 0),
+                  ),
+                  (route) => false,
+                );
+              }
             },
           ),
           ListTile(
@@ -118,11 +125,16 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const Showexamesscreen(),
-                ),
-              );
+              Navigator.of(context).pop();
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(1);
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const Showexamesscreen(),
+                  ),
+                );
+              }
             },
           ),
 
@@ -136,11 +148,16 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const QuestionBankScreen(),
-                ),
-              );
+              Navigator.of(context).pop();
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(2);
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const QuestionBankScreen(),
+                  ),
+                );
+              }
             },
           ),
 
@@ -151,6 +168,7 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
+              Navigator.of(context).pop();
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const RecentResultsAndUsersScreen(),
@@ -165,11 +183,16 @@ class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
               style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             ),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const StudentDirectoryScreen(),
-                ),
-              );
+              Navigator.of(context).pop();
+              if (widget.onSelectTab != null) {
+                widget.onSelectTab!(3);
+              } else {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const StudentDirectoryScreen(),
+                  ),
+                );
+              }
             },
           ),
 

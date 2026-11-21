@@ -19,9 +19,11 @@ import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class AdminHomeScreen extends StatefulWidget {
-  const AdminHomeScreen({super.key});
+  final int initialIndex;
+  const AdminHomeScreen({super.key, this.initialIndex = 0});
 
   @override
   State<AdminHomeScreen> createState() => _AdminHomeScreenState();
@@ -43,6 +45,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     _adminUid = _currentUser?.uid ?? '';
     _initDashboardStreams();
     _fetchUserRole();
@@ -393,9 +396,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    final isSuperAdmin =
-        _userRole == 'super_admin' ||
-        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
+    final isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
 
     final surfaceColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
@@ -420,7 +421,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: theme.scaffoldBackgroundColor,
-        drawer: const AdminMenuDrawer(),
+        drawer: AdminMenuDrawer(
+          onSelectTab: (index) => setState(() => _currentIndex = index),
+        ),
         body: IndexedStack(
           index: _currentIndex,
           children: [
@@ -433,9 +436,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               subtitleColor: subtitleColor,
               borderColor: borderColor,
             ),
-            const Showexamesscreen(),
-            const QuestionBankScreen(),
-            const StudentDirectoryScreen(),
+            Showexamesscreen(
+              isTab: true,
+              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            QuestionBankScreen(
+              isTab: true,
+              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            StudentDirectoryScreen(
+              isTab: true,
+              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
           ],
         ),
         bottomNavigationBar: CustomBottomNavBar(

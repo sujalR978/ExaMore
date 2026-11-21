@@ -8,6 +8,7 @@ import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class RecentResultsAndUsersScreen extends StatefulWidget {
   const RecentResultsAndUsersScreen({super.key});
@@ -27,6 +28,7 @@ class _RecentResultsAndUsersScreenState
   String _searchQuery = '';
   String _userRole = 'admin';
   bool _isLoadingRole = true;
+  Stream<List>? _resultsStream;
 
   @override
   void initState() {
@@ -45,32 +47,26 @@ class _RecentResultsAndUsersScreenState
       return;
     }
 
-    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
-      if (mounted) {
-        setState(() {
-          _userRole = 'super_admin';
-          _isLoadingRole = false;
-        });
-      }
-      return;
+    if (AuthService.isSuperAdminUser(_currentUser)) {
+      _userRole = 'super_admin';
+    } else {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUser.uid)
+            .get();
+
+        if (doc.exists) {
+          final role = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
+        }
+      } catch (_) {}
     }
 
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(_currentUser.uid)
-          .get();
+    _resultsStream = _getResultsStream();
 
-      if (doc.exists && mounted) {
-        setState(() {
-          _userRole = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
-          _isLoadingRole = false;
-        });
-      } else if (mounted) {
-        setState(() => _isLoadingRole = false);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingRole = false);
+    if (mounted) {
+      setState(() => _isLoadingRole = false);
     }
   }
 
@@ -105,9 +101,7 @@ class _RecentResultsAndUsersScreenState
   }
 
   Stream<List> _getResultsStream() {
-    final bool isSuperAdmin =
-        _userRole == 'super_admin' ||
-        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
+    final bool isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
 
     if (isSuperAdmin) {
       // Super Admin inspects results across the entire platform
@@ -138,9 +132,7 @@ class _RecentResultsAndUsersScreenState
       );
     }
 
-    final bool isSuperAdmin =
-        _userRole == 'super_admin' ||
-        _currentUser?.email?.toLowerCase() == 'admin@gmail.com';
+    final bool isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -149,10 +141,12 @@ class _RecentResultsAndUsersScreenState
       appBar: AdminTopBar(
         title: isSuperAdmin ? 'Super Admin Portal' : 'Exam Administration',
         subtitle: isSuperAdmin ? 'System-wide Submissions' : 'Recent Results & Users',
+        showBackButton: Navigator.canPop(context),
+        onBackPressed: () => Navigator.pop(context),
         onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<List>(
-        stream: _getResultsStream(),
+        stream: _resultsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(

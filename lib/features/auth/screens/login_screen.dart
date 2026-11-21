@@ -299,7 +299,7 @@ class _LoginState extends State<Login> {
                                       children: [
                                         Image.asset(
                                           'assets/image/examore_logo.png',
-                                          height: 180,
+                                          height: 70,
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) =>
@@ -308,6 +308,26 @@ class _LoginState extends State<Login> {
                                                     size: 58,
                                                     color: Color(0xFF8B5CF6),
                                                   ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          "ExaMore Login",
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                            color: textPrimary,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "Master your exams and elevate your learning",
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            color: textSecondary,
+                                            fontWeight: FontWeight.w400,
+                                          ),
                                         ),
                                       ],
                                     ),

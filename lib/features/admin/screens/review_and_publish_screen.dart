@@ -188,7 +188,9 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       );
 
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        MaterialPageRoute(
+          builder: (context) => const AdminHomeScreen(initialIndex: 1),
+        ),
         (route) => false,
       );
     } catch (e) {
@@ -242,7 +244,9 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       );
 
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const AdminHomeScreen()),
+        MaterialPageRoute(
+          builder: (context) => const AdminHomeScreen(initialIndex: 1),
+        ),
         (route) => false,
       );
     } catch (e) {

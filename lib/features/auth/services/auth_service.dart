@@ -8,6 +8,14 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Centralized Super Admin check
+  static bool isSuperAdminUser(User? user, [String? role]) {
+    if (user == null) return false;
+    if (role != null && role.trim().toLowerCase() == 'super_admin') return true;
+    if (user.email?.toLowerCase().trim() == 'admin@gmail.com') return true;
+    return false;
+  }
+
   // Email & Password Registration
   Future<User> createUser({
     required String name,

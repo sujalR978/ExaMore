@@ -11,6 +11,7 @@ import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/csv_export_service.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
+import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class ExamAnalyticsDetailScreen extends StatefulWidget {
   final ExamModel? exam;
@@ -64,7 +65,7 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
       return;
     }
 
-    if (_currentUser.email?.toLowerCase() == 'admin@gmail.com') {
+    if (AuthService.isSuperAdminUser(_currentUser)) {
       _userRole = 'super_admin';
     } else {
       try {
@@ -74,8 +75,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
             .get();
 
         if (doc.exists) {
-          _userRole =
+          final role =
               (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
         }
       } catch (_) {}
     }
