@@ -6,11 +6,8 @@ import 'package:prep_mate/features/auth/screens/forgot_password_screen.dart';
 import 'package:prep_mate/features/auth/screens/registration_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/auth/widgets/custom_button.dart';
-import 'package:prep_mate/features/auth/widgets/field_title.dart';
 import 'package:prep_mate/features/auth/widgets/google_button.dart';
 import 'package:prep_mate/features/auth/widgets/input_field.dart';
-import 'package:prep_mate/features/auth/widgets/main_title.dart';
-import 'package:prep_mate/features/auth/widgets/sub_title.dart';
 import 'package:prep_mate/features/auth/widgets/custom_text_button.dart';
 import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 

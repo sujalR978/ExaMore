@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class Inputfield extends StatefulWidget {
   final TextEditingController controller;
@@ -6,6 +7,11 @@ class Inputfield extends StatefulWidget {
   final IconData icon;
   final bool isPassword;
   final FormFieldValidator<String> validator;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final AutovalidateMode? autovalidateMode;
+  final ValueChanged<String>? onChanged;
+  final FocusNode? focusNode;
 
   const Inputfield({
     super.key,
@@ -14,6 +20,11 @@ class Inputfield extends StatefulWidget {
     required this.icon,
     required this.isPassword,
     required this.validator,
+    this.keyboardType,
+    this.inputFormatters,
+    this.autovalidateMode,
+    this.onChanged,
+    this.focusNode,
   });
 
   @override
@@ -21,35 +32,69 @@ class Inputfield extends StatefulWidget {
 }
 
 class _InputfieldState extends State<Inputfield> {
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _effectiveFocusNode;
+  bool _ownsFocusNode = false;
 
   bool isFocused = false;
   bool isPasswordVisible = false;
+  bool _hasBeenBlurred = false;
 
   @override
   void initState() {
     super.initState();
+    if (widget.focusNode != null) {
+      _effectiveFocusNode = widget.focusNode!;
+    } else {
+      _effectiveFocusNode = FocusNode();
+      _ownsFocusNode = true;
+    }
 
-    _focusNode.addListener(() {
+    _effectiveFocusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (!_effectiveFocusNode.hasFocus) {
+      // User left this textfield (lost focus / blur)
+      if (!_hasBeenBlurred) {
+        setState(() {
+          _hasBeenBlurred = true;
+        });
+      }
+    }
+    if (mounted) {
       setState(() {
-        isFocused = _focusNode.hasFocus;
+        isFocused = _effectiveFocusNode.hasFocus;
       });
-    });
+    }
   }
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _effectiveFocusNode.removeListener(_handleFocusChange);
+    if (_ownsFocusNode) {
+      _effectiveFocusNode.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Show validation errors after the user leaves the textfield (REG-007)
+    // or when the parent form triggers validation.
+    final AutovalidateMode effectiveAutovalidateMode = widget.autovalidateMode ??
+        (_hasBeenBlurred
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled);
+
     return TextFormField(
       obscureText: widget.isPassword && !isPasswordVisible,
       controller: widget.controller,
-      focusNode: _focusNode,
+      focusNode: _effectiveFocusNode,
       validator: widget.validator,
+      autovalidateMode: effectiveAutovalidateMode,
+      keyboardType: widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
+      onChanged: widget.onChanged,
       style: const TextStyle(
         color: Color(0xFFF8FAFC),
         fontSize: 14.5,
@@ -85,7 +130,9 @@ class _InputfieldState extends State<Inputfield> {
                   });
                 },
                 icon: Icon(
-                  isPasswordVisible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  isPasswordVisible
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                   size: 20,
                   color: isFocused
                       ? const Color(0xFFA78BFA)
@@ -120,6 +167,12 @@ class _InputfieldState extends State<Inputfield> {
             color: Color(0xFFEF4444),
             width: 1.5,
           ),
+        ),
+        errorMaxLines: 2,
+        errorStyle: const TextStyle(
+          color: Color(0xFFF87171),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

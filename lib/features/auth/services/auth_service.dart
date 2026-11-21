@@ -13,6 +13,7 @@ class AuthService {
     required String name,
     required String email,
     required String password,
+    String? phone,
     String role = 'student',
     String? adminId,
   }) async {
@@ -34,6 +35,7 @@ class AuthService {
       uid: uid,
       name: name,
       email: email,
+      phone: phone,
       role: role,
       adminId: adminId,
       loginMethod: 'register',
