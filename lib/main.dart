@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prep_mate/core/localization/app_localizations.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/theme/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +12,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await NotificationService.instance.initialize();
   } catch (e) {
     debugPrint('Firebase initialization error in main(): $e');
   }
@@ -35,6 +37,7 @@ class MyApp extends StatelessWidget {
     final languageProvider = Provider.of<AppLanguageProvider?>(context);
 
     return MaterialApp(
+      navigatorKey: NotificationService.navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'ExaMore',
       theme: AppTheme.lightTheme,

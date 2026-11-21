@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/widgets/offline_banner.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
@@ -12,7 +13,7 @@ import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 import 'package:prep_mate/features/user/screens/all_exam_screen.dart';
-import 'package:prep_mate/features/user/screens/settings_screen.dart';
+import 'package:prep_mate/features/user/screens/student_notifications_screen.dart';
 import 'package:prep_mate/features/user/navigation/main_navigator.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 
@@ -59,6 +60,11 @@ class _HomeScreenState extends State<Userhomescreen> {
         final data = userDoc.data() ?? {};
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
         _userName = (data['name'] ?? data['fullName'] ?? '').toString().trim();
+        final adminId = (data['adminId'] ?? '').toString().trim();
+        NotificationService.instance.subscribeStudentTopics(
+          studentClassroomId: _studentClassroomId,
+          adminId: adminId,
+        );
       }
     } catch (_) {}
 
@@ -331,12 +337,61 @@ class _HomeScreenState extends State<Userhomescreen> {
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF94A3B8)),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const Settingscreen()),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _currentUser != null
+                ? NotificationService.instance
+                    .getUserNotificationsStream(_currentUser.uid)
+                : const Stream.empty(),
+            builder: (context, notifSnapshot) {
+              final notifications = notifSnapshot.data ?? [];
+              final unreadCount =
+                  notifications.where((n) => n['isRead'] == false).length;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.notifications_outlined,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    tooltip: 'Notifications',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const StudentNotificationsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3.5),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          unreadCount > 9 ? '9+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            height: 1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),

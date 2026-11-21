@@ -218,10 +218,9 @@ class ExamModel {
     };
   }
 
-  factory ExamModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+  factory ExamModel.fromMap(Map<String, dynamic> data, [String? docId]) {
     return ExamModel(
-      id: doc.id,
+      id: docId ?? data['id'] ?? '',
       examCode: data['examCode'] ?? '',
       title: data['title'] ?? '',
       category: data['category'] ?? 'General',
@@ -247,6 +246,10 @@ class ExamModel {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
+  }
+
+  factory ExamModel.fromFirestore(DocumentSnapshot doc) {
+    return ExamModel.fromMap(doc.data() as Map<String, dynamic>? ?? {}, doc.id);
   }
 
   ExamModel copyWith({

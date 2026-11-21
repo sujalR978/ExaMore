@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 
 class ExamService {
@@ -95,6 +96,18 @@ class ExamService {
       'status': 'Published',
       'updatedAt': Timestamp.now(),
     });
+    try {
+      final doc = await _examsCollection.doc(examId).get();
+      if (doc.exists && doc.data() != null) {
+        final exam = ExamModel.fromMap(
+          doc.data() as Map<String, dynamic>,
+          doc.id,
+        );
+        await NotificationService.instance.sendNewExamNotification(exam);
+      }
+    } catch (e) {
+      debugPrint('Error triggering exam notification in publishExam: $e');
+    }
   }
 
   Future<void> unpublishExam(String examId) async {

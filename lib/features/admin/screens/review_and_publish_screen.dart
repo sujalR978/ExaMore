@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
@@ -218,6 +219,13 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
     try {
       final updatedExam = _prepareUpdatedExam(newStatus: 'Published');
       await _examService.updateExam(updatedExam);
+
+      // Trigger notification for eligible students
+      try {
+        await NotificationService.instance.sendNewExamNotification(updatedExam);
+      } catch (notifErr) {
+        debugPrint('Error triggering new exam notification: $notifErr');
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
