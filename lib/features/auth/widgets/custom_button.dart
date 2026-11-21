@@ -6,6 +6,7 @@ class Button extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final bool isDisabled;
+  final double? height;
 
   const Button({
     super.key,
@@ -14,6 +15,7 @@ class Button extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.isDisabled = false,
+    this.height,
   });
 
   @override
@@ -56,7 +58,7 @@ class Button extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             onTap: effectivelyDisabled ? null : onPressed,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 50),
+              constraints: BoxConstraints(minHeight: height ?? 50),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               alignment: Alignment.center,
               child: isLoading

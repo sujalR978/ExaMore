@@ -12,6 +12,7 @@ class Inputfield extends StatefulWidget {
   final AutovalidateMode? autovalidateMode;
   final ValueChanged<String>? onChanged;
   final FocusNode? focusNode;
+  final EdgeInsetsGeometry? contentPadding;
 
   const Inputfield({
     super.key,
@@ -25,6 +26,7 @@ class Inputfield extends StatefulWidget {
     this.autovalidateMode,
     this.onChanged,
     this.focusNode,
+    this.contentPadding,
   });
 
   @override
@@ -116,10 +118,11 @@ class _InputfieldState extends State<Inputfield> {
         ),
         filled: true,
         fillColor: fieldFill,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
+        contentPadding: widget.contentPadding ??
+            const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
         prefixIcon: Icon(
           widget.icon,
           size: 20,

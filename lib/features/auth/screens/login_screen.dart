@@ -272,48 +272,51 @@ class _LoginState extends State<Login> {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                final double screenHeight = constraints.maxHeight;
+                final bool isCompact = screenHeight < 680;
+
                 return SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
+                        minHeight: screenHeight,
                         maxWidth: 480,
                       ),
                       child: IntrinsicHeight(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // 1. Top Section: Logo & Branding Header (Balanced ~50% upper half)
+                            // 1. Top Section: Logo & Branding Header (Balanced 50/50 proportion)
                             Expanded(
                               child: SafeArea(
                                 bottom: false,
                                 child: Center(
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding: EdgeInsets.symmetric(
                                       horizontal: 24,
-                                      vertical: 12,
+                                      vertical: isCompact ? 8 : 14,
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Image.asset(
                                           'assets/image/examore_logo.png',
-                                          height: 70,
+                                          height: isCompact ? 52 : 60,
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) =>
-                                                  const Icon(
+                                                  Icon(
                                                     Icons.school_rounded,
-                                                    size: 58,
-                                                    color: Color(0xFF8B5CF6),
+                                                    size: isCompact ? 46 : 52,
+                                                    color: const Color(0xFF8B5CF6),
                                                   ),
                                         ),
-                                        const SizedBox(height: 10),
+                                        SizedBox(height: isCompact ? 6 : 8),
                                         Text(
                                           "ExaMore Login",
                                           style: TextStyle(
-                                            fontSize: 22,
+                                            fontSize: isCompact ? 20 : 21,
                                             fontWeight: FontWeight.bold,
                                             color: textPrimary,
                                             letterSpacing: 0.3,
@@ -324,7 +327,7 @@ class _LoginState extends State<Login> {
                                           "Master your exams and elevate your learning",
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
-                                            fontSize: 12.5,
+                                            fontSize: 12,
                                             color: textSecondary,
                                             fontWeight: FontWeight.w400,
                                           ),
@@ -336,14 +339,14 @@ class _LoginState extends State<Login> {
                               ),
                             ),
 
-                            // 2. Bottom Sheet: Snug rounded container with form (no empty dead space below Google button)
+                            // 2. Bottom Sheet: Compact card with all actions visible on-screen
                             Container(
                               width: double.infinity,
                               decoration: BoxDecoration(
                                 color: cardBg,
                                 borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(32),
-                                  topRight: Radius.circular(32),
+                                  topLeft: Radius.circular(28),
+                                  topRight: Radius.circular(28),
                                 ),
                                 border: Border(
                                   top: BorderSide(color: cardBorder, width: 1),
@@ -362,10 +365,10 @@ class _LoginState extends State<Login> {
                                 top: false,
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(
-                                    24,
                                     20,
-                                    24,
                                     16,
+                                    20,
+                                    14,
                                   ),
                                   child: Form(
                                     key: _formKey,
@@ -379,11 +382,11 @@ class _LoginState extends State<Login> {
                                           "Email or Phone Number",
                                           style: TextStyle(
                                             color: textPrimary,
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(height: 6),
+                                        const SizedBox(height: 5),
                                         Inputfield(
                                           controller: _identifier,
                                           hintText:
@@ -394,17 +397,22 @@ class _LoginState extends State<Login> {
                                               TextInputType.emailAddress,
                                           validator:
                                               Validators.validateEmailOrPhone,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 11,
+                                          ),
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 10),
                                         Text(
                                           "Password",
                                           style: TextStyle(
                                             color: textPrimary,
-                                            fontSize: 13,
+                                            fontSize: 12.5,
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
-                                        const SizedBox(height: 6),
+                                        const SizedBox(height: 5),
                                         Inputfield(
                                           controller: _password,
                                           hintText: "Enter your password",
@@ -414,8 +422,13 @@ class _LoginState extends State<Login> {
                                               TextInputType.visiblePassword,
                                           validator:
                                               Validators.validateBasicPassword,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 11,
+                                          ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: 2),
                                         Align(
                                           alignment: Alignment.centerRight,
                                           child: Textbutton(
@@ -431,14 +444,15 @@ class _LoginState extends State<Login> {
                                             },
                                           ),
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 8),
                                         Button(
                                           text: "LOGIN",
                                           isLoading: _isLogin,
                                           isDisabled: _isLogin,
+                                          height: 46,
                                           onPressed: _isLogin ? null : login,
                                         ),
-                                        const SizedBox(height: 12),
+                                        const SizedBox(height: 8),
                                         Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
@@ -446,7 +460,7 @@ class _LoginState extends State<Login> {
                                             const Text(
                                               "Don't have an account? ",
                                               style: TextStyle(
-                                                fontSize: 13,
+                                                fontSize: 12.5,
                                                 color: Color(0xFF94A3B8),
                                               ),
                                             ),
@@ -466,7 +480,7 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 14),
+                                        const SizedBox(height: 10),
                                         const Row(
                                           children: [
                                             Expanded(
@@ -477,14 +491,14 @@ class _LoginState extends State<Login> {
                                             ),
                                             Padding(
                                               padding: EdgeInsets.symmetric(
-                                                horizontal: 14,
+                                                horizontal: 12,
                                               ),
                                               child: Text(
                                                 "OR",
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w600,
                                                   color: Color(0xFF64748B),
-                                                  fontSize: 12,
+                                                  fontSize: 11.5,
                                                 ),
                                               ),
                                             ),
@@ -496,7 +510,7 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 14),
+                                        const SizedBox(height: 10),
                                         const Googlebutton(),
                                       ],
                                     ),
