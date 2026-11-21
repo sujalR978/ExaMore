@@ -12,6 +12,7 @@ import 'package:prep_mate/features/admin/screens/review_and_publish_screen.dart'
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
+import 'package:prep_mate/features/admin/widgets/question_option_tile.dart';
 
 class AddMultipleChoiceQuestionScreen extends StatefulWidget {
   final ExamModel exam;
@@ -1397,197 +1398,31 @@ class _AddMultipleChoiceQuestionScreenState
                               final isCorrect = _selectedCorrectOption == idx;
                               final optionLetter =
                                   String.fromCharCode(65 + idx);
-                              final hasOptionImg = idx < _optionImages.length &&
-                                  _optionImages[idx] != null &&
-                                  _optionImages[idx]!.isNotEmpty;
 
-                              return InkWell(
-                                onTap: () {
+                              return QuestionOptionTile(
+                                index: idx,
+                                optionLetter: optionLetter,
+                                controller: _optionControllers[idx],
+                                isCorrect: isCorrect,
+                                imageUrl: idx < _optionImages.length
+                                    ? _optionImages[idx]
+                                    : null,
+                                canRemove: _optionControllers.length > 2,
+                                isDarkMode: isDarkMode,
+                                containerColor: containerColor,
+                                textColor: textColor,
+                                subtitleColor: subtitleColor,
+                                borderColor: borderColor,
+                                onTapCorrect: () {
                                   setState(() => _selectedCorrectOption = idx);
                                 },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isCorrect
-                                        ? const Color(0xFF10B981)
-                                            .withOpacity(0.08)
-                                        : containerColor,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: isCorrect
-                                          ? const Color(0xFF10B981)
-                                          : borderColor,
-                                      width: isCorrect ? 1.5 : 1.0,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      // Option Letter / Correct Badge
-                                      Container(
-                                        width: 32,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: isCorrect
-                                              ? const Color(0xFF10B981)
-                                              : (isDarkMode
-                                                  ? const Color(0xFF1E293B)
-                                                  : const Color(0xFFF1F5F9)),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Center(
-                                          child: isCorrect
-                                              ? const Icon(
-                                                  Icons.check,
-                                                  size: 16,
-                                                  color: Colors.white,
-                                                )
-                                              : Text(
-                                                  optionLetter,
-                                                  style: TextStyle(
-                                                    color: subtitleColor,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _optionControllers[idx],
-                                          style: TextStyle(
-                                            color: textColor,
-                                            fontSize: 13.5,
-                                            fontWeight: isCorrect
-                                                ? FontWeight.w600
-                                                : FontWeight.normal,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText:
-                                                'Option $optionLetter text...',
-                                            hintStyle: TextStyle(
-                                              color: isDarkMode
-                                                  ? Colors.white38
-                                                  : Colors.grey[400],
-                                              fontSize: 13,
-                                            ),
-                                            border: InputBorder.none,
-                                            isDense: true,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                              vertical: 6,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Option Image thumbnail or picker
-                                      if (hasOptionImg) ...[
-                                        const SizedBox(width: 6),
-                                        Stack(
-                                          clipBehavior: Clip.none,
-                                          children: [
-                                            Container(
-                                              width: 34,
-                                              height: 34,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: borderColor,
-                                                ),
-                                              ),
-                                              clipBehavior: Clip.antiAlias,
-                                              child: AppImageView(
-                                                imageSource:
-                                                    _optionImages[idx],
-                                                fit: BoxFit.cover,
-                                              ),
-                                            ),
-                                            Positioned(
-                                              top: -6,
-                                              right: -6,
-                                              child: GestureDetector(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _optionImages[idx] = null;
-                                                  });
-                                                },
-                                                child: const CircleAvatar(
-                                                  radius: 8,
-                                                  backgroundColor:
-                                                      Colors.black87,
-                                                  child: Icon(
-                                                    Icons.close,
-                                                    size: 10,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ] else ...[
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.add_photo_alternate_outlined,
-                                            size: 18,
-                                          ),
-                                          color: subtitleColor,
-                                          tooltip: 'Attach image to this option',
-                                          visualDensity: VisualDensity.compact,
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                          onPressed: () =>
-                                              _pickOptionImage(idx),
-                                        ),
-                                      ],
-
-                                      if (isCorrect)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 5,
-                                            vertical: 2,
-                                          ),
-                                          margin: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF10B981)
-                                                .withOpacity(0.15),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: const Text(
-                                            'Correct',
-                                            style: TextStyle(
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF10B981),
-                                            ),
-                                          ),
-                                        ),
-                                      if (_optionControllers.length > 2)
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                            color: Colors.grey,
-                                          ),
-                                          visualDensity: VisualDensity.compact,
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                                          onPressed: () =>
-                                              _handleRemoveOption(idx),
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                                onPickImage: () => _pickOptionImage(idx),
+                                onRemoveImage: () {
+                                  setState(() {
+                                    _optionImages[idx] = null;
+                                  });
+                                },
+                                onRemoveOption: () => _handleRemoveOption(idx),
                               );
                             },
                           ),
