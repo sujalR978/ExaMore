@@ -123,7 +123,9 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
         itemDate.isAfter(today.subtract(const Duration(days: 7)))) {
       return DateFormat('EEEE, MMM d').format(date); // e.g. "Monday, Nov 17"
     } else if (itemDate.year == now.year) {
-      return DateFormat('MMMM d, yyyy').format(date); // e.g. "November 14, 2026"
+      return DateFormat(
+        'MMMM d, yyyy',
+      ).format(date); // e.g. "November 14, 2026"
     } else {
       return DateFormat('MMMM d, yyyy').format(date);
     }
@@ -268,7 +270,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                   // Search query filter
                   if (_searchQuery.isNotEmpty) {
                     final q = _searchQuery;
-                    final matches = examTitle.toLowerCase().contains(q) ||
+                    final matches =
+                        examTitle.toLowerCase().contains(q) ||
                         subject.toLowerCase().contains(q) ||
                         dateHeader.toLowerCase().contains(q);
                     if (!matches) continue;
@@ -290,7 +293,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                 });
 
                 // Group chronologically by date like a chat log
-                final Map<String, List<Map<String, dynamic>>> chatDateGroups = {};
+                final Map<String, List<Map<String, dynamic>>> chatDateGroups =
+                    {};
                 for (var item in filteredAttempts) {
                   final sub = item['submission'] as StudentSubmissionModel;
                   final label = _getChatDateLabel(sub.submittedAt);
@@ -364,10 +368,16 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                           Expanded(
                             child: TextField(
                               controller: _searchController,
-                              style: TextStyle(color: textPrimary, fontSize: 13.5),
+                              style: TextStyle(
+                                color: textPrimary,
+                                fontSize: 13.5,
+                              ),
                               decoration: InputDecoration(
                                 hintText: "Search exam, subject, or date...",
-                                hintStyle: TextStyle(color: textMuted, fontSize: 13),
+                                hintStyle: TextStyle(
+                                  color: textMuted,
+                                  fontSize: 13,
+                                ),
                                 prefixIcon: Icon(
                                   Icons.search_rounded,
                                   color: textMuted,
@@ -380,7 +390,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                           color: textSecondary,
                                           size: 18,
                                         ),
-                                        onPressed: () => _searchController.clear(),
+                                        onPressed: () =>
+                                            _searchController.clear(),
                                       )
                                     : null,
                                 filled: true,
@@ -421,29 +432,30 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                 _selectedTimeFilter = val;
                               });
                             },
-                            itemBuilder: (context) => [
-                              'All Time',
-                              'Past 7 Days',
-                              'Past 30 Days',
-                              'This Year',
-                            ].map((filter) {
-                              final isSel = filter == _selectedTimeFilter;
-                              return PopupMenuItem<String>(
-                                value: filter,
-                                child: Text(
-                                  filter,
-                                  style: TextStyle(
-                                    color: isSel
-                                        ? const Color(0xFF7C3AED)
-                                        : textPrimary,
-                                    fontWeight: isSel
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                            itemBuilder: (context) =>
+                                [
+                                  'All Time',
+                                  'Past 7 Days',
+                                  'Past 30 Days',
+                                  'This Year',
+                                ].map((filter) {
+                                  final isSel = filter == _selectedTimeFilter;
+                                  return PopupMenuItem<String>(
+                                    value: filter,
+                                    child: Text(
+                                      filter,
+                                      style: TextStyle(
+                                        color: isSel
+                                            ? const Color(0xFF7C3AED)
+                                            : textPrimary,
+                                        fontWeight: isSel
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -501,7 +513,9 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                 width: 64,
                                 height: 64,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                                  color: const Color(
+                                    0xFF7C3AED,
+                                  ).withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -547,17 +561,23 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                             children: [
                               // Chat-style floating date separator bubble
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14.0,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Divider(
-                                        color: borderColor.withValues(alpha: 0.6),
+                                        color: borderColor.withValues(
+                                          alpha: 0.6,
+                                        ),
                                         thickness: 1,
                                       ),
                                     ),
                                     Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
                                         vertical: 6,
@@ -568,12 +588,16 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                             : const Color(0xFFE2E8F0),
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
-                                          color: borderColor.withValues(alpha: 0.8),
+                                          color: borderColor.withValues(
+                                            alpha: 0.8,
+                                          ),
                                           width: 0.8,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.05),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.05,
+                                            ),
                                             blurRadius: 4,
                                             offset: const Offset(0, 2),
                                           ),
@@ -602,7 +626,9 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                     ),
                                     Expanded(
                                       child: Divider(
-                                        color: borderColor.withValues(alpha: 0.6),
+                                        color: borderColor.withValues(
+                                          alpha: 0.6,
+                                        ),
                                         thickness: 1,
                                       ),
                                     ),
@@ -612,11 +638,15 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
                               // Attempt Cards for this date
                               ...attemptsInDay.map((attempt) {
-                                final examId = (attempt['examId'] ?? '').toString();
+                                final examId = (attempt['examId'] ?? '')
+                                    .toString();
                                 final submission =
-                                    attempt['submission'] as StudentSubmissionModel;
+                                    attempt['submission']
+                                        as StudentSubmissionModel;
                                 final subjectName =
-                                    (attempt['category'] ?? attempt['subject'] ?? '')
+                                    (attempt['category'] ??
+                                            attempt['subject'] ??
+                                            '')
                                         .toString()
                                         .trim();
 
@@ -710,7 +740,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
     required Color textMuted,
     required bool isDarkMode,
   }) {
-    final bool isPassed = submission.isPassed || submission.scorePercentage >= 50;
+    final bool isPassed =
+        submission.isPassed || submission.scorePercentage >= 50;
     final timeStr = _formatTime(submission.submittedAt);
     final examTitle = submission.examTitle.trim().isNotEmpty
         ? submission.examTitle.trim()
@@ -747,10 +778,8 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () => _handleAttemptTap(
-            examId: examId,
-            submission: submission,
-          ),
+          onTap: () =>
+              _handleAttemptTap(examId: examId, submission: submission),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -802,7 +831,9 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                                color: const Color(
+                                  0xFF7C3AED,
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Text(
@@ -819,7 +850,10 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text('•', style: TextStyle(color: textMuted, fontSize: 10)),
+                          Text(
+                            '•',
+                            style: TextStyle(color: textMuted, fontSize: 10),
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             timeStr,
@@ -857,24 +891,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${submission.correctAnswers}✓',
-                            style: const TextStyle(
-                              color: Color(0xFF10B981),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${submission.incorrectAnswers}✗',
-                            style: const TextStyle(
-                              color: Color(0xFFEF4444),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+
                           if (submission.unattemptedAnswers > 0) ...[
                             const SizedBox(width: 6),
                             Text(
