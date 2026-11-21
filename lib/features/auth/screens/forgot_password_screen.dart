@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prep_mate/core/utils/validators.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/widgets/custom_app_bar.dart';
 import 'package:prep_mate/features/auth/widgets/custom_button.dart';
@@ -522,28 +523,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             icon: Icons.person_outline_rounded,
             isPassword: false,
             keyboardType: TextInputType.emailAddress,
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return "Email or phone number is required";
-              }
-              if (value != value.trim() || value.contains(' ')) {
-                return "Leading, trailing, or embedded spaces are not allowed";
-              }
-              final clean = value.trim();
-              if (RegExp(r'^\d+$').hasMatch(clean)) {
-                if (clean.length != 10) {
-                  return "Phone number must be exactly 10 digits";
-                }
-                return null;
-              }
-              final emailRegex = RegExp(
-                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-              );
-              if (!emailRegex.hasMatch(clean)) {
-                return "Enter a valid email address or 10-digit phone number";
-              }
-              return null;
-            },
+            validator: Validators.validateEmailOrPhone,
           ),
           const SizedBox(height: 24),
           Button(
@@ -766,30 +746,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             icon: Icons.lock_outline_rounded,
             isPassword: true,
             keyboardType: TextInputType.visiblePassword,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return "New password is required";
-              }
-              if (value != value.trim()) {
-                return "Leading or trailing spaces are not allowed";
-              }
-              if (value.length < 8) {
-                return "Password must be at least 8 characters long";
-              }
-              if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                return "Password must contain an uppercase letter (A-Z)";
-              }
-              if (!RegExp(r'[a-z]').hasMatch(value)) {
-                return "Password must contain a lowercase letter (a-z)";
-              }
-              if (!RegExp(r'[0-9]').hasMatch(value)) {
-                return "Password must contain a number (0-9)";
-              }
-              if (!RegExp(r'[!@#\$&*~%^()_\-+=\[\]{}|;:,.<>?/]').hasMatch(value)) {
-                return "Password must contain a special character (!@#\$&*)";
-              }
-              return null;
-            },
+            validator: (value) => Validators.validateStrongPassword(
+              value,
+              fieldName: "New password",
+            ),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -807,15 +767,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             icon: Icons.lock_outline_rounded,
             isPassword: true,
             keyboardType: TextInputType.visiblePassword,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return "Confirm password is required";
-              }
-              if (value != _newPasswordController.text) {
-                return "Passwords do not match";
-              }
-              return null;
-            },
+            validator: (value) => Validators.validateConfirmPassword(
+              value,
+              _newPasswordController.text,
+              fieldName: "Confirm password",
+            ),
           ),
           const SizedBox(height: 24),
           Button(

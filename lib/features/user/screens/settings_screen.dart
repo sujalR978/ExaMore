@@ -8,7 +8,6 @@ import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/user/screens/personal_information_screen.dart';
 import 'package:prep_mate/features/user/screens/privacy_policy_screen.dart';
-import 'package:prep_mate/features/user/screens/saved_exam_screen.dart';
 
 class Settingscreen extends StatefulWidget {
   const Settingscreen({super.key});

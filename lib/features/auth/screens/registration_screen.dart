@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prep_mate/core/utils/validators.dart';
 import 'package:prep_mate/features/auth/screens/email_verification_screen.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
@@ -665,18 +666,7 @@ class _RegistrationState extends State<Registration> {
                                       icon: Icons.person_outline_rounded,
                                       isPassword: false,
                                       keyboardType: TextInputType.name,
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return "Full name is required";
-                                        }
-                                        if (value != value.trim()) {
-                                          return "Leading or trailing spaces are not allowed";
-                                        }
-                                        if (value.trim().length < 3) {
-                                          return "Name must be at least 3 characters";
-                                        }
-                                        return null;
-                                      },
+                                      validator: Validators.validateName,
                                     ),
                                     const SizedBox(height: 14),
 
@@ -700,19 +690,7 @@ class _RegistrationState extends State<Registration> {
                                         FilteringTextInputFormatter.digitsOnly,
                                         LengthLimitingTextInputFormatter(10),
                                       ],
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return "Phone number is required";
-                                        }
-                                        if (value != value.trim()) {
-                                          return "Leading or trailing spaces are not allowed";
-                                        }
-                                        final clean = value.trim();
-                                        if (clean.length != 10 || !RegExp(r'^\d{10}$').hasMatch(clean)) {
-                                          return "Phone number must be exactly 10 digits";
-                                        }
-                                        return null;
-                                      },
+                                      validator: Validators.validatePhone,
                                     ),
                                     const SizedBox(height: 14),
 
@@ -732,21 +710,7 @@ class _RegistrationState extends State<Registration> {
                                       icon: Icons.email_outlined,
                                       isPassword: false,
                                       keyboardType: TextInputType.emailAddress,
-                                      validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
-                                          return "Email is required";
-                                        }
-                                        if (value != value.trim() || value.contains(' ')) {
-                                          return "Email must not contain spaces";
-                                        }
-                                        final emailRegex = RegExp(
-                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                        );
-                                        if (!emailRegex.hasMatch(value.trim())) {
-                                          return "Enter a valid email address";
-                                        }
-                                        return null;
-                                      },
+                                      validator: Validators.validateEmail,
                                     ),
                                     const SizedBox(height: 14),
 
@@ -766,30 +730,7 @@ class _RegistrationState extends State<Registration> {
                                       icon: Icons.lock_outline_rounded,
                                       isPassword: true,
                                       keyboardType: TextInputType.visiblePassword,
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return "Password is required";
-                                        }
-                                        if (value != value.trim()) {
-                                          return "Leading or trailing spaces are not allowed";
-                                        }
-                                        if (value.length < 8) {
-                                          return "Password must be at least 8 characters long";
-                                        }
-                                        if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                                          return "Password must contain an uppercase letter (A-Z)";
-                                        }
-                                        if (!RegExp(r'[a-z]').hasMatch(value)) {
-                                          return "Password must contain a lowercase letter (a-z)";
-                                        }
-                                        if (!RegExp(r'[0-9]').hasMatch(value)) {
-                                          return "Password must contain a number (0-9)";
-                                        }
-                                        if (!RegExp(r'[!@#\$&*~%^()_\-+=\[\]{}|;:,.<>?/]').hasMatch(value)) {
-                                          return "Password must contain a special character (!@#\$&*)";
-                                        }
-                                        return null;
-                                      },
+                                      validator: Validators.validateStrongPassword,
                                     ),
                                     const SizedBox(height: 14),
 
@@ -809,15 +750,10 @@ class _RegistrationState extends State<Registration> {
                                       icon: Icons.lock_outline_rounded,
                                       isPassword: true,
                                       keyboardType: TextInputType.visiblePassword,
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return "Confirm Password is required";
-                                        }
-                                        if (value != _password.text) {
-                                          return "Passwords do not match";
-                                        }
-                                        return null;
-                                      },
+                                      validator: (value) => Validators.validateConfirmPassword(
+                                        value,
+                                        _password.text,
+                                      ),
                                     ),
 
                                     const SizedBox(height: 16),

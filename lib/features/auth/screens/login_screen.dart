@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/utils/validators.dart';
 import 'package:prep_mate/features/admin/screens/admin_home_screen.dart';
 import 'package:prep_mate/features/auth/screens/email_verification_screen.dart';
 import 'package:prep_mate/features/auth/screens/forgot_password_screen.dart';
@@ -379,30 +380,7 @@ class _LoginState extends State<Login> {
                                       icon: Icons.person_outline_rounded,
                                       isPassword: false,
                                       keyboardType: TextInputType.emailAddress,
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return "Email or phone number is required";
-                                        }
-                                        if (value != value.trim() ||
-                                            value.contains(' ')) {
-                                          return "Leading, trailing, or embedded spaces are not allowed";
-                                        }
-                                        final clean = value.trim();
-                                        if (RegExp(r'^\d+$').hasMatch(clean)) {
-                                          if (clean.length != 10) {
-                                            return "Phone number must be exactly 10 digits";
-                                          }
-                                          return null;
-                                        }
-                                        final emailRegex = RegExp(
-                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                                        );
-                                        if (!emailRegex.hasMatch(clean)) {
-                                          return "Enter a valid email address or 10-digit phone number";
-                                        }
-                                        return null;
-                                      },
+                                      validator: Validators.validateEmailOrPhone,
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
@@ -421,15 +399,7 @@ class _LoginState extends State<Login> {
                                       isPassword: true,
                                       keyboardType:
                                           TextInputType.visiblePassword,
-                                      validator: (value) {
-                                        if (value == null || value.isEmpty) {
-                                          return "Password is required";
-                                        }
-                                        if (value.length < 6) {
-                                          return "Password must be at least 6 characters";
-                                        }
-                                        return null;
-                                      },
+                                      validator: Validators.validateBasicPassword,
                                     ),
                                     const SizedBox(height: 10),
                                     Align(
