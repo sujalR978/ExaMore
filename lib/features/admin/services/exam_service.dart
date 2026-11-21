@@ -185,6 +185,45 @@ class ExamService {
         .map((doc) => ExamModel.fromFirestore(doc));
   }
 
+  Future<ExamModel?> getExamById(String examId) async {
+    final doc = await _examsCollection.doc(examId).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return ExamModel.fromFirestore(doc);
+  }
+
+  Future<int> getUserAttemptCount({
+    required String examId,
+    required String userId,
+  }) async {
+    final snapshot = await _examsCollection
+        .doc(examId)
+        .collection('submissions')
+        .where('userId', isEqualTo: userId)
+        .get();
+    return snapshot.docs.length;
+  }
+
+  Stream<List<StudentSubmissionModel>> getUserSubmissionsStream({
+    required String examId,
+    required String userId,
+  }) {
+    return _examsCollection
+        .doc(examId)
+        .collection('submissions')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => StudentSubmissionModel.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    final doc = await _firestore.collection('users').doc(userId).get();
+    return doc.data();
+  }
+
   Stream<List<ExamModel>> getPublishedExamsStream({
     String? category,
     String? adminId,

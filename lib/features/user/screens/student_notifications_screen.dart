@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
-import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
 
 class StudentNotificationsScreen extends StatefulWidget {
@@ -44,12 +44,13 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
     return DateFormat.MMMd().format(date);
   }
 
+  final ExamService _examService = ExamService();
+
   void _openExamDetail(String examId) async {
     if (examId.isEmpty) return;
     try {
-      final doc = await FirebaseFirestore.instance.collection('exams').doc(examId).get();
-      if (doc.exists && doc.data() != null && mounted) {
-        final exam = ExamModel.fromMap(doc.data()!, doc.id);
+      final exam = await _examService.getExamById(examId);
+      if (exam != null && mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(builder: (context) => ExamdetailPage(exam: exam)),
         );

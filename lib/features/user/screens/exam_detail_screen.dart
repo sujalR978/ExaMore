@@ -1,10 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/user/screens/active_exam_screen.dart';
 import 'package:prep_mate/features/user/screens/exam_result_screen.dart';
 
@@ -20,6 +20,7 @@ class ExamdetailPage extends StatefulWidget {
 class _ExamdetailPageState extends State<ExamdetailPage> {
   late ExamModel _exam;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
+  final ExamService _examService = ExamService();
 
   @override
   void initState() {
@@ -86,11 +87,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
 
     // 2. 3-Tier Access Verification: Check user's assigned admin vs Exam's admin
     try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      final userData = userDoc.data() ?? {};
+      final userData = await _examService.getUserProfile(uid) ?? {};
       final String userRole = (userData['role'] ?? 'student')
           .toString()
           .toLowerCase();
@@ -122,14 +119,12 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
       // 3. Strict Allowed Attempts limit verification
       final int maxAttempts =
           _exam.allowedAttempts > 0 ? _exam.allowedAttempts : 1;
-      final existingAttempts = await FirebaseFirestore.instance
-          .collection('exams')
-          .doc(_exam.id)
-          .collection('submissions')
-          .where('userId', isEqualTo: uid)
-          .get();
+      final existingAttemptsCount = await _examService.getUserAttemptCount(
+        examId: _exam.id,
+        userId: uid,
+      );
 
-      if (existingAttempts.docs.length >= maxAttempts) {
+      if (existingAttemptsCount >= maxAttempts) {
         if (!context.mounted) return;
         showDialog(
           context: context,
@@ -273,18 +268,16 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
         ),
         centerTitle: true,
       ),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<List<StudentSubmissionModel>>(
         stream: uid.isNotEmpty && _exam.id.isNotEmpty
-            ? FirebaseFirestore.instance
-                .collection('exams')
-                .doc(_exam.id)
-                .collection('submissions')
-                .where('userId', isEqualTo: uid)
-                .snapshots()
+            ? _examService.getUserSubmissionsStream(
+                examId: _exam.id,
+                userId: uid,
+              )
             : const Stream.empty(),
         builder: (context, snapshot) {
-          final submissionDocs = snapshot.data?.docs ?? [];
-          final int attemptsCount = submissionDocs.length;
+          final submissions = snapshot.data ?? [];
+          final int attemptsCount = submissions.length;
           final bool hasGivenExam = attemptsCount > 0;
           final bool canAttempt =
               attemptsCount < maxAttempts && !isClosed && !isScheduled;
@@ -293,8 +286,7 @@ class _ExamdetailPageState extends State<ExamdetailPage> {
           double highestScore = 0.0;
           StudentSubmissionModel? bestSubmission;
           if (hasGivenExam) {
-            for (var doc in submissionDocs) {
-              final sub = StudentSubmissionModel.fromFirestore(doc);
+            for (var sub in submissions) {
               if (bestSubmission == null || sub.marksObtained > highestScore) {
                 highestScore = sub.marksObtained;
                 bestSubmission = sub;
