@@ -1066,18 +1066,22 @@ class _StudentSubmissionRowState extends State<_StudentSubmissionRow> {
                   ? const Color(0xFF10B981).withOpacity(0.15)
                   : const Color(0xFFEF4444).withOpacity(0.15),
               backgroundImage:
-                  (_photoUrl != null && _photoUrl!.startsWith('http'))
+                  (_photoUrl != null &&
+                   _photoUrl!.isNotEmpty &&
+                   _photoUrl!.startsWith('http'))
                       ? NetworkImage(_photoUrl!)
                       : null,
-              child: (_photoUrl == null || !_photoUrl!.startsWith('http'))
+              child: (_photoUrl == null ||
+                      !_photoUrl!.startsWith('http') ||
+                      _photoUrl == 'assets/image/L_image.png')
                   ? Text(
-                      widget.getInitials(_displayName),
+                      _displayName.trim().isNotEmpty ? _displayName.trim()[0].toUpperCase() : 'S',
                       style: TextStyle(
                         color: isPassed
                             ? const Color(0xFF10B981)
                             : const Color(0xFFEF4444),
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 13,
                       ),
                     )
                   : null,

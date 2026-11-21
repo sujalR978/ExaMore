@@ -179,6 +179,12 @@ class _UserProfileState extends State<Userprofile> {
             ? (isSuperAdmin ? 'Super Administrator' : 'Administrator')
             : (userData?['academicLevel'] ?? 'Student');
         final String major = isAdmin ? 'ExaMore Portal' : (userData?['major'] ?? 'Science Major');
+        final bool hasCustomPhoto = photoUrl.isNotEmpty &&
+            photoUrl != 'assets/image/L_image.png' &&
+            !photoUrl.startsWith('assets/');
+        final String firstLetter = displayName.trim().isNotEmpty
+            ? displayName.trim()[0].toUpperCase()
+            : 'U';
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -287,8 +293,7 @@ class _UserProfileState extends State<Userprofile> {
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child:
-                                    (photoUrl.isNotEmpty &&
-                                        photoUrl != 'assets/image/L_image.png')
+                                    hasCustomPhoto
                                     ? AppImageView(
                                         imageSource: photoUrl,
                                         fit: BoxFit.cover,
@@ -296,9 +301,7 @@ class _UserProfileState extends State<Userprofile> {
                                         height: 68,
                                         placeholder: Center(
                                           child: Text(
-                                            displayName.isNotEmpty
-                                                ? displayName[0].toUpperCase()
-                                                : 'J',
+                                            firstLetter,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 28,
@@ -308,9 +311,7 @@ class _UserProfileState extends State<Userprofile> {
                                         ),
                                         errorWidget: Center(
                                           child: Text(
-                                            displayName.isNotEmpty
-                                                ? displayName[0].toUpperCase()
-                                                : 'J',
+                                            firstLetter,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 28,
@@ -321,9 +322,7 @@ class _UserProfileState extends State<Userprofile> {
                                       )
                                     : Center(
                                         child: Text(
-                                          displayName.isNotEmpty
-                                              ? displayName[0].toUpperCase()
-                                              : 'J',
+                                          firstLetter,
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 28,

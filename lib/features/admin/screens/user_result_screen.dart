@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
@@ -57,8 +58,12 @@ class _RecentResultsAndUsersScreenState
             .get();
 
         if (doc.exists) {
-          final role = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
-          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
+          final role = (doc.data()?['role'] ?? 'admin')
+              .toString()
+              .toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role)
+              ? 'super_admin'
+              : role;
         }
       } catch (_) {}
     }
@@ -101,7 +106,10 @@ class _RecentResultsAndUsersScreenState
   }
 
   Stream<List> _getResultsStream() {
-    final bool isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
+    final bool isSuperAdmin = AuthService.isSuperAdminUser(
+      _currentUser,
+      _userRole,
+    );
 
     if (isSuperAdmin) {
       // Super Admin inspects results across the entire platform
@@ -132,14 +140,19 @@ class _RecentResultsAndUsersScreenState
       );
     }
 
-    final bool isSuperAdmin = AuthService.isSuperAdminUser(_currentUser, _userRole);
+    final bool isSuperAdmin = AuthService.isSuperAdminUser(
+      _currentUser,
+      _userRole,
+    );
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
       appBar: AdminTopBar(
         title: isSuperAdmin ? 'Super Admin Portal' : 'Exam Results',
-        subtitle: isSuperAdmin ? 'System-wide Submissions' : 'Candidate Performance & Analytics',
+        subtitle: isSuperAdmin
+            ? 'System-wide Submissions'
+            : 'Candidate Performance & Analytics',
         showBackButton: !widget.isTab && Navigator.canPop(context),
         onBackPressed: () => Navigator.pop(context),
       ),
@@ -295,27 +308,82 @@ class _RecentResultsAndUsersScreenState
         children: [
           Row(
             children: [
-              imageUrl != null && imageUrl.isNotEmpty
-                  ? CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(imageUrl),
-                    )
-                  : CircleAvatar(
-                      radius: 24,
-                      backgroundColor: isPassed
-                          ? const Color(0xFF312E81)
-                          : const Color(0xFFFEF2F2),
-                      child: Text(
-                        initials,
-                        style: TextStyle(
-                          color: isPassed
-                              ? const Color(0xFF93C5FD)
-                              : const Color(0xFFDC2626),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+              Builder(
+                builder: (context) {
+                  final bool hasCustomPhoto = imageUrl != null &&
+                      imageUrl.trim().isNotEmpty &&
+                      imageUrl != 'assets/image/L_image.png' &&
+                      !imageUrl.startsWith('assets/');
+                  final String firstLetter = studentName.trim().isNotEmpty
+                      ? studentName.trim()[0].toUpperCase()
+                      : 'S';
+
+                  return Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isPassed
+                          ? (isDarkMode
+                              ? const Color(0xFF064E3B)
+                              : const Color(0xFFD1FAE5))
+                          : (isDarkMode
+                              ? const Color(0xFF451A03)
+                              : const Color(0xFFFEE2E2)),
+                      border: Border.all(
+                        color: isPassed
+                            ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.4),
+                        width: 1.2,
                       ),
                     ),
+                    clipBehavior: Clip.antiAlias,
+                    child: hasCustomPhoto
+                        ? AppImageView(
+                            imageSource: imageUrl,
+                            fit: BoxFit.cover,
+                            width: 48,
+                            height: 48,
+                            placeholder: Center(
+                              child: Text(
+                                firstLetter,
+                                style: TextStyle(
+                                  color: isPassed
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            errorWidget: Center(
+                              child: Text(
+                                firstLetter,
+                                style: TextStyle(
+                                  color: isPassed
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              firstLetter,
+                              style: TextStyle(
+                                color: isPassed
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFEF4444),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                  );
+                },
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
