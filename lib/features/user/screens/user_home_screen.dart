@@ -71,7 +71,9 @@ class _HomeScreenState extends State<Userhomescreen> {
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
         _userName = (data['name'] ?? data['fullName'] ?? '').toString().trim();
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
-        _photoUrl = (data['photoUrl'] ?? data['profileImage'] ?? '').toString().trim();
+        _photoUrl = (data['photoUrl'] ?? data['profileImage'] ?? '')
+            .toString()
+            .trim();
         NotificationService.instance.subscribeStudentTopics(
           studentClassroomId: _studentClassroomId,
           adminId: _assignedAdminId,
@@ -89,9 +91,7 @@ class _HomeScreenState extends State<Userhomescreen> {
           currentClassroomId: _studentClassroomId,
         );
 
-    _userAttemptsStream = _examService.getUserExamAttemptsStream(
-      user.uid,
-    );
+    _userAttemptsStream = _examService.getUserExamAttemptsStream(user.uid);
 
     _allExamsStream = _examService.getExamsStream(
       adminId: _assignedAdminId.isNotEmpty ? _assignedAdminId : null,
@@ -109,8 +109,12 @@ class _HomeScreenState extends State<Userhomescreen> {
     final borderColor = AppColors.border(isDark);
     final textPrimary = AppColors.textPrimary(isDark);
     final textSecondary = AppColors.textSecondary(isDark);
-    final inputFill = isDark ? const Color(0xFF192132) : const Color(0xFFF1F5F9);
-    final inputBorder = isDark ? const Color(0xFF2E384D) : const Color(0xFFE2E8F0);
+    final inputFill = isDark
+        ? const Color(0xFF192132)
+        : const Color(0xFFF1F5F9);
+    final inputBorder = isDark
+        ? const Color(0xFF2E384D)
+        : const Color(0xFFE2E8F0);
 
     final codeController = TextEditingController();
     bool isSubmitting = false;
@@ -127,10 +131,7 @@ class _HomeScreenState extends State<Userhomescreen> {
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: borderColor,
-                width: 1,
-              ),
+              border: Border.all(color: borderColor, width: 1),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(isDark ? 0.55 : 0.08),
@@ -172,7 +173,11 @@ class _HomeScreenState extends State<Userhomescreen> {
                       ],
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded, color: textSecondary, size: 20),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: textSecondary,
+                        size: 20,
+                      ),
                       splashRadius: 18,
                       onPressed: () => Navigator.of(dialogCtx).pop(),
                     ),
@@ -181,7 +186,11 @@ class _HomeScreenState extends State<Userhomescreen> {
                 const SizedBox(height: 14),
                 Text(
                   'Enter the classroom code or paste the invite link shared by your instructor.',
-                  style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textSecondary,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextField(
@@ -191,8 +200,19 @@ class _HomeScreenState extends State<Userhomescreen> {
                   style: TextStyle(color: textPrimary, fontSize: 14),
                   decoration: InputDecoration(
                     hintText: 'e.g. CLA-123',
-                    hintStyle: TextStyle(color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), fontSize: 14),
-                    prefixIcon: Icon(Icons.vpn_key_outlined, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8), size: 18),
+                    hintStyle: TextStyle(
+                      color: isDark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8),
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.vpn_key_outlined,
+                      color: isDark
+                          ? const Color(0xFF64748B)
+                          : const Color(0xFF94A3B8),
+                      size: 18,
+                    ),
                     filled: true,
                     fillColor: inputFill,
                     enabledBorder: OutlineInputBorder(
@@ -201,7 +221,10 @@ class _HomeScreenState extends State<Userhomescreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF7C3AED),
+                        width: 1.5,
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -215,17 +238,27 @@ class _HomeScreenState extends State<Userhomescreen> {
                   children: [
                     OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        backgroundColor: isDark ? const Color(0xFF192132) : const Color(0xFFF1F5F9),
+                        backgroundColor: isDark
+                            ? const Color(0xFF192132)
+                            : const Color(0xFFF1F5F9),
                         side: BorderSide(color: borderColor),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                       ),
-                      onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+                      onPressed: isSubmitting
+                          ? null
+                          : () => Navigator.of(dialogCtx).pop(),
                       child: Text(
                         'Cancel',
-                        style: TextStyle(color: textSecondary, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -237,7 +270,10 @@ class _HomeScreenState extends State<Userhomescreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                       ),
                       onPressed: isSubmitting
                           ? null
@@ -246,10 +282,11 @@ class _HomeScreenState extends State<Userhomescreen> {
                               if (input.isEmpty) return;
                               setDialogState(() => isSubmitting = true);
                               try {
-                                final result = await ClassroomService.joinClassroom(
-                                  studentUid: _currentUser!.uid,
-                                  inputQuery: input,
-                                );
+                                final result =
+                                    await ClassroomService.joinClassroom(
+                                      studentUid: _currentUser!.uid,
+                                      inputQuery: input,
+                                    );
                                 if (!mounted) return;
                                 Navigator.of(dialogCtx).pop();
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -266,7 +303,10 @@ class _HomeScreenState extends State<Userhomescreen> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      e.toString().replaceAll('Exception: ', ''),
+                                      e.toString().replaceAll(
+                                        'Exception: ',
+                                        '',
+                                      ),
                                     ),
                                     backgroundColor: const Color(0xFFEF4444),
                                   ),
@@ -345,16 +385,26 @@ class _HomeScreenState extends State<Userhomescreen> {
         scrolledUnderElevation: 0,
         backgroundColor: Colors.transparent,
         automaticallyImplyLeading: false,
+        title: Text(
+          'Dashboard',
+          style: TextStyle(
+            color: textPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
         actions: [
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: _currentUser != null
-                ? NotificationService.instance
-                    .getUserNotificationsStream(_currentUser!.uid)
+                ? NotificationService.instance.getUserNotificationsStream(
+                    _currentUser!.uid,
+                  )
                 : const Stream.empty(),
             builder: (context, notifSnapshot) {
               final notifications = notifSnapshot.data ?? [];
-              final unreadCount =
-                  notifications.where((n) => n['isRead'] == false).length;
+              final unreadCount = notifications
+                  .where((n) => n['isRead'] == false)
+                  .length;
 
               return Stack(
                 alignment: Alignment.center,
@@ -413,7 +463,8 @@ class _HomeScreenState extends State<Userhomescreen> {
                 } else {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const MainNavigator(initialIndex: 3),
+                      builder: (context) =>
+                          const MainNavigator(initialIndex: 3),
                     ),
                   );
                 }
@@ -427,7 +478,8 @@ class _HomeScreenState extends State<Userhomescreen> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 alignment: Alignment.center,
-                child: (_photoUrl.isNotEmpty &&
+                child:
+                    (_photoUrl.isNotEmpty &&
                         _photoUrl != 'assets/image/L_image.png')
                     ? AppImageView(
                         imageSource: _photoUrl,
@@ -496,14 +548,16 @@ class _HomeScreenState extends State<Userhomescreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 OfflineBanner(
-                                  onRetry: () => _fetchStudentAdminAndInitStream(),
+                                  onRetry: () =>
+                                      _fetchStudentAdminAndInitStream(),
                                 ),
                                 const SizedBox(height: 16),
 
                                 // Section: Enrolled Classrooms
                                 if (classrooms.isNotEmpty) ...[
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         'Enrolled Classrooms',
@@ -514,17 +568,16 @@ class _HomeScreenState extends State<Userhomescreen> {
                                         ),
                                       ),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFF7C3AED).withOpacity(0.18),
-                                          borderRadius: BorderRadius.circular(10),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
                                         ),
-                                        child: Text(
-                                          '${classrooms.length}',
-                                          style: const TextStyle(
-                                            color: Color(0xFFA78BFA),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                            0xFF7C3AED,
+                                          ).withOpacity(0.18),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
                                           ),
                                         ),
                                       ),
@@ -532,7 +585,8 @@ class _HomeScreenState extends State<Userhomescreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   GridView.builder(
-                                    physics: const NeverScrollableScrollPhysics(),
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
                                     shrinkWrap: true,
                                     gridDelegate:
                                         const SliverGridDelegateWithFixedCrossAxisCount(
