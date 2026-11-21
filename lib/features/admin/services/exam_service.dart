@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/utils/exam_scoring_calculator.dart';
 
 class ExamService {
   // FIX FOR LateInitializationError - Use getters, not final field
@@ -385,29 +386,13 @@ class ExamService {
         ? ExamModel.fromFirestore(authoritativeDoc)
         : exam;
 
-    int correctCount = 0, incorrectCount = 0, unattemptedCount = 0;
-    double totalMarksObtained = 0.0;
-    for (var question in authoritativeExam.questions) {
-      final chosenOption = selectedAnswers[question.id];
-      if (chosenOption == null || chosenOption.trim().isEmpty) {
-        unattemptedCount++;
-      } else if (question.type == 'Descriptive' || question.options.isEmpty) {
-        // Descriptive answer: award full marks if student entered an answer
-        correctCount++;
-        totalMarksObtained += question.marks;
-      } else if (chosenOption == question.correctOptionId) {
-        correctCount++;
-        totalMarksObtained += question.marks;
-      } else {
-        incorrectCount++;
-        totalMarksObtained -= authoritativeExam.negativeMarking;
-      }
-    }
-    if (totalMarksObtained < 0) totalMarksObtained = 0;
-    final scorePercentage = exam.totalMarks > 0
-        ? (totalMarksObtained / exam.totalMarks) * 100
-        : 0.0;
-    final isPassed = scorePercentage >= exam.passingScorePercentage;
+    final scoringResult = ExamScoringCalculator.calculate(
+      questions: authoritativeExam.questions,
+      selectedAnswers: selectedAnswers,
+      totalMarks: exam.totalMarks,
+      passingScorePercentage: exam.passingScorePercentage,
+      negativeMarking: authoritativeExam.negativeMarking,
+    );
     final submissionDocRef = submissionsRef.doc();
     final userAttemptRef = _firestore
         .collection('users')
@@ -421,13 +406,13 @@ class ExamService {
       studentId: studentId,
       studentImageUrl: studentImageUrl,
       examTitle: exam.title,
-      scorePercentage: scorePercentage,
-      marksObtained: totalMarksObtained,
-      totalMarks: exam.totalMarks,
-      correctAnswers: correctCount,
-      incorrectAnswers: incorrectCount,
-      unattemptedAnswers: unattemptedCount,
-      isPassed: isPassed,
+      scorePercentage: scoringResult.scorePercentage,
+      marksObtained: scoringResult.marksObtained,
+      totalMarks: scoringResult.totalMarks,
+      correctAnswers: scoringResult.correctCount,
+      incorrectAnswers: scoringResult.incorrectCount,
+      unattemptedAnswers: scoringResult.unattemptedCount,
+      isPassed: scoringResult.isPassed,
       isOnline: false,
       submittedAt: DateTime.now(),
       answers: selectedAnswers,
