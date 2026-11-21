@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
+import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/core/widgets/offline_banner.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
@@ -27,7 +28,13 @@ class Userhomescreen extends StatefulWidget {
 
 class _HomeScreenState extends State<Userhomescreen> {
   final ExamService _examService = ExamService();
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  User? get _currentUser {
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Stream<List<ClassroomModel>>? _enrolledClassroomsStream;
   Stream<List<Map<String, dynamic>>>? _userAttemptsStream;
@@ -36,6 +43,7 @@ class _HomeScreenState extends State<Userhomescreen> {
   String _studentClassroomId = '';
   String _assignedAdminId = '';
   String _userName = '';
+  String _photoUrl = '';
   bool _isLoadingUser = true;
 
   @override
@@ -46,7 +54,8 @@ class _HomeScreenState extends State<Userhomescreen> {
 
   /// Looks up the student's assigned instructor/admin ID & classroom details
   Future<void> _fetchStudentAdminAndInitStream() async {
-    if (_currentUser == null) {
+    final user = _currentUser;
+    if (user == null) {
       if (mounted) setState(() => _isLoadingUser = false);
       return;
     }
@@ -54,7 +63,7 @@ class _HomeScreenState extends State<Userhomescreen> {
     try {
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(user.uid)
           .get();
 
       if (userDoc.exists) {
@@ -62,6 +71,7 @@ class _HomeScreenState extends State<Userhomescreen> {
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
         _userName = (data['name'] ?? data['fullName'] ?? '').toString().trim();
         _assignedAdminId = (data['adminId'] ?? '').toString().trim();
+        _photoUrl = (data['photoUrl'] ?? data['profileImage'] ?? '').toString().trim();
         NotificationService.instance.subscribeStudentTopics(
           studentClassroomId: _studentClassroomId,
           adminId: _assignedAdminId,
@@ -69,14 +79,18 @@ class _HomeScreenState extends State<Userhomescreen> {
       }
     } catch (_) {}
 
+    if (_photoUrl.isEmpty && user.photoURL != null) {
+      _photoUrl = user.photoURL!.trim();
+    }
+
     _enrolledClassroomsStream =
         ClassroomService.getStudentEnrolledClassroomsStream(
-          studentUid: _currentUser.uid,
+          studentUid: user.uid,
           currentClassroomId: _studentClassroomId,
         );
 
     _userAttemptsStream = _examService.getUserExamAttemptsStream(
-      _currentUser.uid,
+      user.uid,
     );
 
     _allExamsStream = _examService.getExamsStream(
@@ -332,19 +346,10 @@ class _HomeScreenState extends State<Userhomescreen> {
         backgroundColor: Colors.transparent,
         automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8)),
-            tooltip: 'Search',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const AllExamsScreen()),
-              );
-            },
-          ),
           StreamBuilder<List<Map<String, dynamic>>>(
             stream: _currentUser != null
                 ? NotificationService.instance
-                    .getUserNotificationsStream(_currentUser.uid)
+                    .getUserNotificationsStream(_currentUser!.uid)
                 : const Stream.empty(),
             builder: (context, notifSnapshot) {
               final notifications = notifSnapshot.data ?? [];
@@ -414,21 +419,50 @@ class _HomeScreenState extends State<Userhomescreen> {
                 }
               },
               child: Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color(0xFF4C1D95),
                 ),
+                clipBehavior: Clip.antiAlias,
                 alignment: Alignment.center,
-                child: Text(
-                  firstLetter,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
+                child: (_photoUrl.isNotEmpty &&
+                        _photoUrl != 'assets/image/L_image.png')
+                    ? AppImageView(
+                        imageSource: _photoUrl,
+                        fit: BoxFit.cover,
+                        width: 36,
+                        height: 36,
+                        placeholder: Center(
+                          child: Text(
+                            firstLetter,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        errorWidget: Center(
+                          child: Text(
+                            firstLetter,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        firstLetter,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -451,20 +485,6 @@ class _HomeScreenState extends State<Userhomescreen> {
                       builder: (context, examsSnapshot) {
                         final allExams = examsSnapshot.data ?? [];
 
-                        // Calculate overall stats
-                        final int classroomsCount = classrooms.length;
-                        final int examsTakenCount = attempts.length;
-                        double totalPercentSum = 0;
-                        for (var att in attempts) {
-                          final sub = att['submission'] as StudentSubmissionModel?;
-                          if (sub != null) {
-                            totalPercentSum += sub.scorePercentage;
-                          }
-                        }
-                        final double avgScore = examsTakenCount > 0
-                            ? (totalPercentSum / examsTakenCount)
-                            : 0;
-
                         return RefreshIndicator(
                           onRefresh: () async {
                             await _fetchStudentAdminAndInitStream();
@@ -478,61 +498,7 @@ class _HomeScreenState extends State<Userhomescreen> {
                                 OfflineBanner(
                                   onRetry: () => _fetchStudentAdminAndInitStream(),
                                 ),
-                                const SizedBox(height: 12),
-                                // Four Quick Stats Cards arranged in responsive 2x2 grid (Classrooms, Exams Taken, Avg. Score, Progress)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildHomeMetricCard(
-                                        icon: Icons.layers_outlined,
-                                        iconColor: const Color(0xFFA78BFA),
-                                        value: '$classroomsCount',
-                                        label: 'Classrooms',
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _buildHomeMetricCard(
-                                        icon: Icons.assignment_outlined,
-                                        iconColor: const Color(0xFFA78BFA),
-                                        value: '$examsTakenCount',
-                                        label: 'Exams Taken',
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildHomeMetricCard(
-                                        icon: Icons.emoji_events_outlined,
-                                        iconColor: const Color(0xFFF59E0B),
-                                        value: examsTakenCount > 0
-                                            ? '${avgScore.toInt()}%'
-                                            : '-',
-                                        label: 'Avg. Score',
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _buildHomeMetricCard(
-                                        icon: Icons.trending_up_rounded,
-                                        iconColor: const Color(0xFF34D399),
-                                        value: examsTakenCount > 0
-                                            ? '${avgScore.toInt()}%'
-                                            : '0%',
-                                        label: 'Progress',
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 24),
+                                const SizedBox(height: 16),
 
                                 // Section: Enrolled Classrooms
                                 if (classrooms.isNotEmpty) ...[
@@ -609,54 +575,6 @@ class _HomeScreenState extends State<Userhomescreen> {
                 );
               },
             ),
-    );
-  }
-
-  Widget _buildHomeMetricCard({
-    required IconData icon,
-    required Color iconColor,
-    required String value,
-    required String label,
-    required bool isDark,
-  }) {
-    final cardColor = AppColors.card(isDark);
-    final borderColor = AppColors.border(isDark);
-    final textPrimary = AppColors.textPrimary(isDark);
-    final textSecondary = AppColors.textSecondary(isDark);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              color: textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
