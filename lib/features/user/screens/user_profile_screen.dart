@@ -5,8 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prep_mate/core/theme/app_theme.dart';
-import 'package:prep_mate/features/admin/models/exam_model.dart';
-import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/user/screens/personal_information_screen.dart';
@@ -25,7 +23,6 @@ class Userprofile extends StatefulWidget {
 
 class _UserProfileState extends State<Userprofile> {
   bool _isLoggingOut = false;
-  final ExamService _examService = ExamService();
   late Future<Map<String, dynamic>?> _userDataFuture;
 
   @override
@@ -236,20 +233,8 @@ class _UserProfileState extends State<Userprofile> {
                   );
                 },
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(Icons.settings_outlined, color: textSecondary),
-                tooltip: 'Settings',
-                onPressed: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const Settingscreen(),
-                    ),
-                  );
-                  _refreshProfile();
-                },
-              ),
-              const SizedBox(width: 8),
+
+              const SizedBox(width: 16),
             ],
           ),
           body: SingleChildScrollView(
@@ -378,108 +363,10 @@ class _UserProfileState extends State<Userprofile> {
                                     fontSize: 13,
                                   ),
                                 ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    _buildTag(
-                                      Icons.science_outlined,
-                                      major,
-                                      isDarkMode,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _buildTag(
-                                      Icons.calendar_today_outlined,
-                                      academicLevel,
-                                      isDarkMode,
-                                    ),
-                                  ],
-                                ),
                               ],
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 20),
-                      Divider(height: 1, color: borderColor),
-                      const SizedBox(height: 16),
-                      // Four Stats Cards inside Profile
-                      StreamBuilder<List<dynamic>>(
-                        stream: _examService.getUserExamAttemptsStream(
-                          currentUserId,
-                        ),
-                        builder: (context, attemptSnap) {
-                          final attempts = attemptSnap.data ?? [];
-                          final int examsCount = attempts.length;
-                          double bestScore = 0;
-                          for (var att in attempts) {
-                            final sub =
-                                att['submission'] as StudentSubmissionModel?;
-                            if (sub != null &&
-                                sub.scorePercentage > bestScore) {
-                              bestScore = sub.scorePercentage;
-                            }
-                          }
-
-                          return Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatItem(
-                                  icon: Icons.layers_outlined,
-                                  iconColor: const Color(0xFF7C3AED),
-                                  value: '0',
-                                  label: 'Classrooms',
-                                  surfaceColor: surfaceSec,
-                                  borderColor: borderColor,
-                                  textColor: textPrimary,
-                                  labelColor: textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildStatItem(
-                                  icon: Icons.assignment_outlined,
-                                  iconColor: const Color(0xFF7C3AED),
-                                  value: '$examsCount',
-                                  label: 'Exams Taken',
-                                  surfaceColor: surfaceSec,
-                                  borderColor: borderColor,
-                                  textColor: textPrimary,
-                                  labelColor: textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildStatItem(
-                                  icon: Icons.emoji_events_outlined,
-                                  iconColor: const Color(0xFFF59E0B),
-                                  value: examsCount > 0
-                                      ? '${bestScore.toInt()}%'
-                                      : '-',
-                                  label: 'Best Score',
-                                  surfaceColor: surfaceSec,
-                                  borderColor: borderColor,
-                                  textColor: textPrimary,
-                                  labelColor: textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildStatItem(
-                                  icon: Icons.trending_up_rounded,
-                                  iconColor: const Color(0xFF10B981),
-                                  value: examsCount > 0
-                                      ? '${bestScore.toInt()}%'
-                                      : '0%',
-                                  label: 'Overall Progress',
-                                  surfaceColor: surfaceSec,
-                                  borderColor: borderColor,
-                                  textColor: textPrimary,
-                                  labelColor: textSecondary,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
                       ),
                     ],
                   ),
@@ -569,83 +456,6 @@ class _UserProfileState extends State<Userprofile> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required Color iconColor,
-    required String value,
-    required String label,
-    Color? surfaceColor,
-    Color? borderColor,
-    Color? textColor,
-    Color? labelColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(
-        color: surfaceColor ?? const Color(0xFF13192B),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: borderColor ?? const Color(0xFF28334D),
-          width: 0.8,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: textColor ?? const Color(0xFFF8FAFC),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10.5,
-              color: labelColor ?? const Color(0xFF94A3B8),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTag(IconData icon, String label, bool isDarkMode) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isDarkMode
-            ? const Color(0xFF7C3AED).withOpacity(0.12)
-            : const Color(0xFF7C3AED).withOpacity(0.08),
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFF7C3AED).withOpacity(0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: const Color(0xFF7C3AED)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF7C3AED),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

@@ -19,7 +19,13 @@ class ExamAttemptsHistoryScreen extends StatefulWidget {
 
 class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
   final ExamService _examService = ExamService();
-  final User? _currentUser = FirebaseAuth.instance.currentUser;
+  User? get _currentUser {
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -27,7 +33,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
   String _assignedAdminId = '';
   bool _isLoadingUser = true;
-  Stream<List>? _attemptsStream;
+  Stream<List<Map<String, dynamic>>>? _attemptsStream;
 
   @override
   void initState() {
@@ -45,15 +51,21 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
   /// Looks up the student's linked adminId from their Firestore profile
   Future<void> _fetchStudentAdminAndInitStream() async {
-    if (_currentUser == null) {
-      if (mounted) setState(() => _isLoadingUser = false);
+    final user = _currentUser;
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          _attemptsStream = Stream.value(<Map<String, dynamic>>[]);
+          _isLoadingUser = false;
+        });
+      }
       return;
     }
 
     try {
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser.uid)
+          .doc(user.uid)
           .get();
 
       if (userDoc.exists) {
@@ -62,7 +74,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
       }
     } catch (_) {}
 
-    _attemptsStream = _examService.getUserExamAttemptsStream(_currentUser.uid);
+    _attemptsStream = _examService.getUserExamAttemptsStream(user.uid);
 
     if (mounted) {
       setState(() => _isLoadingUser = false);
@@ -82,7 +94,7 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
     ExamModel? fullExam;
     try {
       if (examId.isNotEmpty) {
-        fullExam = await _examService.getExamStream(examId).first;
+        fullExam = await _examService.getExamById(examId);
       }
     } catch (_) {}
 
@@ -96,8 +108,30 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('MMM dd, yyyy').format(date);
+  /// Returns chat-style relative date header label
+  String _getChatDateLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final itemDate = DateTime(date.year, date.month, date.day);
+
+    if (itemDate == today) {
+      return 'Today';
+    } else if (itemDate == yesterday) {
+      return 'Yesterday';
+    } else if (now.difference(itemDate).inDays < 7 &&
+        itemDate.isAfter(today.subtract(const Duration(days: 7)))) {
+      return DateFormat('EEEE, MMM d').format(date); // e.g. "Monday, Nov 17"
+    } else if (itemDate.year == now.year) {
+      return DateFormat('MMMM d, yyyy').format(date); // e.g. "November 14, 2026"
+    } else {
+      return DateFormat('MMMM d, yyyy').format(date);
+    }
+  }
+
+  /// Returns 12-hour formatted time with AM/PM (e.g. "10:30 AM")
+  String _formatTime(DateTime date) {
+    return DateFormat('hh:mm a').format(date);
   }
 
   @override
@@ -122,36 +156,49 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
         automaticallyImplyLeading: false,
         title: Row(
           children: [
-            const Icon(Icons.bar_chart_rounded, color: Color(0xFFF59E0B), size: 22),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Exam Attempts History',
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.history_edu_rounded,
+                color: Color(0xFFF59E0B),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Exam Attempts History',
+                    style: TextStyle(
+                      color: textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Review your scores and performance across all exam attempts.',
-                  style: TextStyle(
-                    color: textSecondary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w400,
+                  const SizedBox(height: 2),
+                  Text(
+                    'Track your scores, answers, and progress over time',
+                    style: TextStyle(
+                      color: textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
       ),
       body: _isLoadingUser || _attemptsStream == null
           ? const Center(child: CircularProgressIndicator())
-          : StreamBuilder<List>(
+          : StreamBuilder<List<Map<String, dynamic>>>(
               stream: _attemptsStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting &&
@@ -178,10 +225,13 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
 
                 final rawAttempts = snapshot.data ?? [];
 
-                // Filter by assigned adminId if available, then group by exam title
-                final Map<String, List<dynamic>> groupedData = {};
-
+                // Filter by assigned adminId and time filter
+                final List<Map<String, dynamic>> filteredAttempts = [];
                 final now = DateTime.now();
+
+                int totalPassed = 0;
+                double totalScoreSum = 0;
+
                 for (var item in rawAttempts) {
                   final submission =
                       item['submission'] as StudentSubmissionModel;
@@ -209,38 +259,120 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                     }
                   }
 
-                  final key = submission.examTitle.isNotEmpty
-                      ? submission.examTitle
-                      : 'Standardized Assessment';
+                  final subject = (item['category'] ?? item['subject'] ?? '')
+                      .toString()
+                      .trim();
+                  final examTitle = submission.examTitle.trim();
+                  final dateHeader = _getChatDateLabel(submission.submittedAt);
 
-                  groupedData.putIfAbsent(key, () => []).add(item);
+                  // Search query filter
+                  if (_searchQuery.isNotEmpty) {
+                    final q = _searchQuery;
+                    final matches = examTitle.toLowerCase().contains(q) ||
+                        subject.toLowerCase().contains(q) ||
+                        dateHeader.toLowerCase().contains(q);
+                    if (!matches) continue;
+                  }
+
+                  filteredAttempts.add(item);
+
+                  if (submission.isPassed || submission.scorePercentage >= 50) {
+                    totalPassed++;
+                  }
+                  totalScoreSum += submission.scorePercentage;
                 }
 
-                // Filter by search query
-                final filteredEntries = groupedData.entries.where((entry) {
-                  final title = entry.key.toLowerCase();
-                  return title.contains(_searchQuery);
-                }).toList();
+                // Sort descending (newest attempt first)
+                filteredAttempts.sort((a, b) {
+                  final subA = a['submission'] as StudentSubmissionModel;
+                  final subB = b['submission'] as StudentSubmissionModel;
+                  return subB.submittedAt.compareTo(subA.submittedAt);
+                });
 
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Group chronologically by date like a chat log
+                final Map<String, List<Map<String, dynamic>>> chatDateGroups = {};
+                for (var item in filteredAttempts) {
+                  final sub = item['submission'] as StudentSubmissionModel;
+                  final label = _getChatDateLabel(sub.submittedAt);
+                  chatDateGroups.putIfAbsent(label, () => []).add(item);
+                }
+
+                final double avgScore = filteredAttempts.isNotEmpty
+                    ? (totalScoreSum / filteredAttempts.length)
+                    : 0.0;
+                final double passRate = filteredAttempts.isNotEmpty
+                    ? ((totalPassed / filteredAttempts.length) * 100)
+                    : 0.0;
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    await _fetchStudentAdminAndInitStream();
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
-                      // Search and Filter Header
+                      // Overview Metric Cards
+                      if (rawAttempts.isNotEmpty) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMetricCard(
+                                title: 'Total Attempts',
+                                value: '${filteredAttempts.length}',
+                                icon: Icons.assignment_turned_in_rounded,
+                                iconColor: const Color(0xFF7C3AED),
+                                cardColor: cardColor,
+                                borderColor: borderColor,
+                                textPrimary: textPrimary,
+                                textSecondary: textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildMetricCard(
+                                title: 'Pass Rate',
+                                value: '${passRate.toInt()}%',
+                                icon: Icons.verified_rounded,
+                                iconColor: const Color(0xFF10B981),
+                                cardColor: cardColor,
+                                borderColor: borderColor,
+                                textPrimary: textPrimary,
+                                textSecondary: textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildMetricCard(
+                                title: 'Average Score',
+                                value: '${avgScore.toInt()}%',
+                                icon: Icons.trending_up_rounded,
+                                iconColor: const Color(0xFFF59E0B),
+                                cardColor: cardColor,
+                                borderColor: borderColor,
+                                textPrimary: textPrimary,
+                                textSecondary: textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // Search and Filter Controls
                       Row(
                         children: [
                           Expanded(
                             child: TextField(
                               controller: _searchController,
-                              style: const TextStyle(color: Color(0xFFF8FAFC), fontSize: 14),
+                              style: TextStyle(color: textPrimary, fontSize: 13.5),
                               decoration: InputDecoration(
-                                hintText: "Search exam, subject or date...",
-                                hintStyle: TextStyle(
+                                hintText: "Search exam, subject, or date...",
+                                hintStyle: TextStyle(color: textMuted, fontSize: 13),
+                                prefixIcon: Icon(
+                                  Icons.search_rounded,
                                   color: textMuted,
-                                  fontSize: 13,
+                                  size: 20,
                                 ),
-                                prefixIcon: Icon(Icons.search_rounded, color: textMuted, size: 20),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? IconButton(
                                         icon: Icon(
@@ -268,16 +400,19 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                                     width: 1.5,
                                   ),
                                 ),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 14,
+                                ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           PopupMenuButton<String>(
-                            tooltip: 'Filter by Time',
+                            tooltip: 'Filter by Time Period',
                             color: cardColor,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               side: BorderSide(color: borderColor),
                             ),
                             initialValue: _selectedTimeFilter,
@@ -291,22 +426,29 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                               'Past 7 Days',
                               'Past 30 Days',
                               'This Year',
-                            ].map((f) {
-                              final isSel = f == _selectedTimeFilter;
+                            ].map((filter) {
+                              final isSel = filter == _selectedTimeFilter;
                               return PopupMenuItem<String>(
-                                value: f,
+                                value: filter,
                                 child: Text(
-                                  f,
+                                  filter,
                                   style: TextStyle(
-                                    color: isSel ? const Color(0xFF7C3AED) : textPrimary,
-                                    fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                    color: isSel
+                                        ? const Color(0xFF7C3AED)
+                                        : textPrimary,
+                                    fontWeight: isSel
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     fontSize: 13,
                                   ),
                                 ),
                               );
                             }).toList(),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: cardColor,
                                 borderRadius: BorderRadius.circular(12),
@@ -314,18 +456,26 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.calendar_today_rounded, size: 15, color: textSecondary),
+                                  Icon(
+                                    Icons.filter_list_rounded,
+                                    size: 16,
+                                    color: textSecondary,
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     _selectedTimeFilter,
                                     style: TextStyle(
                                       color: textPrimary,
-                                      fontSize: 13,
+                                      fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: textSecondary),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 16,
+                                    color: textSecondary,
+                                  ),
                                 ],
                               ),
                             ),
@@ -334,266 +484,552 @@ class _ExamAttemptsHistoryScreenState extends State<ExamAttemptsHistoryScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      if (filteredEntries.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 40.0),
-                          child: Center(
-                            child: Text(
-                              rawAttempts.isEmpty
-                                  ? 'No exam attempts recorded yet.'
-                                  : 'No exams found matching "$_searchQuery"',
-                              style: TextStyle(
-                                color: textSecondary,
-                                fontSize: 14,
+                      // Empty State
+                      if (chatDateGroups.isEmpty)
+                        Container(
+                          margin: const EdgeInsets.only(top: 40),
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: cardColor,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.receipt_long_rounded,
+                                  color: Color(0xFF7C3AED),
+                                  size: 32,
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              Text(
+                                rawAttempts.isEmpty
+                                    ? 'No Exam Attempts Yet'
+                                    : 'No Matching Attempts Found',
+                                style: TextStyle(
+                                  color: textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                rawAttempts.isEmpty
+                                    ? 'Take your first test to see your history, scores, and answer reviews here.'
+                                    : 'Try searching for a different keyword or change your time filter.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: textSecondary,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            const minTableWidth = 560.0;
-                            final tableWidth = constraints.maxWidth < minTableWidth
-                                ? minTableWidth
-                                : constraints.maxWidth;
+                        // Chat-Style Chronological Grouping
+                        ...chatDateGroups.entries.map((entry) {
+                          final dateLabel = entry.key;
+                          final attemptsInDay = entry.value;
 
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              physics: const BouncingScrollPhysics(),
-                              child: SizedBox(
-                                width: tableWidth,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              // Chat-style floating date separator bubble
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 14.0),
+                                child: Row(
                                   children: [
-                                    // Table Columns Header
+                                    Expanded(
+                                      child: Divider(
+                                        color: borderColor.withValues(alpha: 0.6),
+                                        thickness: 1,
+                                      ),
+                                    ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 6,
+                                      ),
                                       decoration: BoxDecoration(
-                                        color: surfaceSec,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: borderColor, width: 0.8),
+                                        color: isDarkMode
+                                            ? const Color(0xFF1E293B)
+                                            : const Color(0xFFE2E8F0),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: borderColor.withValues(alpha: 0.8),
+                                          width: 0.8,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.05),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
                                       child: Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Expanded(
-                                            flex: 7,
-                                            child: Text(
-                                              'Exam / Subject',
-                                              style: TextStyle(
-                                                color: textMuted,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                          Icon(
+                                            Icons.calendar_today_rounded,
+                                            size: 11,
+                                            color: textMuted,
                                           ),
-                                          Expanded(
-                                            flex: 5,
-                                            child: Text(
-                                              'Date',
-                                              style: TextStyle(
-                                                color: textMuted,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 5,
-                                            child: Text(
-                                              'Score',
-                                              style: TextStyle(
-                                                color: textMuted,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: 85,
-                                            child: Text(
-                                              'Result',
-                                              textAlign: TextAlign.right,
-                                              style: TextStyle(
-                                                color: textMuted,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            dateLabel,
+                                            style: TextStyle(
+                                              color: textSecondary,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.3,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(height: 10),
-
-                                    // List of Exam Attempts
-                                    ListView.separated(
-                                      shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      itemCount: filteredEntries.length,
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(height: 8),
-                                      itemBuilder: (context, index) {
-                                        final entry = filteredEntries[index];
-                                        final attemptsList = entry.value;
-
-                                        return Column(
-                                          children: List.generate(attemptsList.length, (attemptIdx) {
-                                            final item = attemptsList[attemptIdx];
-                                            final examId = (item['examId'] ?? '').toString();
-                                            final submission = item['submission'] as StudentSubmissionModel;
-
-                                            final isPass = submission.isPassed || submission.scorePercentage >= 50;
-                                            final scoreText =
-                                                '${submission.marksObtained.toInt()} / ${submission.totalMarks.toInt()} (${submission.scorePercentage.toInt()}%)';
-
-                                            return Container(
-                                              margin: const EdgeInsets.only(bottom: 8),
-                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                              decoration: BoxDecoration(
-                                                color: cardColor,
-                                                borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(color: borderColor, width: 0.8),
-                                              ),
-                                              child: InkWell(
-                                                onTap: () => _handleAttemptTap(examId: examId, submission: submission),
-                                                child: Row(
-                                                  children: [
-                                                    // Left Icon + Exam Title & Subject
-                                                    Expanded(
-                                                      flex: 7,
-                                                      child: Row(
-                                                        children: [
-                                                          Container(
-                                                            width: 38,
-                                                            height: 38,
-                                                            decoration: BoxDecoration(
-                                                              color: const Color(0xFF7C3AED).withOpacity(0.15),
-                                                              borderRadius: BorderRadius.circular(10),
-                                                            ),
-                                                            child: const Icon(
-                                                              Icons.assignment_rounded,
-                                                              color: Color(0xFF7C3AED),
-                                                              size: 18,
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 12),
-                                                          Expanded(
-                                                            child: Column(
-                                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                                              children: [
-                                                                Text(
-                                                                  submission.examTitle.isNotEmpty
-                                                                      ? submission.examTitle
-                                                                      : 'Calculus Basics',
-                                                                  maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                  style: TextStyle(
-                                                                    color: textPrimary,
-                                                                    fontWeight: FontWeight.bold,
-                                                                    fontSize: 13.5,
-                                                                  ),
-                                                                ),
-                                                                const SizedBox(height: 2),
-                                                                Text(
-                                                                  'Completed Assessment',
-                                                                  maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
-                                                                  style: TextStyle(
-                                                                    color: textMuted,
-                                                                    fontSize: 11.5,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    // Date
-                                                    Expanded(
-                                                      flex: 5,
-                                                      child: Row(
-                                                        children: [
-                                                          Icon(Icons.calendar_today_outlined, size: 13, color: textMuted),
-                                                          const SizedBox(width: 6),
-                                                          Expanded(
-                                                            child: Text(
-                                                              _formatDate(submission.submittedAt),
-                                                              maxLines: 1,
-                                                              overflow: TextOverflow.ellipsis,
-                                                              style: TextStyle(
-                                                                color: textSecondary,
-                                                                fontSize: 12,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    // Score
-                                                    Expanded(
-                                                      flex: 5,
-                                                      child: Text(
-                                                        scoreText,
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                        style: TextStyle(
-                                                          color: textPrimary,
-                                                          fontWeight: FontWeight.w600,
-                                                          fontSize: 12.5,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    // Result Badge + Arrow
-                                                    SizedBox(
-                                                      width: 85,
-                                                      child: Row(
-                                                        mainAxisAlignment: MainAxisAlignment.end,
-                                                        children: [
-                                                          Container(
-                                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                            decoration: BoxDecoration(
-                                                              color: isPass
-                                                                  ? const Color(0xFF10B981).withOpacity(0.18)
-                                                                  : const Color(0xFFEF4444).withOpacity(0.18),
-                                                              borderRadius: BorderRadius.circular(20),
-                                                            ),
-                                                            child: Text(
-                                                              isPass ? 'Passed' : 'Failed',
-                                                              style: TextStyle(
-                                                                color: isPass
-                                                                    ? const Color(0xFF10B981)
-                                                                    : const Color(0xFFEF4444),
-                                                                fontWeight: FontWeight.bold,
-                                                                fontSize: 11,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 6),
-                                                          Icon(Icons.chevron_right_rounded, size: 16, color: textMuted),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                          }),
-                                        );
-                                      },
+                                    Expanded(
+                                      child: Divider(
+                                        color: borderColor.withValues(alpha: 0.6),
+                                        thickness: 1,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      const SizedBox(height: 30),
+
+                              // Attempt Cards for this date
+                              ...attemptsInDay.map((attempt) {
+                                final examId = (attempt['examId'] ?? '').toString();
+                                final submission =
+                                    attempt['submission'] as StudentSubmissionModel;
+                                final subjectName =
+                                    (attempt['category'] ?? attempt['subject'] ?? '')
+                                        .toString()
+                                        .trim();
+
+                                return _buildAttemptCard(
+                                  examId: examId,
+                                  submission: submission,
+                                  subjectName: subjectName.isNotEmpty
+                                      ? subjectName
+                                      : 'General Assessment',
+                                  cardColor: cardColor,
+                                  surfaceSec: surfaceSec,
+                                  borderColor: borderColor,
+                                  textPrimary: textPrimary,
+                                  textSecondary: textSecondary,
+                                  textMuted: textMuted,
+                                  isDarkMode: isDarkMode,
+                                );
+                              }),
+                            ],
+                          );
+                        }),
                     ],
                   ),
                 );
               },
             ),
+    );
+  }
+
+  /// Overview Metric Micro-Card
+  Widget _buildMetricCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color iconColor,
+    required Color cardColor,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: textSecondary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Icon(icon, color: iconColor, size: 14),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Modern Exam Attempt Card
+  Widget _buildAttemptCard({
+    required String examId,
+    required StudentSubmissionModel submission,
+    required String subjectName,
+    required Color cardColor,
+    required Color surfaceSec,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required Color textMuted,
+    required bool isDarkMode,
+  }) {
+    final bool isPassed = submission.isPassed || submission.scorePercentage >= 50;
+    final timeStr = _formatTime(submission.submittedAt);
+    final examTitle = submission.examTitle.trim().isNotEmpty
+        ? submission.examTitle.trim()
+        : 'Assessment';
+
+    final scorePercent = submission.scorePercentage;
+    final scoreStr = (scorePercent == scorePercent.roundToDouble())
+        ? '${scorePercent.toInt()}%'
+        : '${scorePercent.toStringAsFixed(1)}%';
+
+    final marksStr =
+        '${submission.marksObtained.toInt()} / ${submission.totalMarks.toInt()} Marks';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPassed
+              ? const Color(0xFF10B981).withValues(alpha: 0.25)
+              : const Color(0xFFEF4444).withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDarkMode ? 0.25 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _handleAttemptTap(
+            examId: examId,
+            submission: submission,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Header: Subject Badge (Left) + Chat Time Stamp (Right)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Subject Name Badge
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.25),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.school_rounded,
+                              size: 13,
+                              color: Color(0xFF8B5CF6),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                subjectName.toUpperCase(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFFA78BFA),
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Submission Time (Chat Style)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.access_time_rounded,
+                          size: 13,
+                          color: textMuted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          timeStr,
+                          style: TextStyle(
+                            color: textMuted,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Exam Name
+                Text(
+                  examTitle,
+                  style: TextStyle(
+                    color: textPrimary,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.bold,
+                    height: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Score Banner & Pass/Fail Status Row
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: surfaceSec,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: borderColor.withValues(alpha: 0.6),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Score Details
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isPassed
+                                  ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                                  : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              scoreStr,
+                              style: TextStyle(
+                                color: isPassed
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFEF4444),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            marksStr,
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Status Pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isPassed
+                              ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                              : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isPassed
+                                ? const Color(0xFF10B981).withValues(alpha: 0.4)
+                                : const Color(0xFFEF4444).withValues(alpha: 0.4),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isPassed
+                                  ? Icons.check_circle_rounded
+                                  : Icons.cancel_rounded,
+                              size: 13,
+                              color: isPassed
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFEF4444),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isPassed ? 'Passed' : 'Needs Retake',
+                              style: TextStyle(
+                                color: isPassed
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFEF4444),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Answer Breakdown Chips & Action Link
+                Row(
+                  children: [
+                    // Correct Answers Chip
+                    _buildStatPill(
+                      label: '${submission.correctAnswers} Correct',
+                      color: const Color(0xFF10B981),
+                      icon: Icons.check_rounded,
+                      isDarkMode: isDarkMode,
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Incorrect Answers Chip
+                    _buildStatPill(
+                      label: '${submission.incorrectAnswers} Incorrect',
+                      color: const Color(0xFFEF4444),
+                      icon: Icons.close_rounded,
+                      isDarkMode: isDarkMode,
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Unattempted Chip
+                    if (submission.unattemptedAnswers > 0)
+                      _buildStatPill(
+                        label: '${submission.unattemptedAnswers} Skipped',
+                        color: const Color(0xFF94A3B8),
+                        icon: Icons.remove_rounded,
+                        isDarkMode: isDarkMode,
+                      ),
+
+                    const Spacer(),
+
+                    // Review chevron link
+                    Row(
+                      children: [
+                        Text(
+                          'Review',
+                          style: TextStyle(
+                            color: const Color(0xFF8B5CF6),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 16,
+                          color: Color(0xFF8B5CF6),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Compact Question Stat Pill
+  Widget _buildStatPill({
+    required String label,
+    required Color color,
+    required IconData icon,
+    required bool isDarkMode,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDarkMode ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
