@@ -26,6 +26,13 @@ class Userprofile extends StatefulWidget {
 class _UserProfileState extends State<Userprofile> {
   bool _isLoggingOut = false;
   final ExamService _examService = ExamService();
+  late Future<Map<String, dynamic>?> _userDataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userDataFuture = _fetchUserData();
+  }
 
   Future<Map<String, dynamic>?> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -50,7 +57,9 @@ class _UserProfileState extends State<Userprofile> {
   }
 
   void _refreshProfile() {
-    setState(() {});
+    setState(() {
+      _userDataFuture = _fetchUserData();
+    });
   }
 
   void _handleMenuAction(String title) async {
@@ -142,7 +151,7 @@ class _UserProfileState extends State<Userprofile> {
     final String currentUserId = user?.uid ?? '';
 
     return FutureBuilder<Map<String, dynamic>?>(
-      future: _fetchUserData(),
+      future: _userDataFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(

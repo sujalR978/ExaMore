@@ -18,16 +18,19 @@ class MainNavigator extends StatefulWidget {
 
 class MainNavigatorState extends State<MainNavigator> {
   late int _currentIndex;
+  late final Set<int> _activatedTabs = {widget.initialIndex};
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _activatedTabs.add(widget.initialIndex);
   }
 
   void switchTab(int index) {
     setState(() {
       _currentIndex = index;
+      _activatedTabs.add(index);
     });
   }
 
@@ -41,6 +44,7 @@ class MainNavigatorState extends State<MainNavigator> {
   void _onItemTapped(int index) {
     setState(() {
       _currentIndex = index;
+      _activatedTabs.add(index);
     });
   }
 
@@ -262,7 +266,11 @@ class MainNavigatorState extends State<MainNavigator> {
                     color: bgColor,
                     child: IndexedStack(
                       index: _currentIndex,
-                      children: _screens,
+                      children: List.generate(_screens.length, (i) {
+                        return _activatedTabs.contains(i)
+                            ? _screens[i]
+                            : const SizedBox.shrink();
+                      }),
                     ),
                   ),
                 ),
@@ -274,7 +282,14 @@ class MainNavigatorState extends State<MainNavigator> {
         // Mobile / Tablet with Bottom Navigation Bar
         return Scaffold(
           backgroundColor: bgColor,
-          body: IndexedStack(index: _currentIndex, children: _screens),
+          body: IndexedStack(
+            index: _currentIndex,
+            children: List.generate(_screens.length, (i) {
+              return _activatedTabs.contains(i)
+                  ? _screens[i]
+                  : const SizedBox.shrink();
+            }),
+          ),
           bottomNavigationBar: CustomBottomNavBar(
             currentIndex: _currentIndex,
             onTap: _onItemTapped,

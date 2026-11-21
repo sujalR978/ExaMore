@@ -15,6 +15,13 @@ class SupportCenterScreen extends StatefulWidget {
 class _SupportCenterScreenState extends State<SupportCenterScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  late final Future<String?> _userProfileImageFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userProfileImageFuture = _fetchUserProfileImage();
+  }
 
   // FAQ Data Structure
   final List<Map<String, String>> _faqList = [
@@ -251,7 +258,7 @@ class _SupportCenterScreenState extends State<SupportCenterScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 12.0),
                       child: FutureBuilder<String?>(
-                        future: _fetchUserProfileImage(),
+                        future: _userProfileImageFuture,
                         builder: (context, snapshot) {
                           return CircleAvatar(
                             radius: 18,

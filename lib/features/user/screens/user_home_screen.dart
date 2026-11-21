@@ -34,6 +34,7 @@ class _HomeScreenState extends State<Userhomescreen> {
   Stream<List<ExamModel>>? _allExamsStream;
 
   String _studentClassroomId = '';
+  String _assignedAdminId = '';
   String _userName = '';
   bool _isLoadingUser = true;
 
@@ -60,10 +61,10 @@ class _HomeScreenState extends State<Userhomescreen> {
         final data = userDoc.data() ?? {};
         _studentClassroomId = (data['classroomId'] ?? '').toString().trim();
         _userName = (data['name'] ?? data['fullName'] ?? '').toString().trim();
-        final adminId = (data['adminId'] ?? '').toString().trim();
+        _assignedAdminId = (data['adminId'] ?? '').toString().trim();
         NotificationService.instance.subscribeStudentTopics(
           studentClassroomId: _studentClassroomId,
-          adminId: adminId,
+          adminId: _assignedAdminId,
         );
       }
     } catch (_) {}
@@ -78,7 +79,10 @@ class _HomeScreenState extends State<Userhomescreen> {
       _currentUser.uid,
     );
 
-    _allExamsStream = _examService.getExamsStream(role: 'super_admin');
+    _allExamsStream = _examService.getExamsStream(
+      adminId: _assignedAdminId.isNotEmpty ? _assignedAdminId : null,
+      role: _assignedAdminId.isNotEmpty ? 'admin' : 'super_admin',
+    );
 
     if (mounted) {
       setState(() => _isLoadingUser = false);

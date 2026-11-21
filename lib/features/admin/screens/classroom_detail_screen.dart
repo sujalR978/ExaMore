@@ -23,11 +23,13 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
   late TabController _tabController;
   final ExamService _examService = ExamService();
   late ClassroomModel _classroom;
+  late Future<List<UserModel>> _studentsFuture;
 
   @override
   void initState() {
     super.initState();
     _classroom = widget.classroom;
+    _studentsFuture = ClassroomService.getStudentsByUids(_classroom.studentUids);
     _tabController = TabController(length: 3, vsync: this);
   }
 
@@ -1071,7 +1073,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
 
   Widget _buildStudentsTab(ThemeData theme, bool isDarkMode) {
     return FutureBuilder<List<UserModel>>(
-        future: ClassroomService.getStudentsByUids(_classroom.studentUids),
+        future: _studentsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());

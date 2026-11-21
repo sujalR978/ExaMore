@@ -11,8 +11,21 @@ import 'package:prep_mate/features/auth/screens/logout_screen.dart';
 import 'package:prep_mate/features/user/screens/settings_screen.dart';
 import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 
-class AdminMenuDrawer extends StatelessWidget {
+class AdminMenuDrawer extends StatefulWidget {
   const AdminMenuDrawer({super.key});
+
+  @override
+  State<AdminMenuDrawer> createState() => _AdminMenuDrawerState();
+}
+
+class _AdminMenuDrawerState extends State<AdminMenuDrawer> {
+  late final Future<bool> _superAdminFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _superAdminFuture = _isSuperAdmin();
+  }
 
   Future<bool> _isSuperAdmin() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -160,7 +173,7 @@ class AdminMenuDrawer extends StatelessWidget {
 
           // Only Super Admin can view Registered Instructors
           FutureBuilder<bool>(
-            future: _isSuperAdmin(),
+            future: _superAdminFuture,
             builder: (context, snapshot) {
               if (snapshot.hasData && snapshot.data == true) {
                 return ListTile(
