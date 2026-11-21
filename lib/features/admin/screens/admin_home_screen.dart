@@ -7,19 +7,17 @@ import 'package:flutter/services.dart';
 import 'package:prep_mate/core/utils/dialog_utils.dart';
 import 'package:prep_mate/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
-import 'package:prep_mate/features/admin/models/exam_model.dart';
-import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/classroom_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
-import 'package:prep_mate/features/admin/screens/student_directory_screen.dart';
-import 'package:prep_mate/features/admin/screens/question_bank_screen.dart';
 import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
+import 'package:prep_mate/features/admin/screens/user_result_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
-import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
+import 'package:prep_mate/features/user/screens/settings_screen.dart';
+import 'package:prep_mate/features/user/screens/user_profile_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   final int initialIndex;
@@ -356,38 +354,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           );
         },
       );
-    } else if (_currentIndex == 2) {
-      return FloatingActionButton.extended(
-        heroTag: 'admin_home_create_question_fab',
-        backgroundColor: const Color(0xFF7C3AED),
-        foregroundColor: Colors.white,
-        elevation: 3,
-        icon: const Icon(Icons.add, size: 20),
-        label: const Text(
-          'Add Question',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        ),
-        onPressed: () {
-          final tempExam = ExamModel(
-            id: '',
-            examCode: '',
-            title: 'Question Bank Entry',
-            category: 'General',
-            adminId: _adminUid,
-            durationMinutes: 60,
-            totalMarks: 100,
-          );
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddMultipleChoiceQuestionScreen(
-                exam: tempExam,
-                isForQuestionBank: true,
-              ),
-            ),
-          );
-        },
-      );
     }
     return null;
   }
@@ -421,9 +387,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: theme.scaffoldBackgroundColor,
-        drawer: AdminMenuDrawer(
-          onSelectTab: (index) => setState(() => _currentIndex = index),
-        ),
         body: IndexedStack(
           index: _currentIndex,
           children: [
@@ -436,18 +399,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               subtitleColor: subtitleColor,
               borderColor: borderColor,
             ),
-            Showexamesscreen(
-              isTab: true,
-              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            QuestionBankScreen(
-              isTab: true,
-              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-            StudentDirectoryScreen(
-              isTab: true,
-              onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
+            const Showexamesscreen(isTab: true),
+            const RecentResultsAndUsersScreen(isTab: true),
+            const Userprofile(),
           ],
         ),
         bottomNavigationBar: CustomBottomNavBar(
@@ -466,14 +420,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               label: 'Exams',
             ),
             CustomBottomNavItem(
-              activeIcon: Icons.layers_rounded,
-              inactiveIcon: Icons.layers_outlined,
-              label: 'Questions',
+              activeIcon: Icons.analytics_rounded,
+              inactiveIcon: Icons.analytics_outlined,
+              label: 'Results',
             ),
             CustomBottomNavItem(
-              activeIcon: Icons.people_rounded,
-              inactiveIcon: Icons.people_outline_rounded,
-              label: 'Students',
+              activeIcon: Icons.person_rounded,
+              inactiveIcon: Icons.person_outline_rounded,
+              label: 'Profile',
             ),
           ],
         ),
@@ -499,7 +453,17 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       appBar: AdminTopBar(
         title: 'ExaMore',
         subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Classroom Dashboard',
-        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, size: 22),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const Settingscreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: StreamBuilder<Map<String, dynamic>>(
         stream: _metricsStream,
@@ -722,29 +686,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             iconColor: const Color(0xFFF59E0B),
             value: '$activeExams',
             label: 'Exams',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const Showexamesscreen(),
-                ),
-              );
-            },
+            onTap: () => setState(() => _currentIndex = 1),
           ),
           _buildRibbonDivider(borderColor),
           _buildRibbonItem(
-            icon: Icons.help_outline,
+            icon: Icons.analytics_outlined,
             iconColor: const Color(0xFF8B5CF6),
-            value: '$totalQuizzes',
-            label: 'Questions',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const QuestionBankScreen(),
-                ),
-              );
-            },
+            value: 'Results',
+            label: 'Submissions',
+            onTap: () => setState(() => _currentIndex = 2),
           ),
         ],
       ),

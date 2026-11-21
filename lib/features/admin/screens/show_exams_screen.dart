@@ -9,7 +9,6 @@ import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
-import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
@@ -18,11 +17,7 @@ class Showexamesscreen extends StatefulWidget {
   final bool isTab;
   final VoidCallback? onMenuPressed;
 
-  const Showexamesscreen({
-    super.key,
-    this.isTab = false,
-    this.onMenuPressed,
-  });
+  const Showexamesscreen({super.key, this.isTab = false, this.onMenuPressed});
 
   @override
   State<Showexamesscreen> createState() => _ActiveExamsScreenState();
@@ -73,8 +68,12 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
             .get();
 
         if (doc.exists) {
-          final role = (doc.data()?['role'] ?? 'admin').toString().toLowerCase();
-          _userRole = AuthService.isSuperAdminUser(_currentUser, role) ? 'super_admin' : role;
+          final role = (doc.data()?['role'] ?? 'admin')
+              .toString()
+              .toLowerCase();
+          _userRole = AuthService.isSuperAdminUser(_currentUser, role)
+              ? 'super_admin'
+              : role;
         }
       } catch (_) {}
     }
@@ -116,7 +115,9 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
         SnackBar(
           content: Text('Exam status updated to $newStatus'),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
     } catch (e) {
@@ -225,13 +226,13 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: widget.isTab ? null : const AdminMenuDrawer(),
       appBar: AdminTopBar(
         title: isSuperAdmin ? 'All Platform Exams' : 'My Active Exams',
-        subtitle: isSuperAdmin ? 'Super Admin Portal' : 'Published & Draft Assessments',
+        subtitle: isSuperAdmin
+            ? 'Super Admin Portal'
+            : 'Published & Draft Assessments',
         showBackButton: !widget.isTab && Navigator.canPop(context),
         onBackPressed: () => Navigator.pop(context),
-        onMenuPressed: widget.onMenuPressed ?? () => _scaffoldKey.currentState?.openDrawer(),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
@@ -270,12 +271,12 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
 
           // Overview Metrics Calculations
           final totalExamsCount = allExams.length;
-          final publishedCount = allExams.where(
-            (e) => e.status.toLowerCase() == 'published',
-          ).length;
-          final draftCount = allExams.where(
-            (e) => e.status.toLowerCase() != 'published',
-          ).length;
+          final publishedCount = allExams
+              .where((e) => e.status.toLowerCase() == 'published')
+              .length;
+          final draftCount = allExams
+              .where((e) => e.status.toLowerCase() != 'published')
+              .length;
           final totalQuestionsCount = allExams.fold<int>(
             0,
             (acc, e) => acc + e.questions.length,
@@ -283,14 +284,17 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
 
           // Filtering
           final filteredExams = allExams.where((exam) {
-            final matchesSearch = _searchQuery.isEmpty ||
+            final matchesSearch =
+                _searchQuery.isEmpty ||
                 exam.title.toLowerCase().contains(_searchQuery) ||
                 exam.examCode.toLowerCase().contains(_searchQuery) ||
                 exam.category.toLowerCase().contains(_searchQuery);
 
             final status = exam.status.toLowerCase();
-            final matchesStatus = _selectedStatusFilter == 'All' ||
-                (_selectedStatusFilter == 'Published' && status == 'published') ||
+            final matchesStatus =
+                _selectedStatusFilter == 'All' ||
+                (_selectedStatusFilter == 'Published' &&
+                    status == 'published') ||
                 (_selectedStatusFilter == 'Draft' && status != 'published');
 
             return matchesSearch && matchesStatus;
@@ -385,15 +389,26 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                         decoration: InputDecoration(
                           hintText: 'Search by title, category, or #code...',
                           hintStyle: TextStyle(color: textMuted, fontSize: 13),
-                          prefixIcon: Icon(Icons.search_rounded, color: subtitleColor, size: 20),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: subtitleColor,
+                            size: 20,
+                          ),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
-                                  icon: Icon(Icons.clear_rounded, color: subtitleColor, size: 18),
+                                  icon: Icon(
+                                    Icons.clear_rounded,
+                                    color: subtitleColor,
+                                    size: 18,
+                                  ),
                                   onPressed: () => _searchController.clear(),
                                 )
                               : null,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           filled: true,
                           fillColor: containerColor,
                           border: OutlineInputBorder(
@@ -406,7 +421,10 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.5),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF7C3AED),
+                              width: 1.5,
+                            ),
                           ),
                         ),
                       ),
@@ -423,17 +441,26 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                               selected: isSelected,
                               labelStyle: TextStyle(
                                 fontSize: 11.5,
-                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                color: isSelected ? Colors.white : subtitleColor,
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isSelected
+                                    ? Colors.white
+                                    : subtitleColor,
                               ),
                               selectedColor: const Color(0xFF7C3AED),
                               backgroundColor: containerColor,
                               side: BorderSide(
-                                color: isSelected ? const Color(0xFF7C3AED) : borderColor,
+                                color: isSelected
+                                    ? const Color(0xFF7C3AED)
+                                    : borderColor,
                                 width: 1,
                               ),
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 0,
+                              ),
                               showCheckmark: false,
                               onSelected: (_) {
                                 setState(() => _selectedStatusFilter = status);
@@ -453,7 +480,10 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                   hasScrollBody: false,
                   child: Center(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 40,
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -468,7 +498,10 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                                 ? 'No exams found matching "$_searchQuery"'
                                 : 'No exams available in this view.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, color: subtitleColor),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: subtitleColor,
+                            ),
                           ),
                         ],
                       ),
@@ -479,59 +512,63 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final keys = groupedExams.keys.toList();
-                        final dateHeader = keys[index];
-                        final examsForDate = groupedExams[dateHeader]!;
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final keys = groupedExams.keys.toList();
+                      final dateHeader = keys[index];
+                      final examsForDate = groupedExams[dateHeader]!;
 
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Chat-Style Date Badge Header
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isDarkMode ? Colors.white10 : Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: isDarkMode ? Colors.white12 : Colors.grey.shade300,
-                                      width: 0.8,
-                                    ),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Chat-Style Date Badge Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDarkMode
+                                      ? Colors.white10
+                                      : Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isDarkMode
+                                        ? Colors.white12
+                                        : Colors.grey.shade300,
+                                    width: 0.8,
                                   ),
-                                  child: Text(
-                                    dateHeader,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: subtitleColor,
-                                      letterSpacing: 0.2,
-                                    ),
+                                ),
+                                child: Text(
+                                  dateHeader,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: subtitleColor,
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
                               ),
                             ),
+                          ),
 
-                            // Exam cards for this date
-                            ...examsForDate.map(
-                              (exam) => _buildCompactExamCard(
-                                exam: exam,
-                                cardColor: containerColor,
-                                borderColor: borderColor,
-                                textPrimary: textColor,
-                                textSecondary: subtitleColor,
-                                textMuted: textMuted,
-                                isDarkMode: isDarkMode,
-                              ),
+                          // Exam cards for this date
+                          ...examsForDate.map(
+                            (exam) => _buildCompactExamCard(
+                              exam: exam,
+                              cardColor: containerColor,
+                              borderColor: borderColor,
+                              textPrimary: textColor,
+                              textSecondary: subtitleColor,
+                              textMuted: textMuted,
+                              isDarkMode: isDarkMode,
                             ),
-                          ],
-                        );
-                      },
-                      childCount: groupedExams.keys.length,
-                    ),
+                          ),
+                        ],
+                      );
+                    }, childCount: groupedExams.keys.length),
                   ),
                 ),
             ],
@@ -602,8 +639,12 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     required Color textMuted,
     required bool isDarkMode,
   }) {
-    final title = exam.title.trim().isNotEmpty ? exam.title.trim() : 'Untitled Exam';
-    final category = exam.category.trim().isNotEmpty ? exam.category.trim() : 'General';
+    final title = exam.title.trim().isNotEmpty
+        ? exam.title.trim()
+        : 'Untitled Exam';
+    final category = exam.category.trim().isNotEmpty
+        ? exam.category.trim()
+        : 'General';
     final isPublished = exam.status.toLowerCase() == 'published';
     final questionCount = exam.questions.length;
     final duration = exam.durationMinutes;
@@ -613,7 +654,9 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     final timeStr = _formatTime(date);
     final examCode = exam.examCode.isNotEmpty
         ? exam.examCode
-        : (exam.id.length >= 6 ? '#${exam.id.substring(0, 6).toUpperCase()}' : '#${exam.id}');
+        : (exam.id.length >= 6
+              ? '#${exam.id.substring(0, 6).toUpperCase()}'
+              : '#${exam.id}');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -689,7 +732,9 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF7C3AED).withValues(alpha: 0.12),
+                                color: const Color(
+                                  0xFF7C3AED,
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(5),
                               ),
                               child: Text(
@@ -706,7 +751,10 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text('•', style: TextStyle(color: textMuted, fontSize: 10)),
+                          Text(
+                            '•',
+                            style: TextStyle(color: textMuted, fontSize: 10),
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             examCode,
@@ -746,35 +794,62 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       // Row 3: Inline Metrics (Duration, Questions, Marks, Submissions)
                       Row(
                         children: [
-                          Icon(Icons.schedule_rounded, size: 12, color: textSecondary),
+                          Icon(
+                            Icons.schedule_rounded,
+                            size: 12,
+                            color: textSecondary,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '${duration}m',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.help_outline_rounded, size: 12, color: textSecondary),
+                          Icon(
+                            Icons.help_outline_rounded,
+                            size: 12,
+                            color: textSecondary,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '$questionCount Qs',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.stars_rounded, size: 12, color: textSecondary),
+                          Icon(
+                            Icons.stars_rounded,
+                            size: 12,
+                            color: textSecondary,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '$totalMarks pts',
-                            style: TextStyle(fontSize: 11, color: textSecondary),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: textSecondary,
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.people_outline_rounded, size: 12, color: textSecondary),
+                          Icon(
+                            Icons.people_outline_rounded,
+                            size: 12,
+                            color: textSecondary,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '$submissionsCount subs',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: isPublished ? const Color(0xFF10B981) : textSecondary,
+                              color: isPublished
+                                  ? const Color(0xFF10B981)
+                                  : textSecondary,
                             ),
                           ),
                         ],
@@ -785,10 +860,16 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
 
                 // Trailing 3-Dots Action Menu
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert_rounded, color: textSecondary, size: 18),
+                  icon: Icon(
+                    Icons.more_vert_rounded,
+                    color: textSecondary,
+                    size: 18,
+                  ),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 160),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   color: cardColor,
                   onSelected: (value) {
                     if (value == 'results') {
@@ -806,9 +887,19 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       value: 'results',
                       child: Row(
                         children: [
-                          Icon(Icons.analytics_outlined, size: 16, color: textPrimary),
+                          Icon(
+                            Icons.analytics_outlined,
+                            size: 16,
+                            color: textPrimary,
+                          ),
                           const SizedBox(width: 8),
-                          Text('View Submissions', style: TextStyle(fontSize: 12.5, color: textPrimary)),
+                          Text(
+                            'View Submissions',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: textPrimary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -816,9 +907,19 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       value: 'edit',
                       child: Row(
                         children: [
-                          Icon(Icons.edit_outlined, size: 16, color: textPrimary),
+                          Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: textPrimary,
+                          ),
                           const SizedBox(width: 8),
-                          Text('Edit Configuration', style: TextStyle(fontSize: 12.5, color: textPrimary)),
+                          Text(
+                            'Edit Configuration',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: textPrimary,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -827,16 +928,22 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       child: Row(
                         children: [
                           Icon(
-                            isPublished ? Icons.cloud_off_rounded : Icons.cloud_upload_rounded,
+                            isPublished
+                                ? Icons.cloud_off_rounded
+                                : Icons.cloud_upload_rounded,
                             size: 16,
-                            color: isPublished ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                            color: isPublished
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFF10B981),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             isPublished ? 'Unpublish to Draft' : 'Publish Live',
                             style: TextStyle(
                               fontSize: 12.5,
-                              color: isPublished ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                              color: isPublished
+                                  ? const Color(0xFFF59E0B)
+                                  : const Color(0xFF10B981),
                             ),
                           ),
                         ],
@@ -847,9 +954,19 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                          Icon(
+                            Icons.delete_outline_rounded,
+                            size: 16,
+                            color: Colors.redAccent,
+                          ),
                           SizedBox(width: 8),
-                          Text('Delete Exam', style: TextStyle(fontSize: 12.5, color: Colors.redAccent)),
+                          Text(
+                            'Delete Exam',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: Colors.redAccent,
+                            ),
+                          ),
                         ],
                       ),
                     ),

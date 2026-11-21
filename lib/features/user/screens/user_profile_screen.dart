@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/core/utils/dialog_utils.dart';
+import 'package:prep_mate/features/admin/screens/admin_directory_screen.dart';
 import 'package:prep_mate/features/auth/screens/login_screen.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 import 'package:prep_mate/features/user/screens/personal_information_screen.dart';
@@ -171,8 +172,13 @@ class _UserProfileState extends State<Userprofile> {
             ? userData!['photoUrl'].toString()
             : 'assets/image/L_image.png';
 
-        final String academicLevel = userData?['academicLevel'] ?? 'Year 3';
-        final String major = userData?['major'] ?? 'Science Major';
+        final String userRole = (userData?['role'] ?? 'student').toString().toLowerCase();
+        final bool isSuperAdmin = AuthService.isSuperAdminUser(user, userRole);
+        final bool isAdmin = userRole == 'admin' || isSuperAdmin;
+        final String academicLevel = isAdmin
+            ? (isSuperAdmin ? 'Super Administrator' : 'Administrator')
+            : (userData?['academicLevel'] ?? 'Student');
+        final String major = isAdmin ? 'ExaMore Portal' : (userData?['major'] ?? 'Science Major');
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -367,6 +373,23 @@ class _UserProfileState extends State<Userprofile> {
                                     fontSize: 13,
                                   ),
                                 ),
+                                const SizedBox(height: 5),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED).withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    academicLevel.toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Color(0xFF8B5CF6),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -401,6 +424,22 @@ class _UserProfileState extends State<Userprofile> {
                         textSecondary,
                         () => _handleMenuAction('Settings'),
                       ),
+                      if (isSuperAdmin) ...[
+                        Divider(height: 1, color: borderColor),
+                        _buildMenuRow(
+                          Icons.badge_outlined,
+                          'Registered Instructors',
+                          textPrimary,
+                          textSecondary,
+                          () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const AdminDirectoryScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                       Divider(height: 1, color: borderColor),
                       _buildMenuRow(
                         Icons.privacy_tip_outlined,

@@ -5,13 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
-import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class RecentResultsAndUsersScreen extends StatefulWidget {
-  const RecentResultsAndUsersScreen({super.key});
+  final bool isTab;
+  const RecentResultsAndUsersScreen({super.key, this.isTab = false});
 
   @override
   State<RecentResultsAndUsersScreen> createState() =>
@@ -137,13 +137,11 @@ class _RecentResultsAndUsersScreenState
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       key: _scaffoldKey,
-      drawer: const AdminMenuDrawer(),
       appBar: AdminTopBar(
-        title: isSuperAdmin ? 'Super Admin Portal' : 'Exam Administration',
-        subtitle: isSuperAdmin ? 'System-wide Submissions' : 'Recent Results & Users',
-        showBackButton: Navigator.canPop(context),
+        title: isSuperAdmin ? 'Super Admin Portal' : 'Exam Results',
+        subtitle: isSuperAdmin ? 'System-wide Submissions' : 'Candidate Performance & Analytics',
+        showBackButton: !widget.isTab && Navigator.canPop(context),
         onBackPressed: () => Navigator.pop(context),
-        onMenuPressed: () => _scaffoldKey.currentState?.openDrawer(),
       ),
       body: StreamBuilder<List>(
         stream: _resultsStream,
