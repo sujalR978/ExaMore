@@ -13,7 +13,8 @@ import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 
 class ExamConfigurationScreen extends StatefulWidget {
-  final ExamModel? exam; // Pass null to create new, or pass existing exam to edit
+  final ExamModel?
+  exam; // Pass null to create new, or pass existing exam to edit
   final ClassroomModel? classroom; // Optional classroom context
 
   const ExamConfigurationScreen({super.key, this.exam, this.classroom});
@@ -75,9 +76,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           : '50',
     );
     _allowedAttemptsController = TextEditingController(
-      text: widget.exam != null
-          ? widget.exam!.allowedAttempts.toString()
-          : '1',
+      text: widget.exam != null ? widget.exam!.allowedAttempts.toString() : '1',
     );
 
     _shuffleQuestions = widget.exam?.shuffleQuestions ?? false;
@@ -121,8 +120,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     if (currentUser == null) return;
 
     try {
-      final classrooms =
-          await ClassroomService.getClassroomsStream(currentUser.uid).first;
+      final classrooms = await ClassroomService.getClassroomsStream(
+        currentUser.uid,
+      ).first;
       if (mounted) {
         setState(() {
           _availableClassrooms = classrooms;
@@ -417,10 +417,10 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     final containerColor = theme.colorScheme.surface;
     final textColor = theme.colorScheme.onSurface;
-    final subtitleColor =
-        isDarkMode ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor =
-        isDarkMode ? Colors.white12 : const Color(0xFFE2E8F0);
+    final subtitleColor = isDarkMode
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final borderColor = isDarkMode ? Colors.white12 : const Color(0xFFE2E8F0);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -435,8 +435,10 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF7C3AED).withOpacity(0.12),
                     borderRadius: BorderRadius.circular(100),
@@ -482,8 +484,10 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
               onTap: _handleNext,
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF7C3AED).withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
@@ -635,8 +639,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                                   final match = _availableClassrooms.where(
                                     (c) => c.id == val,
                                   );
-                                  _selectedClassroom =
-                                      match.isNotEmpty ? match.first : null;
+                                  _selectedClassroom = match.isNotEmpty
+                                      ? match.first
+                                      : null;
                                 }
                                 _recomputeCategoryOptions();
                               });
@@ -662,8 +667,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(7),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF7C3AED)
-                                        .withOpacity(0.12),
+                                    color: const Color(
+                                      0xFF7C3AED,
+                                    ).withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Icon(
@@ -689,7 +695,10 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                                       ),
                                       Text(
                                         widget.classroom!.name +
-                                            (widget.classroom!.section.isNotEmpty
+                                            (widget
+                                                    .classroom!
+                                                    .section
+                                                    .isNotEmpty
                                                 ? ' (${widget.classroom!.section})'
                                                 : ''),
                                         style: TextStyle(
@@ -709,8 +718,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981)
-                                        .withOpacity(0.12),
+                                    color: const Color(
+                                      0xFF10B981,
+                                    ).withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: const Row(
@@ -833,8 +843,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                                         vertical: 1,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF10B981)
-                                            .withOpacity(0.12),
+                                        color: const Color(
+                                          0xFF10B981,
+                                        ).withOpacity(0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: const Text(
@@ -1096,10 +1107,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         const SizedBox(height: 16),
 
                         // Allowed Attempts
-                        _buildFieldLabel(
-                          'Allowed Attempts *',
-                          subtitleColor,
-                        ),
+                        _buildFieldLabel('Allowed Attempts *', subtitleColor),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: _allowedAttemptsController,
@@ -1164,21 +1172,20 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                         const SizedBox(height: 2),
                         Text(
                           'Specify the exact date and time to publish (open) and close the exam. Students can only attempt within this active window.',
-                          style: TextStyle(
-                            color: subtitleColor,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: subtitleColor, fontSize: 12),
                         ),
                         const SizedBox(height: 10),
 
                         _buildTimeslotTile(
                           title: 'Publish / Open Exam',
-                          hintText: 'Immediate (available as soon as published)',
+                          hintText:
+                              'Immediate (available as soon as published)',
                           dateTime: _startDate,
                           icon: Icons.event_available_rounded,
                           onPickDate: () => _pickTimeslotDate(isStart: true),
                           onPickTime: () => _pickTimeslotTime(isStart: true),
-                          onPickBoth: () => _pickTimeslotDateTime(isStart: true),
+                          onPickBoth: () =>
+                              _pickTimeslotDateTime(isStart: true),
                           onClear: () => setState(() => _startDate = null),
                           textColor: textColor,
                           subtitleColor: subtitleColor,
@@ -1194,7 +1201,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                           icon: Icons.event_busy_rounded,
                           onPickDate: () => _pickTimeslotDate(isStart: false),
                           onPickTime: () => _pickTimeslotTime(isStart: false),
-                          onPickBoth: () => _pickTimeslotDateTime(isStart: false),
+                          onPickBoth: () =>
+                              _pickTimeslotDateTime(isStart: false),
                           onClear: () => setState(() => _endDate = null),
                           textColor: textColor,
                           subtitleColor: subtitleColor,
@@ -1415,10 +1423,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                       ),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                          color: subtitleColor,
-                          fontSize: 11.5,
-                        ),
+                        style: TextStyle(color: subtitleColor, fontSize: 11.5),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1449,10 +1454,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   Future<void> _pickTimeslotDate({required bool isStart}) async {
     final now = DateTime.now();
     final current = isStart ? _startDate : _endDate;
-    final initialDate = current ??
-        (isStart
-            ? now
-            : (_startDate ?? now).add(const Duration(days: 1)));
+    final initialDate =
+        current ??
+        (isStart ? now : (_startDate ?? now).add(const Duration(days: 1)));
 
     final pickedDate = await showDatePicker(
       context: context,
@@ -1466,8 +1470,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     final existingTime = current != null
         ? TimeOfDay.fromDateTime(current)
         : (isStart
-            ? const TimeOfDay(hour: 9, minute: 0)
-            : const TimeOfDay(hour: 23, minute: 59));
+              ? const TimeOfDay(hour: 9, minute: 0)
+              : const TimeOfDay(hour: 23, minute: 59));
 
     final combined = DateTime(
       pickedDate.year,
@@ -1494,8 +1498,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     final initialTime = current != null
         ? TimeOfDay.fromDateTime(current)
         : (isStart
-            ? const TimeOfDay(hour: 9, minute: 0)
-            : const TimeOfDay(hour: 23, minute: 59));
+              ? const TimeOfDay(hour: 9, minute: 0)
+              : const TimeOfDay(hour: 23, minute: 59));
 
     final pickedTime = await showTimePicker(
       context: context,
@@ -1505,10 +1509,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     if (pickedTime == null || !mounted) return;
 
     final now = DateTime.now();
-    final baseDate = current ??
-        (isStart
-            ? now
-            : (_startDate ?? now).add(const Duration(days: 1)));
+    final baseDate =
+        current ??
+        (isStart ? now : (_startDate ?? now).add(const Duration(days: 1)));
 
     final combined = DateTime(
       baseDate.year,
@@ -1554,8 +1557,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     final dateStr = isSet
         ? DateFormat('EEE, MMM d, yyyy').format(dateTime)
         : 'Date: Not set';
-    final timeStr =
-        isSet ? DateFormat('h:mm a').format(dateTime) : 'Time: Not set';
+    final timeStr = isSet
+        ? DateFormat('h:mm a').format(dateTime)
+        : 'Time: Not set';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1565,9 +1569,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
             : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isSet
-              ? const Color(0xFF7C3AED).withOpacity(0.5)
-              : borderColor,
+          color: isSet ? const Color(0xFF7C3AED).withOpacity(0.5) : borderColor,
           width: isSet ? 1.5 : 1.0,
         ),
       ),
@@ -1600,12 +1602,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     Text(
                       isSet ? 'Scheduled active' : hintText,
                       style: TextStyle(
-                        color: isSet
-                            ? const Color(0xFF10B981)
-                            : subtitleColor,
+                        color: isSet ? const Color(0xFF10B981) : subtitleColor,
                         fontSize: 11,
-                        fontWeight:
-                            isSet ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isSet ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ],
