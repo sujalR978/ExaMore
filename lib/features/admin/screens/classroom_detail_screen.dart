@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
@@ -1293,6 +1294,16 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                       ),
                                     ),
                                   );
+                                } else if (val == 'questions') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          AddMultipleChoiceQuestionScreen(
+                                        exam: exam,
+                                      ),
+                                    ),
+                                  );
                                 } else if (val == 'edit') {
                                   Navigator.push(
                                     context,
@@ -1309,6 +1320,20 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                 }
                               },
                               itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'questions',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.quiz_outlined,
+                                        size: 18,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Manage Questions'),
+                                    ],
+                                  ),
+                                ),
                                 const PopupMenuItem(
                                   value: 'view',
                                   child: Row(

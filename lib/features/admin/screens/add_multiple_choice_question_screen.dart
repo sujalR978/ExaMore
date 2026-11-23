@@ -62,6 +62,9 @@ class _AddMultipleChoiceQuestionScreenState
   void initState() {
     super.initState();
     _currentExam = widget.exam;
+    if (widget.exam.id.isNotEmpty && !widget.isForQuestionBank) {
+      _loadFreshExamData();
+    }
 
     if (_isEditingFromWidget) {
       final q = widget.editingQuestion!;
@@ -167,6 +170,26 @@ class _AddMultipleChoiceQuestionScreenState
     } catch (_) {
       // Fallback: allow authenticated admin on transient offline
       return true;
+    }
+  }
+
+  Future<void> _loadFreshExamData() async {
+    if (widget.exam.id.isEmpty) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('exams')
+          .doc(widget.exam.id)
+          .get();
+      if (doc.exists && doc.data() != null && mounted) {
+        final freshExam = ExamModel.fromFirestore(doc);
+        if (freshExam.questions.isNotEmpty || _currentExam.questions.isEmpty) {
+          setState(() {
+            _currentExam = freshExam;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading fresh exam questions: $e');
     }
   }
 

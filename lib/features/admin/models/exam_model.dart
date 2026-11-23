@@ -13,8 +13,8 @@ class QuestionOption {
 
   factory QuestionOption.fromMap(Map<String, dynamic> map) {
     return QuestionOption(
-      id: map['id'] ?? '',
-      text: map['text'] ?? '',
+      id: map['id']?.toString() ?? '',
+      text: map['text']?.toString() ?? '',
       imageUrl: map['imageUrl'] as String?,
     );
   }
@@ -88,22 +88,46 @@ class QuestionModel {
   }
 
   factory QuestionModel.fromMap(Map<String, dynamic> map, {String? docId}) {
+    final rawOptions = map['options'];
+    final List<QuestionOption> parsedOptions = [];
+    if (rawOptions is List) {
+      for (final opt in rawOptions) {
+        if (opt is Map) {
+          parsedOptions.add(
+            QuestionOption.fromMap(Map<String, dynamic>.from(opt)),
+          );
+        }
+      }
+    }
+
+    final rawCreatedAt = map['createdAt'];
+    DateTime createdAtDate;
+    if (rawCreatedAt is Timestamp) {
+      createdAtDate = rawCreatedAt.toDate();
+    } else if (rawCreatedAt is String) {
+      createdAtDate = DateTime.tryParse(rawCreatedAt) ?? DateTime.now();
+    } else if (rawCreatedAt is int) {
+      createdAtDate = DateTime.fromMillisecondsSinceEpoch(rawCreatedAt);
+    } else {
+      createdAtDate = DateTime.now();
+    }
+
     return QuestionModel(
-      id: docId ?? map['id'] ?? '',
-      questionText: map['questionText'] ?? '',
-      marks: (map['marks'] as num?)?.toDouble() ?? 1.0,
-      options: (map['options'] as List<dynamic>? ?? [])
-          .map((o) => QuestionOption.fromMap(o as Map<String, dynamic>))
-          .toList(),
-      correctOptionId: map['correctOptionId'] ?? '',
-      type: map['type'] ?? 'Multiple Choice',
-      category: map['category'] ?? 'General',
-      difficulty: map['difficulty'] ?? 'Medium',
-      adminId: map['adminId'] ?? '',
+      id: docId ?? map['id']?.toString() ?? '',
+      questionText: map['questionText']?.toString() ?? '',
+      marks: (map['marks'] as num?)?.toDouble() ??
+          double.tryParse(map['marks']?.toString() ?? '') ??
+          1.0,
+      options: parsedOptions,
+      correctOptionId: map['correctOptionId']?.toString() ?? '',
+      type: map['type']?.toString() ?? 'Multiple Choice',
+      category: map['category']?.toString() ?? 'General',
+      difficulty: map['difficulty']?.toString() ?? 'Medium',
+      adminId: map['adminId']?.toString() ?? '',
       views: (map['views'] as num?)?.toInt() ?? 0,
       estimatedTimeMinutes: (map['estimatedTimeMinutes'] as num?)?.toInt() ?? 2,
       imageUrl: map['imageUrl'] as String?,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: createdAtDate,
     );
   }
 }
@@ -240,9 +264,12 @@ class ExamModel {
       endDate: (data['endDate'] as Timestamp?)?.toDate(),
       enrolledCount: (data['enrolledCount'] as num?)?.toInt() ?? 0,
       submissionsCount: (data['submissionsCount'] as num?)?.toInt() ?? 0,
-      questions: (data['questions'] as List<dynamic>? ?? [])
-          .map((q) => QuestionModel.fromMap(q as Map<String, dynamic>))
-          .toList(),
+      questions: (data['questions'] as List<dynamic>? ?? []).map((q) {
+        if (q is Map) {
+          return QuestionModel.fromMap(Map<String, dynamic>.from(q));
+        }
+        return null;
+      }).whereType<QuestionModel>().toList(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );

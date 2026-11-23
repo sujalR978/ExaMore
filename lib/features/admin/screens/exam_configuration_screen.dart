@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -44,6 +45,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
   String _selectedCategory = 'General';
   List<String> _categoryOptions = ['General'];
   bool _isLoading = false;
+  ExamModel? _latestExam;
 
   bool get _isEditing => widget.exam != null;
   bool get _isLockedToClassroom => widget.classroom != null;
@@ -88,8 +90,30 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       _selectedCategory = widget.exam!.category;
     }
 
+    _latestExam = widget.exam;
     _recomputeCategoryOptions();
     _loadClassrooms();
+    if (_isEditing && widget.exam!.id.isNotEmpty) {
+      _loadFreshExamData();
+    }
+  }
+
+  Future<void> _loadFreshExamData() async {
+    if (widget.exam == null || widget.exam!.id.isEmpty) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('exams')
+          .doc(widget.exam!.id)
+          .get();
+      if (doc.exists && doc.data() != null && mounted) {
+        final fresh = ExamModel.fromFirestore(doc);
+        setState(() {
+          _latestExam = fresh;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading fresh exam in config: $e');
+    }
   }
 
   Future<void> _loadClassrooms() async {
@@ -303,7 +327,8 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       ExamModel currentExam;
 
       if (_isEditing) {
-        currentExam = widget.exam!.copyWith(
+        final baseExam = _latestExam ?? widget.exam!;
+        currentExam = baseExam.copyWith(
           title: title,
           category: category,
           adminId: assignedAdminId,
@@ -442,7 +467,60 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       ),
       body: Column(
         children: [
-          ExamStepperHeader(currentStep: 1),
+          ExamStepperHeader(
+            currentStep: 1,
+            onStepTapped: _isEditing
+                ? (step) {
+                    if (step == 2) {
+                      _handleNext();
+                    }
+                  }
+                : null,
+          ),
+          if (_isEditing)
+            InkWell(
+              onTap: _handleNext,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED).withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF7C3AED).withOpacity(0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.quiz_outlined,
+                      size: 18,
+                      color: Color(0xFF7C3AED),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'This exam has ${(_latestExam ?? widget.exam)!.questions.length} questions attached.',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      'Manage Questions →',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF7C3AED),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

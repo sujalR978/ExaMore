@@ -120,5 +120,33 @@ void main() {
       expect(find.text('1 Questions Ready'), findsOneWidget);
       expect(find.text('Import 1 Questions'), findsOneWidget);
     });
+
+    test('ExamModel.fromMap deserializes questions with dynamic maps correctly', () {
+      final rawFirestoreData = {
+        'id': 'exam_123',
+        'title': 'Test Exam',
+        'questions': [
+          {
+            'id': 'q1',
+            'questionText': 'Question text from bank',
+            'marks': 2,
+            'options': [
+              {'id': 'A', 'text': 'Option A text'},
+              {'id': 'B', 'text': 'Option B text'},
+            ],
+            'correctOptionId': 'A',
+            'type': 'Multiple Choice',
+            'createdAt': '2026-11-23T10:00:00.000',
+          }
+        ],
+      };
+
+      final exam = ExamModel.fromMap(rawFirestoreData, 'exam_123');
+      expect(exam.questions.length, 1);
+      expect(exam.questions.first.questionText, 'Question text from bank');
+      expect(exam.questions.first.marks, 2.0);
+      expect(exam.questions.first.options.length, 2);
+      expect(exam.questions.first.correctOptionId, 'A');
+    });
   });
 }

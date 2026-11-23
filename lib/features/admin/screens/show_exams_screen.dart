@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
@@ -100,6 +101,14 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => ExamConfigurationScreen(exam: exam),
+      ),
+    );
+  }
+
+  void _handleManageQuestions(ExamModel exam) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AddMultipleChoiceQuestionScreen(exam: exam),
       ),
     );
   }
@@ -876,6 +885,8 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                       _handleViewResults(exam);
                     } else if (value == 'edit') {
                       _handleEditExam(exam);
+                    } else if (value == 'questions') {
+                      _handleManageQuestions(exam);
                     } else if (value == 'toggle') {
                       _togglePublishStatus(exam);
                     } else if (value == 'delete') {
@@ -883,6 +894,26 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                     }
                   },
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'questions',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.quiz_outlined,
+                            size: 16,
+                            color: textPrimary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Manage Questions (${exam.questions.length})',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       value: 'results',
                       child: Row(
