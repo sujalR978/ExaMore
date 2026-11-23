@@ -10,7 +10,6 @@ import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/screens/classroom_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/screens/show_exams_screen.dart';
-import 'package:prep_mate/features/admin/screens/user_result_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
@@ -400,7 +399,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               borderColor: borderColor,
             ),
             const Showexamesscreen(isTab: true),
-            const RecentResultsAndUsersScreen(isTab: true),
             const Userprofile(),
           ],
         ),
@@ -418,11 +416,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               activeIcon: Icons.assignment_rounded,
               inactiveIcon: Icons.assignment_outlined,
               label: 'Exams',
-            ),
-            CustomBottomNavItem(
-              activeIcon: Icons.analytics_rounded,
-              inactiveIcon: Icons.analytics_outlined,
-              label: 'Results',
             ),
             CustomBottomNavItem(
               activeIcon: Icons.person_rounded,
@@ -687,14 +680,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             value: '$activeExams',
             label: 'Exams',
             onTap: () => setState(() => _currentIndex = 1),
-          ),
-          _buildRibbonDivider(borderColor),
-          _buildRibbonItem(
-            icon: Icons.analytics_outlined,
-            iconColor: const Color(0xFF8B5CF6),
-            value: 'Results',
-            label: 'Submissions',
-            onTap: () => setState(() => _currentIndex = 2),
           ),
         ],
       ),
