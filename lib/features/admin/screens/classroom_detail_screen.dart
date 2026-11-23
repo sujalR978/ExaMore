@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
@@ -26,6 +27,7 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
   late Future<List<UserModel>> _studentsFuture;
   late Stream<ClassroomModel?> _classroomStream;
   late Stream<List<ExamModel>> _examsStream;
+  String _selectedExamFilter = 'All'; // 'All', 'Published', 'Open', 'Closed'
 
   @override
   void initState() {
@@ -785,6 +787,182 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
       );
   }
 
+  String _getExamStatus(ExamModel exam) {
+    final now = DateTime.now();
+    final isPub = exam.status.trim().toLowerCase() == 'published';
+    if (!isPub) return 'Draft';
+    if (exam.endDate != null && now.isAfter(exam.endDate!)) {
+      return 'Closed'; // Completed ones
+    }
+    if (exam.startDate != null && now.isBefore(exam.startDate!)) {
+      return 'Published'; // Visible but not open yet
+    }
+    return 'Open'; // Currently Going on
+  }
+
+  String _formatScheduleDate(DateTime dt) {
+    return DateFormat('MMM d, h:mm a').format(dt);
+  }
+
+  Widget _buildExamStatusBadge(String status, bool isDarkMode) {
+    Color bgColor;
+    Color textColor;
+    Color borderColor;
+    IconData icon;
+
+    switch (status) {
+      case 'Open':
+        bgColor = isDarkMode
+            ? const Color(0xFF064E3B).withOpacity(0.5)
+            : const Color(0xFFD1FAE5);
+        textColor =
+            isDarkMode ? const Color(0xFF34D399) : const Color(0xFF059669);
+        borderColor = const Color(0xFF10B981).withOpacity(0.4);
+        icon = Icons.play_circle_filled_rounded;
+        break;
+      case 'Published':
+        bgColor = isDarkMode
+            ? const Color(0xFF1E1B4B).withOpacity(0.5)
+            : const Color(0xFFEDE9FE);
+        textColor =
+            isDarkMode ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9);
+        borderColor = const Color(0xFF7C3AED).withOpacity(0.4);
+        icon = Icons.schedule_rounded;
+        break;
+      case 'Closed':
+        bgColor = isDarkMode
+            ? const Color(0xFF450A0A).withOpacity(0.5)
+            : const Color(0xFFFEE2E2);
+        textColor =
+            isDarkMode ? const Color(0xFFF87171) : const Color(0xFFDC2626);
+        borderColor = const Color(0xFFEF4444).withOpacity(0.4);
+        icon = Icons.lock_clock_outlined;
+        break;
+      case 'Draft':
+      default:
+        bgColor = isDarkMode
+            ? const Color(0xFF451A03).withOpacity(0.5)
+            : const Color(0xFFFEF3C7);
+        textColor =
+            isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+        borderColor = const Color(0xFFF59E0B).withOpacity(0.4);
+        icon = Icons.edit_note_rounded;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            status,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 10.5,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChipItem({
+    required String label,
+    required int count,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isDarkMode,
+    Color? activeColor,
+  }) {
+    final effectiveColor = activeColor ?? const Color(0xFF7C3AED);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? effectiveColor
+                  : (isDarkMode ? const Color(0xFF1E293B) : Colors.white),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected
+                    ? effectiveColor
+                    : (isDarkMode ? Colors.white12 : Colors.grey.shade300),
+                width: 1.2,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: effectiveColor.withOpacity(0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected
+                        ? Colors.white
+                        : (isDarkMode ? Colors.white70 : Colors.grey.shade700),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white.withOpacity(0.25)
+                        : (isDarkMode
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.grey.shade100),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDarkMode
+                              ? Colors.white54
+                              : Colors.grey.shade600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildExamsTab(ThemeData theme, bool isDarkMode) {
     return StreamBuilder<List<ExamModel>>(
       stream: _examsStream,
@@ -802,89 +980,384 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
           return false;
         }).toList();
 
-        return classroomExams.isEmpty
-            ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.assignment_outlined,
-                        size: 48,
-                        color: isDarkMode ? Colors.white24 : Colors.grey.shade400,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'No exams created for this classroom yet',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Tap "+ Create Exam" to assign assessments.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDarkMode ? Colors.white38 : Colors.grey,
-                        ),
-                      ),
-                    ],
+        if (classroomExams.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.assignment_outlined,
+                  size: 48,
+                  color: isDarkMode ? Colors.white24 : Colors.grey.shade400,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'No exams created for this classroom yet',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap "+ Create Exam" to assign assessments.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.white38 : Colors.grey,
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                  itemCount: classroomExams.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final exam = classroomExams[index];
-                    final isPublished =
-                        exam.status.toLowerCase() == 'published';
+                ),
+              ],
+            ),
+          );
+        }
 
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: isDarkMode ? Colors.white12 : Colors.grey.shade200,
-                        ),
+        // Count per status category
+        final publishedCount = classroomExams
+            .where((e) => _getExamStatus(e) == 'Published')
+            .length;
+        final openCount =
+            classroomExams.where((e) => _getExamStatus(e) == 'Open').length;
+        final closedCount =
+            classroomExams.where((e) => _getExamStatus(e) == 'Closed').length;
+        final draftCount =
+            classroomExams.where((e) => _getExamStatus(e) == 'Draft').length;
+
+        final filteredExams = classroomExams.where((e) {
+          if (_selectedExamFilter == 'All') return true;
+          return _getExamStatus(e) == _selectedExamFilter;
+        }).toList();
+
+        return Column(
+          children: [
+            // Filter Chips Bar
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildFilterChipItem(
+                      label: 'All',
+                      count: classroomExams.length,
+                      isSelected: _selectedExamFilter == 'All',
+                      onTap: () => setState(() => _selectedExamFilter = 'All'),
+                      isDarkMode: isDarkMode,
+                    ),
+                    _buildFilterChipItem(
+                      label: 'Published',
+                      count: publishedCount,
+                      isSelected: _selectedExamFilter == 'Published',
+                      onTap: () =>
+                          setState(() => _selectedExamFilter = 'Published'),
+                      isDarkMode: isDarkMode,
+                      activeColor: const Color(0xFF7C3AED),
+                    ),
+                    _buildFilterChipItem(
+                      label: 'Open',
+                      count: openCount,
+                      isSelected: _selectedExamFilter == 'Open',
+                      onTap: () => setState(() => _selectedExamFilter = 'Open'),
+                      isDarkMode: isDarkMode,
+                      activeColor: const Color(0xFF10B981),
+                    ),
+                    _buildFilterChipItem(
+                      label: 'Closed',
+                      count: closedCount,
+                      isSelected: _selectedExamFilter == 'Closed',
+                      onTap: () =>
+                          setState(() => _selectedExamFilter = 'Closed'),
+                      isDarkMode: isDarkMode,
+                      activeColor: const Color(0xFFEF4444),
+                    ),
+                    if (draftCount > 0)
+                      _buildFilterChipItem(
+                        label: 'Draft',
+                        count: draftCount,
+                        isSelected: _selectedExamFilter == 'Draft',
+                        onTap: () =>
+                            setState(() => _selectedExamFilter = 'Draft'),
+                        isDarkMode: isDarkMode,
+                        activeColor: const Color(0xFFF59E0B),
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        leading: CircleAvatar(
-                          backgroundColor: (isPublished
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFF59E0B))
-                              .withOpacity(0.15),
-                          child: Icon(
-                            isPublished
-                                ? Icons.check_circle_outline
-                                : Icons.edit_note,
-                            color: isPublished
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFF59E0B),
-                          ),
-                        ),
-                        title: Text(
-                          exam.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${exam.category} • ${exam.durationMinutes} mins • ${exam.questions.length} Qs • ${exam.submissionsCount} submissions',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        trailing: PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_vert,
+                  ],
+                ),
+              ),
+            ),
+
+            // Exam List or Empty Filter
+            Expanded(
+              child: filteredExams.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.filter_list_off_rounded,
+                            size: 40,
                             color: isDarkMode
-                                ? Colors.white60
-                                : Colors.grey.shade600,
-                            size: 20,
+                                ? Colors.white24
+                                : Colors.grey.shade400,
                           ),
-                          onSelected: (val) {
-                            if (val == 'view') {
+                          const SizedBox(height: 10),
+                          Text(
+                            'No $_selectedExamFilter exams in this classroom',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                      itemCount: filteredExams.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final exam = filteredExams[index];
+                        final status = _getExamStatus(exam);
+
+                        Color avatarBg;
+                        Color avatarColor;
+                        IconData avatarIcon;
+
+                        switch (status) {
+                          case 'Open':
+                            avatarBg = isDarkMode
+                                ? const Color(0xFF064E3B).withOpacity(0.4)
+                                : const Color(0xFFD1FAE5);
+                            avatarColor = const Color(0xFF10B981);
+                            avatarIcon = Icons.play_arrow_rounded;
+                            break;
+                          case 'Published':
+                            avatarBg = isDarkMode
+                                ? const Color(0xFF1E1B4B).withOpacity(0.5)
+                                : const Color(0xFFEDE9FE);
+                            avatarColor = const Color(0xFF7C3AED);
+                            avatarIcon = Icons.schedule_rounded;
+                            break;
+                          case 'Closed':
+                            avatarBg = isDarkMode
+                                ? const Color(0xFF450A0A).withOpacity(0.4)
+                                : const Color(0xFFFEE2E2);
+                            avatarColor = const Color(0xFFEF4444);
+                            avatarIcon = Icons.assignment_turned_in_rounded;
+                            break;
+                          case 'Draft':
+                          default:
+                            avatarBg = isDarkMode
+                                ? const Color(0xFF451A03).withOpacity(0.4)
+                                : const Color(0xFFFEF3C7);
+                            avatarColor = const Color(0xFFF59E0B);
+                            avatarIcon = Icons.edit_note_rounded;
+                            break;
+                        }
+
+                        return Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color: isDarkMode
+                                  ? Colors.white12
+                                  : Colors.grey.shade200,
+                            ),
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: avatarBg,
+                              child: Icon(
+                                avatarIcon,
+                                color: avatarColor,
+                                size: 22,
+                              ),
+                            ),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    exam.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildExamStatusBadge(status, isDarkMode),
+                              ],
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${exam.category} • ${exam.durationMinutes} mins • ${exam.questions.length} Qs • ${exam.submissionsCount} submissions',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDarkMode
+                                          ? Colors.white60
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                  if (status == 'Published' &&
+                                      exam.startDate != null) ...[
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.access_time_rounded,
+                                          size: 11,
+                                          color: Color(0xFF7C3AED),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Opens: ${_formatScheduleDate(exam.startDate!)}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF7C3AED),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ] else if (status == 'Open' &&
+                                      exam.endDate != null) ...[
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.timer_outlined,
+                                          size: 11,
+                                          color: Color(0xFF10B981),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Closes: ${_formatScheduleDate(exam.endDate!)}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF10B981),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ] else if (status == 'Closed' &&
+                                      exam.endDate != null) ...[
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle_outline_rounded,
+                                          size: 11,
+                                          color: Color(0xFFEF4444),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Ended: ${_formatScheduleDate(exam.endDate!)}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFFEF4444),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            trailing: PopupMenuButton<String>(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: isDarkMode
+                                    ? Colors.white60
+                                    : Colors.grey.shade600,
+                                size: 20,
+                              ),
+                              onSelected: (val) {
+                                if (val == 'view') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ExamAnalyticsDetailScreen(
+                                        exam: exam,
+                                        examId: exam.id,
+                                      ),
+                                    ),
+                                  );
+                                } else if (val == 'edit') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ExamConfigurationScreen(
+                                        exam: exam,
+                                        classroom: _classroom,
+                                      ),
+                                    ),
+                                  );
+                                } else if (val == 'delete') {
+                                  _confirmDeleteExam(exam);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'view',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.analytics_outlined,
+                                        size: 18,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Analytics / View'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text('Edit Exam'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.delete_outline,
+                                        size: 18,
+                                        color: Colors.redAccent,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Delete Exam',
+                                        style:
+                                            TextStyle(color: Colors.redAccent),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -895,84 +1368,14 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                   ),
                                 ),
                               );
-                            } else if (val == 'edit') {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ExamConfigurationScreen(
-                                    exam: exam,
-                                    classroom: _classroom,
-                                  ),
-                                ),
-                              );
-                            } else if (val == 'delete') {
-                              _confirmDeleteExam(exam);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'view',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.analytics_outlined,
-                                    size: 18,
-                                    color: Color(0xFF7C3AED),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text('Analytics / View'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.edit_outlined,
-                                    size: 18,
-                                    color: Color(0xFF7C3AED),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text('Edit Exam'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                    color: Colors.redAccent,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Delete Exam',
-                                    style: TextStyle(color: Colors.redAccent),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ExamAnalyticsDetailScreen(
-                                exam: exam,
-                                examId: exam.id,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
       },
     );
   }
