@@ -302,27 +302,20 @@ class _LoginState extends State<Login> {
                                       children: [
                                         Image.asset(
                                           'assets/image/examore_logo.png',
-                                          height: isCompact ? 52 : 60,
+                                          height: isCompact ? 52 : 175,
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) =>
                                                   Icon(
                                                     Icons.school_rounded,
                                                     size: isCompact ? 46 : 52,
-                                                    color: const Color(0xFF8B5CF6),
+                                                    color: const Color(
+                                                      0xFF8B5CF6,
+                                                    ),
                                                   ),
                                         ),
-                                        SizedBox(height: isCompact ? 6 : 8),
-                                        Text(
-                                          "ExaMore Login",
-                                          style: TextStyle(
-                                            fontSize: isCompact ? 20 : 21,
-                                            fontWeight: FontWeight.bold,
-                                            color: textPrimary,
-                                            letterSpacing: 0.3,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
+
+                                        const SizedBox(height: 8),
                                         Text(
                                           "Master your exams and elevate your learning",
                                           textAlign: TextAlign.center,
@@ -379,7 +372,7 @@ class _LoginState extends State<Login> {
                                       children: [
                                         // Email or Phone Field Label (LOG-001)
                                         Text(
-                                          "Email or Phone Number",
+                                          "Email",
                                           style: TextStyle(
                                             color: textPrimary,
                                             fontSize: 12.5,
@@ -399,9 +392,9 @@ class _LoginState extends State<Login> {
                                               Validators.validateEmailOrPhone,
                                           contentPadding:
                                               const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 11,
-                                          ),
+                                                horizontal: 14,
+                                                vertical: 11,
+                                              ),
                                         ),
                                         const SizedBox(height: 10),
                                         Text(
@@ -424,9 +417,9 @@ class _LoginState extends State<Login> {
                                               Validators.validateBasicPassword,
                                           contentPadding:
                                               const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 11,
-                                          ),
+                                                horizontal: 14,
+                                                vertical: 11,
+                                              ),
                                         ),
                                         const SizedBox(height: 2),
                                         Align(
@@ -444,7 +437,7 @@ class _LoginState extends State<Login> {
                                             },
                                           ),
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 20),
                                         Button(
                                           text: "LOGIN",
                                           isLoading: _isLogin,
@@ -452,7 +445,7 @@ class _LoginState extends State<Login> {
                                           height: 46,
                                           onPressed: _isLogin ? null : login,
                                         ),
-                                        const SizedBox(height: 8),
+                                        const SizedBox(height: 30),
                                         Row(
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
@@ -480,7 +473,7 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 10),
+                                        const SizedBox(height: 20),
                                         const Row(
                                           children: [
                                             Expanded(
@@ -510,7 +503,7 @@ class _LoginState extends State<Login> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 10),
+                                        const SizedBox(height: 20),
                                         const Googlebutton(),
                                       ],
                                     ),
