@@ -2,10 +2,96 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:share_plus/share_plus.dart';
 
 class QuestionFileParser {
-  static Future<List<QuestionModel>> pickAndParseQuestions() async {
+  /// Generates streamlined CSV sample template content for instructors.
+  /// Shows exam title and total marks target from previous screens.
+  /// Columns: Question | Marks | Option A(Correct) | Option B | Option C | Option D ...
+  static String generateSampleCsvTemplate({
+    String? examTitle,
+    double? totalMarks,
+    String? defaultCategory,
+  }) {
+    final buffer = StringBuffer();
+    final String cleanTitle =
+        (examTitle ?? '').trim().isEmpty ? 'Exam Assessment' : examTitle!.trim();
+    final int marksInt =
+        (totalMarks != null && totalMarks > 0) ? totalMarks.toInt() : 50;
+
+    // Header comment showing the Exam Title and Total Marks entered in the previous screen
+    buffer.writeln(
+      '# EXAM: $cleanTitle | TOTAL MARKS: $marksInt pts (Sum of question marks should equal $marksInt)',
+    );
+    // Columns specified by instructor: Question, Marks, Option A(Correct), Option B, Option C, Option D...
+    buffer.writeln(
+      'Question,Marks,Option A(Correct),Option B,Option C,Option D',
+    );
+    buffer.writeln(
+      '"What is the SI unit of electric current?","1","Ampere","Volt","Ohm","Watt"',
+    );
+    buffer.writeln(
+      '"Which gas do plants absorb during photosynthesis?","1","Carbon Dioxide","Oxygen","Nitrogen","Hydrogen"',
+    );
+    buffer.writeln(
+      '"Solve for x: 2x + 6 = 14","2","4","3","5","6"',
+    );
+    buffer.writeln(
+      '"What is the capital city of Japan?","1","Tokyo","Seoul","Beijing","Bangkok"',
+    );
+    buffer.writeln(
+      '"Which data structure follows the First-In-First-Out (FIFO) principle?","2","Queue","Stack","Tree","Graph"',
+    );
+    return buffer.toString();
+  }
+
+  /// Downloads / shares the sample template so users can fill it in Excel or Google Sheets.
+  static Future<void> downloadOrShareTemplate(
+    BuildContext context, {
+    String? examTitle,
+    double? totalMarks,
+    String? defaultCategory,
+  }) async {
+    try {
+      final templateCsv = generateSampleCsvTemplate(
+        examTitle: examTitle,
+        totalMarks: totalMarks,
+        defaultCategory: defaultCategory,
+      );
+      final bytes = utf8.encode(templateCsv);
+      final filename = examTitle != null && examTitle.trim().isNotEmpty
+          ? '${examTitle.trim().replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}_Template.csv'
+          : 'ExaMore_Question_Bank_Template.csv';
+
+      final xFile = XFile.fromData(
+        bytes,
+        name: filename,
+        mimeType: 'text/csv',
+      );
+
+      await Share.shareXFiles(
+        [xFile],
+        subject: '$examTitle Question Bank Template',
+        text:
+            'ExaMore Question Bank Template. Total marks: ${(totalMarks ?? 50).toInt()} pts. Fill in your questions and upload it directly into the exam.',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share template: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  static Future<List<QuestionModel>> pickAndParseQuestions({
+    String defaultCategory = 'General',
+  }) async {
     // Official public API entry point
     final FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -40,7 +126,7 @@ class QuestionFileParser {
     if (extension == 'json') {
       return _parseJson(content);
     } else if (extension == 'csv') {
-      return _parseCsv(content);
+      return _parseCsv(content, defaultCategory: defaultCategory);
     }
 
     throw const FormatException('Only JSON and CSV files are supported.');
@@ -88,11 +174,63 @@ class QuestionFileParser {
     }).toList();
   }
 
-  static List<QuestionModel> _parseCsv(String rawCsv) {
-    final List<List<String>> rows = _parseCsvString(rawCsv);
+  static List<QuestionModel> _parseCsv(
+    String rawCsv, {
+    String defaultCategory = 'General',
+  }) {
+    final List<List<String>> rawRows = _parseCsvString(rawCsv);
+    if (rawRows.isEmpty) return [];
+
+    // Filter out comment or metadata rows starting with '#' or '//'
+    final List<List<String>> rows = [];
+    for (final r in rawRows) {
+      if (r.isEmpty) continue;
+      final firstCell = r[0].trim();
+      if (firstCell.startsWith('#') || firstCell.startsWith('//')) {
+        continue;
+      }
+      rows.add(r);
+    }
 
     if (rows.length <= 1) return [];
 
+    // Header detection on row 0
+    final List<String> header =
+        rows[0].map((h) => h.trim().toLowerCase()).toList();
+
+    int questionCol = -1;
+    int marksCol = -1;
+    int categoryCol = -1;
+    int difficultyCol = -1;
+    int correctCol = -1;
+    final List<int> optionCols = [];
+
+    for (int i = 0; i < header.length; i++) {
+      final h = header[i];
+      if (h.contains('question')) {
+        questionCol = i;
+      } else if (h.contains('mark') || h.contains('point')) {
+        marksCol = i;
+      } else if (h.contains('category') || h.contains('subject')) {
+        categoryCol = i;
+      } else if (h.contains('difficulty') || h.contains('level')) {
+        difficultyCol = i;
+      } else if (h.contains('correct option') ||
+          h == 'correct' ||
+          h == 'answer') {
+        correctCol = i;
+      } else if (h.contains('option') ||
+          h.contains('choice') ||
+          h.startsWith('opt')) {
+        optionCols.add(i);
+      }
+    }
+
+    // Check if Option A header explicitly designates it as correct: e.g. "Option A(Correct)"
+    final bool optionAIsDefaultCorrect = optionCols.isNotEmpty &&
+        header[optionCols[0]].contains('correct');
+
+    final bool hasValidHeaderMap = questionCol != -1 && optionCols.isNotEmpty;
     final List<QuestionModel> parsed = [];
 
     for (int i = 1; i < rows.length; i++) {
@@ -107,38 +245,59 @@ class QuestionFileParser {
         columns = _parseCsvLine(columns[0]);
       }
 
-      if (columns.length < 5) continue;
+      if (columns.length < 3) continue;
 
-      final String questionText = columns[0].trim();
-      final String category = columns.length > 1 && columns[1].trim().isNotEmpty
-          ? columns[1].trim()
-          : 'General';
-      final String difficulty =
-          columns.length > 2 && columns[2].trim().isNotEmpty
-              ? columns[2].trim()
-              : 'Medium';
-      final double marks = columns.length > 3
-          ? (double.tryParse(columns[3].trim()) ?? 1.0)
-          : 1.0;
-
+      String questionText = '';
+      String category = defaultCategory;
+      String difficulty = 'Medium';
+      double marks = 1.0;
       final List<String> rawOptions = [];
-      if (columns.length >= 9) {
-        for (int c = 4; c <= 7; c++) {
-          if (columns[c].trim().isNotEmpty) {
-            rawOptions.add(columns[c].trim());
+      dynamic rawCorrect = 'A';
+
+      if (hasValidHeaderMap) {
+        questionText = questionCol < columns.length
+            ? columns[questionCol].trim()
+            : '';
+        if (marksCol != -1 && marksCol < columns.length) {
+          marks = double.tryParse(columns[marksCol].trim()) ?? 1.0;
+        }
+        if (categoryCol != -1 &&
+            categoryCol < columns.length &&
+            columns[categoryCol].trim().isNotEmpty) {
+          category = columns[categoryCol].trim();
+        }
+        if (difficultyCol != -1 &&
+            difficultyCol < columns.length &&
+            columns[difficultyCol].trim().isNotEmpty) {
+          difficulty = columns[difficultyCol].trim();
+        }
+        for (final optIdx in optionCols) {
+          if (optIdx < columns.length && columns[optIdx].trim().isNotEmpty) {
+            rawOptions.add(columns[optIdx].trim());
           }
+        }
+        if (correctCol != -1 && correctCol < columns.length) {
+          rawCorrect = columns[correctCol].trim();
+        } else if (optionAIsDefaultCorrect) {
+          rawCorrect = 'A'; // Option A is the correct answer
         }
       } else {
-        for (int c = 4; c < columns.length - 1; c++) {
+        // Fallback positional mapping: Question, Marks, Option A, Option B...
+        questionText = columns[0].trim();
+        marks = columns.length > 1
+            ? (double.tryParse(columns[1].trim()) ?? 1.0)
+            : 1.0;
+        for (int c = 2; c < columns.length; c++) {
           if (columns[c].trim().isNotEmpty) {
             rawOptions.add(columns[c].trim());
           }
         }
+        rawCorrect = 'A';
       }
 
-      final List<QuestionOption> options = _normalizeOptions(rawOptions);
+      if (questionText.isEmpty || rawOptions.isEmpty) continue;
 
-      final dynamic rawCorrect = columns.last.trim();
+      final List<QuestionOption> options = _normalizeOptions(rawOptions);
       final String correctOptionId = _resolveCorrectOption(
         options,
         rawCorrectValue: rawCorrect,
@@ -146,12 +305,12 @@ class QuestionFileParser {
 
       parsed.add(
         QuestionModel(
-          id: '',
+          id: '${DateTime.now().millisecondsSinceEpoch}_$i',
           questionText: questionText,
           marks: marks,
           options: options,
           correctOptionId: correctOptionId,
-          type: 'multiple_choice',
+          type: 'Multiple Choice',
           category: category,
           difficulty: difficulty,
           views: 0,

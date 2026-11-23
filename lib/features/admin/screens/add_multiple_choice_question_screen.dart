@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:prep_mate/core/widgets/app_image_view.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
+import 'package:prep_mate/features/admin/screens/question_import_review_screen.dart';
 import 'package:prep_mate/features/admin/screens/review_and_publish_screen.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
+import 'package:prep_mate/features/admin/services/question_file_parser.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/widgets/exam_stepper_header.dart';
 import 'package:prep_mate/features/admin/widgets/question_option_tile.dart';
@@ -290,6 +292,84 @@ class _AddMultipleChoiceQuestionScreenState
           duration: Duration(seconds: 1),
         ),
       );
+    }
+  }
+
+  Future<void> _uploadAndReviewQuestions() async {
+    try {
+      final parsed = await QuestionFileParser.pickAndParseQuestions();
+      if (parsed.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No questions found or file selection was cancelled.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      final reviewedQuestions = await Navigator.push<List<QuestionModel>>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuestionImportReviewScreen(
+            questions: parsed,
+            examTitle: _currentExam.title,
+            targetTotalMarks: _currentExam.totalMarks,
+          ),
+        ),
+      );
+
+      if (reviewedQuestions != null && reviewedQuestions.isNotEmpty) {
+        final updatedList = List<QuestionModel>.from(_currentExam.questions)
+          ..addAll(reviewedQuestions);
+
+        final updatedExam = _currentExam.copyWith(
+          questions: updatedList,
+          updatedAt: DateTime.now(),
+        );
+
+        await _examService.updateExam(updatedExam);
+
+        if (mounted) {
+          setState(() {
+            _currentExam = updatedExam;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Successfully imported ${reviewedQuestions.length} questions into ${_currentExam.title}!',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF10B981),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to import questions: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -606,6 +686,23 @@ class _AddMultipleChoiceQuestionScreenState
             : 'Step 2 of 3 • Add & Manage Questions',
         showBackButton: true,
         onBackPressed: () => Navigator.pop(context),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_rounded, size: 20),
+            tooltip: 'Get CSV Template',
+            onPressed: () => QuestionFileParser.downloadOrShareTemplate(
+              context,
+              examTitle: _currentExam.title,
+              totalMarks: _currentExam.totalMarks,
+              defaultCategory: _currentExam.category,
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.upload_file_rounded, size: 20),
+            tooltip: 'Upload Question Bank',
+            onPressed: _uploadAndReviewQuestions,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -731,6 +828,152 @@ class _AddMultipleChoiceQuestionScreenState
                               ),
                               minHeight: 6,
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // 2. BULK IMPORT QUESTION BANK BANNER
+                  if (!widget.isForQuestionBank && _editingIndex == null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDarkMode
+                              ? [
+                                  const Color(0xFF2E1065).withOpacity(0.4),
+                                  const Color(0xFF1E1B4B).withOpacity(0.4),
+                                ]
+                              : [
+                                  const Color(0xFFF3E8FF),
+                                  const Color(0xFFEDE9FE),
+                                ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: const Color(0xFF7C3AED).withOpacity(
+                            isDarkMode ? 0.3 : 0.25,
+                          ),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF7C3AED),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.table_chart_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Bulk Import Question Bank',
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Upload Excel / CSV to add questions with answer keys automatically',
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 11.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF7C3AED),
+                                    side: BorderSide(
+                                      color: const Color(
+                                        0xFF7C3AED,
+                                      ).withOpacity(0.4),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 10,
+                                      horizontal: 10,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.download_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text(
+                                    'Get Template',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onPressed: () =>
+                                      QuestionFileParser.downloadOrShareTemplate(
+                                        context,
+                                        examTitle: _currentExam.title,
+                                        totalMarks: _currentExam.totalMarks,
+                                        defaultCategory: _currentExam.category,
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF7C3AED),
+                                    foregroundColor: Colors.white,
+                                    elevation: 1,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 10,
+                                      horizontal: 10,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.upload_file_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text(
+                                    'Upload & Review',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onPressed: _uploadAndReviewQuestions,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
