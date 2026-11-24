@@ -10,7 +10,7 @@ import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/csv_export_service.dart';
-import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
+import 'package:prep_mate/features/admin/widgets/edit_exam_options_sheet.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class ExamAnalyticsDetailScreen extends StatefulWidget {
@@ -247,13 +247,9 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                   icon: Icon(Icons.more_vert, color: textColor),
                   onSelected: (val) async {
                     if (val == 'edit') {
-                      Navigator.push(
+                      EditExamOptionsSheet.show(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => ExamConfigurationScreen(
-                            exam: activeExam,
-                          ),
-                        ),
+                        exam: activeExam!,
                       );
                     } else if (val == 'delete') {
                       final confirmed = await showDialog<bool>(

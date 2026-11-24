@@ -243,6 +243,14 @@ class NotificationService {
       final int notificationId =
           DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
+      final BigTextStyleInformation bigTextStyleInformation =
+          BigTextStyleInformation(
+        body,
+        htmlFormatBigText: true,
+        contentTitle: title,
+        htmlFormatContentTitle: true,
+      );
+
       final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
         _channel.id,
         _channel.name,
@@ -251,6 +259,7 @@ class NotificationService {
         priority: Priority.high,
         playSound: true,
         enableVibration: true,
+        styleInformation: bigTextStyleInformation,
         icon: '@mipmap/ic_launcher',
       );
 

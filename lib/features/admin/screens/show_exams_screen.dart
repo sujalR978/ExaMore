@@ -12,6 +12,7 @@ import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_sc
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
+import 'package:prep_mate/features/admin/widgets/edit_exam_options_sheet.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 
@@ -99,11 +100,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   }
 
   void _handleEditExam(ExamModel exam) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ExamConfigurationScreen(exam: exam),
-      ),
-    );
+    EditExamOptionsSheet.show(context, exam: exam);
   }
 
   void _handleManageQuestions(ExamModel exam) {

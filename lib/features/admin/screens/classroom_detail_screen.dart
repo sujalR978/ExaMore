@@ -9,6 +9,7 @@ import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.da
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
+import 'package:prep_mate/features/admin/widgets/edit_exam_options_sheet.dart';
 import 'package:prep_mate/features/auth/models/user_model.dart';
 
 class ClassroomDetailScreen extends StatefulWidget {
@@ -1305,15 +1306,10 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                     ),
                                   );
                                 } else if (val == 'edit') {
-                                  Navigator.push(
+                                  EditExamOptionsSheet.show(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          ExamConfigurationScreen(
-                                        exam: exam,
-                                        classroom: _classroom,
-                                      ),
-                                    ),
+                                    exam: exam,
+                                    classroom: _classroom,
                                   );
                                 } else if (val == 'delete') {
                                   _confirmDeleteExam(exam);
