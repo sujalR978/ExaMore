@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
@@ -511,6 +512,63 @@ class _SettingscreenState extends State<Settingscreen> {
                       color: textMuted,
                     ),
                     onTap: _showPermissionsDialog,
+                  ),
+                  Divider(height: 1, thickness: 1, color: borderColor),
+                  // Send Test Notification
+                  ListTile(
+                    leading: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.notifications_active_rounded,
+                        color: Color(0xFF10B981),
+                        size: 18,
+                      ),
+                    ),
+                    title: Text(
+                      'Test System Notification',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Tap to trigger a real native status bar notification',
+                      style: TextStyle(color: textMuted, fontSize: 11.5),
+                    ),
+                    trailing: const Icon(
+                      Icons.send_rounded,
+                      size: 18,
+                      color: Color(0xFF10B981),
+                    ),
+                    onTap: () async {
+                      await NotificationService.instance.showNativeNotification(
+                        title: '🔔 Test Notification: ExaMore',
+                        body: 'Real push & system tray notifications are working perfectly on this device!',
+                        type: 'new_exam',
+                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text('Notification dispatched! Pull down your status bar.'),
+                              ],
+                            ),
+                            backgroundColor: const Color(0xFF10B981),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
