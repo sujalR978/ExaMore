@@ -55,7 +55,7 @@ class NotificationService {
       );
 
       await _localNotifications.initialize(
-        settings: initializationSettings,
+        initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           final payload = response.payload;
           if (payload != null && payload.isNotEmpty) {
@@ -259,10 +259,10 @@ class NotificationService {
       );
 
       await _localNotifications.show(
-        id: notificationId,
-        title: title,
-        body: body,
-        notificationDetails: platformDetails,
+        notificationId,
+        title,
+        body,
+        platformDetails,
         payload: examId,
       );
     } catch (e) {
