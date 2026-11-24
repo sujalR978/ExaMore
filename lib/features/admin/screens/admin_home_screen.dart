@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/core/utils/dialog_utils.dart';
 import 'package:prep_mate/core/widgets/custom_bottom_nav_bar.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
@@ -46,6 +47,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _adminUid = _currentUser?.uid ?? '';
     _initDashboardStreams();
     _fetchUserRole();
+    if (_adminUid.isNotEmpty) {
+      NotificationService.instance.listenToUserNotifications(_adminUid);
+    }
   }
 
   void _initDashboardStreams() {

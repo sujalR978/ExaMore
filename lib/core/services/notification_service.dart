@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
@@ -19,6 +20,17 @@ class NotificationService {
 
   FirebaseMessaging get _fcm => FirebaseMessaging.instance;
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
+    'examore_channel',
+    'ExaMore Exam Alerts',
+    description: 'Notifications for published exams, deadline adjustments, and reminders',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+  );
 
   static GlobalKey<NavigatorState> navigatorKey =
       GlobalKey<NavigatorState>();
@@ -28,14 +40,39 @@ class NotificationService {
 
   String? get fcmToken => _lastToken;
 
-  /// Initialize Firebase Messaging, request permissions, and register listeners
+  /// Initialize Firebase Messaging, local notifications, permissions, and listeners
   Future<void> initialize({GlobalKey<NavigatorState>? navKey}) async {
     if (_isInitialized) return;
     _isInitialized = true;
     if (navKey != null) navigatorKey = navKey;
 
     try {
-      // 1. Request notification permissions
+      // 1. Initialize Flutter Local Notifications for native OS tray alerts
+      const initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const initializationSettings = InitializationSettings(
+        android: initializationSettingsAndroid,
+      );
+
+      await _localNotifications.initialize(
+        settings: initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          final payload = response.payload;
+          if (payload != null && payload.isNotEmpty) {
+            _handleNotificationNavigation({'examId': payload});
+          }
+        },
+      );
+
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        await androidPlugin.createNotificationChannel(_channel);
+        await androidPlugin.requestNotificationsPermission();
+      }
+
+      // 2. Request FCM notification permissions
       final settings = await _fcm.requestPermission(
         alert: true,
         badge: true,
@@ -45,46 +82,46 @@ class NotificationService {
 
       debugPrint('FCM Permission status: ${settings.authorizationStatus}');
 
-      // 2. Configure foreground notification presentation
+      // 3. Configure foreground notification presentation
       await _fcm.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
       );
 
-      // 3. Register background message handler
+      // 4. Register background message handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-      // 4. Retrieve initial token & persist to Firestore
+      // 5. Retrieve initial token & persist to Firestore
       final token = await _fcm.getToken();
       if (token != null) {
         _lastToken = token;
         await updateUserToken(token);
       }
 
-      // 5. Listen for token refreshes
+      // 6. Listen for token refreshes
       _fcm.onTokenRefresh.listen((newToken) {
         _lastToken = newToken;
         updateUserToken(newToken);
       });
 
-      // 6. Listen for incoming foreground messages
+      // 7. Listen for incoming foreground messages
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         _handleForegroundMessage(message);
       });
 
-      // 7. Listen for notification click when app is in background
+      // 8. Listen for notification click when app is in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         _handleNotificationNavigation(message.data);
       });
 
-      // 8. Handle notification that launched the app from terminated state
+      // 9. Handle notification that launched the app from terminated state
       final initialMessage = await _fcm.getInitialMessage();
       if (initialMessage != null) {
         _handleNotificationNavigation(initialMessage.data);
       }
 
-      // 9. Start periodic monitoring for approaching deadlines (1 hour alert)
+      // 10. Start periodic monitoring for approaching deadlines (1 hour alert)
       startDeadlineMonitoring();
     } catch (e) {
       debugPrint('FCM initialization warning (may be test/unsupported environment): $e');
@@ -144,6 +181,95 @@ class NotificationService {
     }
   }
 
+  StreamSubscription? _userNotificationsSubscription;
+  DateTime? _listenerStartTime;
+
+  /// Starts real-time listening to user's notifications collection
+  /// to trigger immediate native system tray notifications on the device
+  void listenToUserNotifications(String userId) {
+    if (userId.isEmpty) return;
+    _userNotificationsSubscription?.cancel();
+    _listenerStartTime = DateTime.now().subtract(const Duration(seconds: 5));
+
+    _userNotificationsSubscription = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .limit(10)
+        .snapshots()
+        .listen((snapshot) {
+      for (final change in snapshot.docChanges) {
+        if (change.type == DocumentChangeType.added) {
+          final data = change.doc.data();
+          if (data == null) continue;
+
+          final rawCreatedAt = data['createdAt'];
+          DateTime? createdAt;
+          if (rawCreatedAt is Timestamp) {
+            createdAt = rawCreatedAt.toDate();
+          }
+
+          if (createdAt != null &&
+              _listenerStartTime != null &&
+              createdAt.isAfter(_listenerStartTime!)) {
+            final title = data['title']?.toString() ?? 'Exam Update';
+            final body = data['body']?.toString() ?? '';
+            final examId = data['examId']?.toString();
+            final type = data['type']?.toString();
+
+            showNativeNotification(
+              title: title,
+              body: body,
+              examId: examId,
+              type: type,
+            );
+          }
+        }
+      }
+    }, onError: (e) {
+      debugPrint('Error listening to user notifications: $e');
+    });
+  }
+
+  /// Displays a real native Android/iOS system notification in the status bar
+  Future<void> showNativeNotification({
+    required String title,
+    required String body,
+    String? examId,
+    String? type,
+  }) async {
+    try {
+      final int notificationId =
+          DateTime.now().millisecondsSinceEpoch.remainder(100000);
+
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        _channel.id,
+        _channel.name,
+        channelDescription: _channel.description,
+        importance: Importance.max,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        icon: '@mipmap/ic_launcher',
+      );
+
+      final NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
+      );
+
+      await _localNotifications.show(
+        id: notificationId,
+        title: title,
+        body: body,
+        notificationDetails: platformDetails,
+        payload: examId,
+      );
+    } catch (e) {
+      debugPrint('Error displaying native notification: $e');
+    }
+  }
+
   /// Generic dispatcher: targets relevant students, writes in-app inbox docs, and queues FCM push
   Future<void> _dispatchNotification({
     required ExamModel exam,
@@ -155,18 +281,37 @@ class NotificationService {
     final subject = (exam.category.isNotEmpty ? exam.category : exam.title).trim();
 
     try {
-      // 1. Target students for this exam
-      Query query = _firestore.collection('users').where('role', isEqualTo: 'student');
+      // 0. Trigger native OS system notification immediately on the current device
+      await showNativeNotification(
+        title: title,
+        body: body,
+        examId: exam.id,
+        type: type,
+      );
 
+      // 1. Target students for this exam
+      List<QueryDocumentSnapshot> studentDocs = [];
       if (exam.adminId.isNotEmpty) {
-        query = query.where('adminId', isEqualTo: exam.adminId);
+        final adminSpecific = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'student')
+            .where('adminId', isEqualTo: exam.adminId)
+            .get();
+        studentDocs = adminSpecific.docs;
       }
 
-      final studentDocs = await query.get();
+      if (studentDocs.isEmpty) {
+        final allStudents = await _firestore
+            .collection('users')
+            .where('role', isEqualTo: 'student')
+            .get();
+        studentDocs = allStudents.docs;
+      }
+
       final List<String> targetTokens = [];
       final List<String> studentIds = [];
 
-      for (var doc in studentDocs.docs) {
+      for (var doc in studentDocs) {
         final data = doc.data() as Map<String, dynamic>? ?? {};
         studentIds.add(doc.id);
 
@@ -181,6 +326,12 @@ class NotificationService {
             targetTokens.add(t);
           }
         }
+      }
+
+      // If testing in an environment where no student accounts exist yet, also add current user
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (studentIds.isEmpty && currentUser != null) {
+        studentIds.add(currentUser.uid);
       }
 
       // 2. Global notification document in 'notifications' collection
@@ -416,6 +567,14 @@ class NotificationService {
     final title = message.notification?.title ?? message.data['title'] ?? 'ExaMore';
     final body = message.notification?.body ?? message.data['body'] ?? '';
     final type = message.data['type']?.toString() ?? 'new_exam';
+
+    // Show native system notification in device tray
+    showNativeNotification(
+      title: title,
+      body: body,
+      examId: message.data['examId']?.toString(),
+      type: type,
+    );
 
     final context = navigatorKey.currentContext;
     if (context == null) return;
