@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prep_mate/core/utils/dialog_utils.dart';
@@ -76,10 +77,13 @@ class _LoginState extends State<Login> {
   }
 
   Future<bool> _hasInternetConnection() async {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    if (kIsWeb) {
       return true;
     }
     try {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return true;
+      }
       final lookup = await InternetAddress.lookup(
         'google.com',
       ).timeout(const Duration(seconds: 4));

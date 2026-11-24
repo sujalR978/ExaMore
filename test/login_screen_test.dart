@@ -21,8 +21,8 @@ void main() {
       await tester.pump();
 
       // Check header and titles
-      expect(find.text('ExaMore Login'), findsOneWidget);
-      expect(find.text('Email or Phone Number'), findsOneWidget);
+      expect(find.text('Master your exams and elevate your learning'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
       expect(find.text('Password'), findsOneWidget);
 
       // Check CTAs
