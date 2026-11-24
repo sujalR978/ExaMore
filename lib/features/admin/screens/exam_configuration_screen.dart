@@ -41,6 +41,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _publishRightNow = false;
 
   ClassroomModel? _selectedClassroom;
   List<ClassroomModel> _availableClassrooms = [];
@@ -325,11 +326,96 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           ? widget.exam!.adminId
           : currentUser.uid;
 
+      final now = DateTime.now();
+      final effectiveStart = _publishRightNow ? now : _startDate;
+
+      // Validation 2: Publish time must be in future (after current date & time) or select "Publish Right Now"
+      if (!_publishRightNow && _startDate != null) {
+        if (_startDate!.isBefore(now.subtract(const Duration(minutes: 1)))) {
+          if (mounted) setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.access_time_filled_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Publish time must be after the current date and time (future only), or select "Publish Right Now".',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
+
+      // Validation 3 & 4: Close time must be in future of publish time and fulfill minimum exam duration
+      if (_endDate != null) {
+        final referenceStart = effectiveStart ?? now;
+
+        // Validation 4: Close time must be in future of publish time
+        if (!_endDate!.isAfter(referenceStart)) {
+          if (mounted) setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.event_busy_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Close / Deadline time must be in the future of the Publish time.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+
+        // Validation 3: Close time must fulfill minimum exam duration
+        final minCloseTime = referenceStart.add(Duration(minutes: duration));
+        if (_endDate!.isBefore(minCloseTime)) {
+          if (mounted) setState(() => _isLoading = false);
+          final formattedMinClose = DateFormat('MMM dd, yyyy • hh:mm a').format(minCloseTime);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.timer_off_outlined, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Close time must fulfill the exam duration ($duration mins). Minimum allowed close time is $formattedMinClose.',
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
+
       ExamModel currentExam;
 
       if (_isEditing) {
         final baseExam = _latestExam ?? widget.exam!;
-        final oldDeadline = baseExam.endDate;
+        final oldStart = baseExam.startDate;
+        final oldEnd = baseExam.endDate;
+        final newStart = _publishRightNow ? now : _startDate;
+        final newEnd = _endDate;
+
         currentExam = baseExam.copyWith(
           title: title,
           category: category,
@@ -341,27 +427,33 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           negativeMarking: negativeMarking,
           passingScorePercentage: passingPercentage,
           allowedAttempts: allowedAttempts,
-          startDate: _startDate,
-          endDate: _endDate,
+          startDate: newStart,
+          endDate: newEnd,
           shuffleQuestions: _shuffleQuestions,
           showResultsImmediately: _showResultsImmediately,
           updatedAt: DateTime.now(),
         );
         await _examService.updateExam(currentExam);
 
-        // 2) Trigger notification when any deadline gets changed (extended or rescheduled)
-        if (currentExam.status.toLowerCase() == 'published' &&
-            oldDeadline != null &&
-            _endDate != null &&
-            !_endDate!.isAtSameMomentAs(oldDeadline)) {
+        // Detect if exam schedule or deadline timing was updated
+        final bool isStartChanged = (oldStart == null && newStart != null) ||
+            (oldStart != null && newStart == null) ||
+            (oldStart != null && newStart != null && !oldStart.isAtSameMomentAs(newStart));
+        final bool isEndChanged = (oldEnd == null && newEnd != null) ||
+            (oldEnd != null && newEnd == null) ||
+            (oldEnd != null && newEnd != null && !oldEnd.isAtSameMomentAs(newEnd));
+
+        if (isStartChanged || isEndChanged) {
           try {
-            await NotificationService.instance.sendDeadlineChangedNotification(
+            await NotificationService.instance.sendTimingUpdatedNotification(
               exam: currentExam,
-              oldDeadline: oldDeadline,
-              newDeadline: _endDate!,
+              oldStartDate: oldStart,
+              newStartDate: newStart,
+              oldEndDate: oldEnd,
+              newEndDate: newEnd,
             );
           } catch (e) {
-            debugPrint('Failed to send deadline changed notification: $e');
+            debugPrint('Failed to send timing updated notification: $e');
           }
         }
       } else {
@@ -378,7 +470,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           negativeMarking: negativeMarking,
           passingScorePercentage: passingPercentage,
           allowedAttempts: allowedAttempts,
-          startDate: _startDate,
+          startDate: _publishRightNow ? now : _startDate,
           endDate: _endDate,
           shuffleQuestions: _shuffleQuestions,
           showResultsImmediately: _showResultsImmediately,
@@ -1200,11 +1292,15 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                               'Immediate (available as soon as published)',
                           dateTime: _startDate,
                           icon: Icons.event_available_rounded,
+                          isPublishTile: true,
                           onPickDate: () => _pickTimeslotDate(isStart: true),
                           onPickTime: () => _pickTimeslotTime(isStart: true),
                           onPickBoth: () =>
                               _pickTimeslotDateTime(isStart: true),
-                          onClear: () => setState(() => _startDate = null),
+                          onClear: () => setState(() {
+                            _startDate = null;
+                            _publishRightNow = false;
+                          }),
                           textColor: textColor,
                           subtitleColor: subtitleColor,
                           borderColor: borderColor,
@@ -1471,15 +1567,21 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
   Future<void> _pickTimeslotDate({required bool isStart}) async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final effectiveMin = isStart
+        ? today
+        : (_startDate != null
+            ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day)
+            : today);
+
     final current = isStart ? _startDate : _endDate;
-    final initialDate =
-        current ??
-        (isStart ? now : (_startDate ?? now).add(const Duration(days: 1)));
+    final initialDate = current ?? effectiveMin;
+    final safeInitial = initialDate.isBefore(effectiveMin) ? effectiveMin : initialDate;
 
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: initialDate,
-      firstDate: now.subtract(const Duration(days: 30)),
+      initialDate: safeInitial,
+      firstDate: effectiveMin,
       lastDate: now.add(const Duration(days: 730)),
     );
 
@@ -1501,9 +1603,12 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
     setState(() {
       if (isStart) {
+        _publishRightNow = false;
         _startDate = combined;
-        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-          _endDate = _startDate!.add(const Duration(hours: 2));
+        final duration = int.tryParse(_durationController.text.trim()) ?? 60;
+        final minClose = _startDate!.add(Duration(minutes: duration));
+        if (_endDate != null && _endDate!.isBefore(minClose)) {
+          _endDate = minClose;
         }
       } else {
         _endDate = combined;
@@ -1539,11 +1644,28 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
       pickedTime.minute,
     );
 
+    // Validation 2: Publish time cannot be in the past
+    if (isStart && combined.isBefore(now.subtract(const Duration(minutes: 1)))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Publish time must be in the future (after current time), or select "Publish Right Now".',
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       if (isStart) {
+        _publishRightNow = false;
         _startDate = combined;
-        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-          _endDate = _startDate!.add(const Duration(hours: 2));
+        final duration = int.tryParse(_durationController.text.trim()) ?? 60;
+        final minClose = _startDate!.add(Duration(minutes: duration));
+        if (_endDate != null && _endDate!.isBefore(minClose)) {
+          _endDate = minClose;
         }
       } else {
         _endDate = combined;
@@ -1570,14 +1692,20 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
     required Color borderColor,
     required bool isDarkMode,
     required IconData icon,
+    bool isPublishTile = false,
   }) {
-    final isSet = dateTime != null;
-    final dateStr = isSet
-        ? DateFormat('EEE, MMM d, yyyy').format(dateTime)
-        : 'Date: Not set';
-    final timeStr = isSet
-        ? DateFormat('h:mm a').format(dateTime)
-        : 'Time: Not set';
+    final bool isImmediatePublish = isPublishTile && _publishRightNow;
+    final isSet = isImmediatePublish || dateTime != null;
+    final dateStr = isImmediatePublish
+        ? 'Today (Right Now)'
+        : (dateTime != null
+            ? DateFormat('EEE, MMM d, yyyy').format(dateTime)
+            : 'Date: Not set');
+    final timeStr = isImmediatePublish
+        ? 'Immediate'
+        : (dateTime != null
+            ? DateFormat('h:mm a').format(dateTime)
+            : 'Time: Not set');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1618,7 +1746,9 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                       ),
                     ),
                     Text(
-                      isSet ? 'Scheduled active' : hintText,
+                      isImmediatePublish
+                          ? '⚡ Publishing live immediately'
+                          : (isSet ? 'Scheduled active' : hintText),
                       style: TextStyle(
                         color: isSet ? const Color(0xFF10B981) : subtitleColor,
                         fontSize: 11,
@@ -1628,6 +1758,49 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                   ],
                 ),
               ),
+              // Requirement 1: Quick toggle for "Publish Right Now"
+              if (isPublishTile) ...[
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _publishRightNow = !_publishRightNow;
+                      if (_publishRightNow) {
+                        _startDate = DateTime.now();
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _publishRightNow
+                          ? const Color(0xFF10B981)
+                          : (isDarkMode ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _publishRightNow ? Icons.check_circle_rounded : Icons.bolt_rounded,
+                          size: 14,
+                          color: _publishRightNow ? Colors.white : subtitleColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Publish Right Now',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _publishRightNow ? Colors.white : textColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
               if (isSet)
                 IconButton(
                   icon: const Icon(Icons.close_rounded, size: 18),
@@ -1665,10 +1838,14 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.calendar_today_rounded,
+                        Icon(
+                          isImmediatePublish
+                              ? Icons.bolt_rounded
+                              : Icons.calendar_today_rounded,
                           size: 15,
-                          color: Color(0xFF7C3AED),
+                          color: isImmediatePublish
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF7C3AED),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -1715,10 +1892,14 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.access_time_rounded,
+                        Icon(
+                          isImmediatePublish
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.access_time_rounded,
                           size: 15,
-                          color: Color(0xFF7C3AED),
+                          color: isImmediatePublish
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF7C3AED),
                         ),
                         const SizedBox(width: 6),
                         Expanded(

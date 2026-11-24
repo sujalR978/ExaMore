@@ -28,6 +28,7 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
   late double _passingScorePercentage;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _publishRightNow = false;
 
   bool _isSavingDraft = false;
   bool _isPublishing = false;
@@ -59,11 +60,12 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
   }
 
   ExamModel _prepareUpdatedExam({String? newStatus}) {
+    final effectiveStart = _publishRightNow ? DateTime.now() : _startDate;
     return _currentExam.copyWith(
       shuffleQuestions: _shuffleQuestions,
       showResultsImmediately: _showResultsImmediately,
       passingScorePercentage: _passingScorePercentage,
-      startDate: _startDate,
+      startDate: effectiveStart,
       endDate: _endDate,
       status: newStatus ?? _currentExam.status,
       updatedAt: DateTime.now(),
@@ -217,6 +219,61 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       return;
     }
 
+    final now = DateTime.now();
+    final effectiveStart = _publishRightNow ? now : _startDate;
+    final duration = _currentExam.durationMinutes;
+
+    // Validation 2: Publish time cannot be in the past
+    if (!_publishRightNow && _startDate != null) {
+      if (_startDate!.isBefore(now.subtract(const Duration(minutes: 1)))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Publish time must be after the current date and time (future only), or select "Publish Right Now".',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Validation 3 & 4: Close time validations
+    if (_endDate != null) {
+      final referenceStart = effectiveStart ?? now;
+
+      // Validation 4: Close time must be in future of publish time
+      if (!_endDate!.isAfter(referenceStart)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Close / Deadline time must be in the future of the Publish time.',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // Validation 3: Close time must fulfill minimum exam duration
+      final minCloseTime = referenceStart.add(Duration(minutes: duration));
+      if (_endDate!.isBefore(minCloseTime)) {
+        final formattedMinClose = DateFormat('MMM dd, yyyy • hh:mm a').format(minCloseTime);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Close time must fulfill the exam duration ($duration mins). Minimum allowed close time is $formattedMinClose.',
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isPublishing = true);
     try {
       final updatedExam = _prepareUpdatedExam(newStatus: 'Published');
@@ -224,18 +281,27 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
       // Trigger notification for eligible students
       try {
-        final wasPublished = widget.exam?.status.toLowerCase() == 'published';
-        final oldDeadline = widget.exam?.endDate;
-        final newDeadline = updatedExam.endDate;
+        final wasPublished = widget.exam?.status.toLowerCase() == 'published' ||
+            widget.exam?.status.toLowerCase() == 'open';
+        final oldStart = widget.exam?.startDate;
+        final newStart = updatedExam.startDate;
+        final oldEnd = widget.exam?.endDate;
+        final newEnd = updatedExam.endDate;
 
-        if (wasPublished &&
-            oldDeadline != null &&
-            newDeadline != null &&
-            !newDeadline.isAtSameMomentAs(oldDeadline)) {
-          await NotificationService.instance.sendDeadlineChangedNotification(
+        final bool isTimingChanged = (oldStart == null && newStart != null) ||
+            (oldStart != null && newStart == null) ||
+            (oldStart != null && newStart != null && !oldStart.isAtSameMomentAs(newStart)) ||
+            (oldEnd == null && newEnd != null) ||
+            (oldEnd != null && newEnd == null) ||
+            (oldEnd != null && newEnd != null && !oldEnd.isAtSameMomentAs(newEnd));
+
+        if (wasPublished && isTimingChanged) {
+          await NotificationService.instance.sendTimingUpdatedNotification(
             exam: updatedExam,
-            oldDeadline: oldDeadline,
-            newDeadline: newDeadline,
+            oldStartDate: oldStart,
+            newStartDate: newStart,
+            oldEndDate: oldEnd,
+            newEndDate: newEnd,
           );
         } else if (!wasPublished) {
           await NotificationService.instance.sendNewExamNotification(updatedExam);
@@ -331,16 +397,21 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
   Future<void> _pickTimeslotDate({required bool isStart}) async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final effectiveMin = isStart
+        ? today
+        : (_startDate != null
+            ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day)
+            : today);
+
     final current = isStart ? _startDate : _endDate;
-    final initialDate = current ??
-        (isStart
-            ? now
-            : (_startDate ?? now).add(const Duration(days: 1)));
+    final initialDate = current ?? effectiveMin;
+    final safeInitial = initialDate.isBefore(effectiveMin) ? effectiveMin : initialDate;
 
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: initialDate,
-      firstDate: now.subtract(const Duration(days: 30)),
+      initialDate: safeInitial,
+      firstDate: effectiveMin,
       lastDate: now.add(const Duration(days: 730)),
     );
 
@@ -362,9 +433,12 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
     setState(() {
       if (isStart) {
+        _publishRightNow = false;
         _startDate = combined;
-        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-          _endDate = _startDate!.add(const Duration(hours: 2));
+        final duration = _currentExam.durationMinutes;
+        final minClose = _startDate!.add(Duration(minutes: duration));
+        if (_endDate != null && _endDate!.isBefore(minClose)) {
+          _endDate = minClose;
         }
       } else {
         _endDate = combined;
@@ -401,11 +475,28 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
       pickedTime.minute,
     );
 
+    // Validation 2: Publish time cannot be in the past
+    if (isStart && combined.isBefore(now.subtract(const Duration(minutes: 1)))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Publish time must be in the future (after current time), or select "Publish Right Now".',
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       if (isStart) {
+        _publishRightNow = false;
         _startDate = combined;
-        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-          _endDate = _startDate!.add(const Duration(hours: 2));
+        final duration = _currentExam.durationMinutes;
+        final minClose = _startDate!.add(Duration(minutes: duration));
+        if (_endDate != null && _endDate!.isBefore(minClose)) {
+          _endDate = minClose;
         }
       } else {
         _endDate = combined;
@@ -722,9 +813,13 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
                           title: 'Publish / Open Exam',
                           subtitle: 'Exam opens automatically at this date & time',
                           dateTime: _startDate,
+                          isPublishTile: true,
                           onPickDate: () => _pickTimeslotDate(isStart: true),
                           onPickTime: () => _pickTimeslotTime(isStart: true),
-                          onClear: () => setState(() => _startDate = null),
+                          onClear: () => setState(() {
+                            _startDate = null;
+                            _publishRightNow = false;
+                          }),
                           textColor: textColor,
                           subtitleColor: subtitleColor,
                           borderColor: borderColor,
@@ -1192,14 +1287,18 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
     required Color borderColor,
     required bool isDarkMode,
     required IconData icon,
+    bool isPublishTile = false,
   }) {
     final dateFormat = DateFormat('MMM dd, yyyy');
     final timeFormat = DateFormat('hh:mm a');
 
-    final dateStr =
-        dateTime != null ? dateFormat.format(dateTime) : 'Set Date';
-    final timeStr =
-        dateTime != null ? timeFormat.format(dateTime) : 'Set Time';
+    final bool isImmediate = isPublishTile && _publishRightNow;
+    final dateStr = isImmediate
+        ? 'Today (Right Now)'
+        : (dateTime != null ? dateFormat.format(dateTime) : 'Set Date');
+    final timeStr = isImmediate
+        ? 'Immediate'
+        : (dateTime != null ? timeFormat.format(dateTime) : 'Set Time');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1217,7 +1316,49 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
               ),
             ),
             const Spacer(),
-            if (dateTime != null)
+            if (isPublishTile) ...[
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _publishRightNow = !_publishRightNow;
+                    if (_publishRightNow) {
+                      _startDate = DateTime.now();
+                    }
+                  });
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _publishRightNow
+                        ? const Color(0xFF10B981)
+                        : (isDarkMode ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _publishRightNow ? Icons.check_circle_rounded : Icons.bolt_rounded,
+                        size: 13,
+                        color: _publishRightNow ? Colors.white : subtitleColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Publish Right Now',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: _publishRightNow ? Colors.white : textColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (dateTime != null || isImmediate)
               GestureDetector(
                 onTap: onClear,
                 child: Padding(
@@ -1237,8 +1378,12 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
         ),
         const SizedBox(height: 2),
         Text(
-          subtitle,
-          style: TextStyle(color: subtitleColor, fontSize: 11.5),
+          isImmediate ? '⚡ Opening immediately upon publishing' : subtitle,
+          style: TextStyle(
+            color: isImmediate ? const Color(0xFF10B981) : subtitleColor,
+            fontSize: 11.5,
+            fontWeight: isImmediate ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
         const SizedBox(height: 10),
         Row(

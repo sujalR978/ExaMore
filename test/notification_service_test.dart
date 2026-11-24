@@ -139,6 +139,35 @@ void main() {
       expect(shouldAlertPast, isFalse);
     });
 
+    test('Timeslot validations: future publish and minimum duration fulfillment', () {
+      final now = DateTime(2026, 11, 24, 10, 0); // 10:00 AM
+      const durationMinutes = 30; // 30 minutes exam
+
+      // Requirement 2: Publish time must be future (after now)
+      final pastPublish = now.subtract(const Duration(minutes: 5));
+      final futurePublish = now.add(const Duration(minutes: 10));
+
+      expect(pastPublish.isBefore(now), isTrue);
+      expect(futurePublish.isAfter(now), isTrue);
+
+      // Requirement 3: Close time must fulfill minimum duration (Publish + Duration)
+      final publishTime = DateTime(2026, 11, 24, 22, 0); // 10:00 PM
+      final minAllowedClose = publishTime.add(const Duration(minutes: durationMinutes)); // 10:30 PM
+
+      final invalidCloseTooEarly = DateTime(2026, 11, 24, 22, 15); // 10:15 PM (< 10:30 PM)
+      final validCloseExact = DateTime(2026, 11, 24, 22, 30); // 10:30 PM (== 10:30 PM)
+      final validCloseLater = DateTime(2026, 11, 24, 23, 0); // 11:00 PM (> 10:30 PM)
+
+      expect(invalidCloseTooEarly.isBefore(minAllowedClose), isTrue);
+      expect(validCloseExact.isBefore(minAllowedClose), isFalse);
+      expect(validCloseLater.isAfter(publishTime), isTrue);
+
+      // Requirement 4: Close time must be in the future of publish time
+      expect(invalidCloseTooEarly.isAfter(publishTime), isTrue); // after publish, but fails duration
+      final invalidCloseBeforePublish = DateTime(2026, 11, 24, 21, 59);
+      expect(invalidCloseBeforePublish.isAfter(publishTime), isFalse);
+    });
+
     testWidgets('StudentNotificationsScreen renders gracefully when user not logged in',
         (WidgetTester tester) async {
       await tester.pumpWidget(

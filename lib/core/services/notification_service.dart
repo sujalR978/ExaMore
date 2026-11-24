@@ -420,17 +420,35 @@ class NotificationService {
     );
   }
 
-  /// 2) When any deadline is changed (extended or rescheduled)
-  Future<void> sendDeadlineChangedNotification({
+  /// 2) When any exam timing (deadline, extension, or schedule) is updated
+  Future<void> sendTimingUpdatedNotification({
     required ExamModel exam,
-    required DateTime oldDeadline,
-    required DateTime newDeadline,
+    DateTime? oldStartDate,
+    DateTime? newStartDate,
+    DateTime? oldEndDate,
+    DateTime? newEndDate,
   }) async {
-    final bool isExtended = newDeadline.isAfter(oldDeadline);
-    final String formattedDate = DateFormat('MMM dd, yyyy • hh:mm a').format(newDeadline);
+    final subject = (exam.category.isNotEmpty ? exam.category : exam.title).trim();
+    final bool isDeadlineExtended = oldEndDate != null &&
+        newEndDate != null &&
+        newEndDate.isAfter(oldEndDate);
 
-    final String title = isExtended ? '⏳ Exam Deadline Extended!' : '📅 Exam Deadline Updated';
-    final String body = 'Deadline for "${exam.title}" has been ${isExtended ? 'extended' : 'rescheduled'} to $formattedDate. Please check the updated schedule.';
+    String title;
+    String body;
+
+    if (newEndDate != null &&
+        (oldEndDate == null || !newEndDate.isAtSameMomentAs(oldEndDate))) {
+      final formattedEnd = DateFormat('MMM dd, yyyy • hh:mm a').format(newEndDate);
+      title = isDeadlineExtended ? '⏳ Exam Deadline Extended!' : '📅 Exam Deadline Updated';
+      body = 'The submission deadline for "$subject" (${exam.title}) is now $formattedEnd. Please check the updated schedule.';
+    } else if (newStartDate != null) {
+      final formattedStart = DateFormat('MMM dd, yyyy • hh:mm a').format(newStartDate);
+      title = '📅 Exam Schedule Updated';
+      body = 'The opening schedule for "$subject" (${exam.title}) has been updated to $formattedStart.';
+    } else {
+      title = '📅 Exam Schedule Updated';
+      body = 'The active timeslot for "$subject" (${exam.title}) has been updated by the instructor.';
+    }
 
     await _dispatchNotification(
       exam: exam,
@@ -438,10 +456,23 @@ class NotificationService {
       body: body,
       type: 'deadline_changed',
       extraData: {
-        'oldDeadline': Timestamp.fromDate(oldDeadline),
-        'newDeadline': Timestamp.fromDate(newDeadline),
-        'isExtended': isExtended,
+        if (newStartDate != null) 'startDate': Timestamp.fromDate(newStartDate),
+        if (newEndDate != null) 'endDate': Timestamp.fromDate(newEndDate),
+        'isExtended': isDeadlineExtended,
       },
+    );
+  }
+
+  /// Backwards-compatible alias for deadline updates
+  Future<void> sendDeadlineChangedNotification({
+    required ExamModel exam,
+    required DateTime oldDeadline,
+    required DateTime newDeadline,
+  }) async {
+    await sendTimingUpdatedNotification(
+      exam: exam,
+      oldEndDate: oldDeadline,
+      newEndDate: newDeadline,
     );
   }
 
