@@ -9,7 +9,6 @@ import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.da
 import 'package:prep_mate/features/admin/services/classroom_service.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/widgets/create_classroom_dialog.dart';
-import 'package:prep_mate/features/admin/widgets/edit_exam_options_sheet.dart';
 import 'package:prep_mate/features/auth/models/user_model.dart';
 
 class ClassroomDetailScreen extends StatefulWidget {
@@ -1306,10 +1305,15 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                     ),
                                   );
                                 } else if (val == 'edit') {
-                                  EditExamOptionsSheet.show(
+                                  Navigator.push(
                                     context,
-                                    exam: exam,
-                                    classroom: _classroom,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ExamConfigurationScreen(
+                                        exam: exam,
+                                        classroom: _classroom,
+                                      ),
+                                    ),
                                   );
                                 } else if (val == 'delete') {
                                   _confirmDeleteExam(exam);
@@ -1317,16 +1321,32 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                               },
                               itemBuilder: (context) => [
                                 const PopupMenuItem(
-                                  value: 'questions',
+                                  value: 'edit',
                                   child: Row(
                                     children: [
                                       Icon(
-                                        Icons.quiz_outlined,
+                                        Icons.tune_rounded,
                                         size: 18,
                                         color: Color(0xFF7C3AED),
                                       ),
                                       SizedBox(width: 8),
-                                      Text('Manage Questions'),
+                                      Text('Edit Configurations'),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'questions',
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.quiz_outlined,
+                                        size: 18,
+                                        color: Color(0xFF7C3AED),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Edit Questions (${exam.questions.length})',
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -1341,20 +1361,6 @@ class _ClassroomDetailScreenState extends State<ClassroomDetailScreen>
                                       ),
                                       SizedBox(width: 8),
                                       Text('Analytics / View'),
-                                    ],
-                                  ),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.edit_outlined,
-                                        size: 18,
-                                        color: Color(0xFF7C3AED),
-                                      ),
-                                      SizedBox(width: 8),
-                                      Text('Edit Exam'),
                                     ],
                                   ),
                                 ),

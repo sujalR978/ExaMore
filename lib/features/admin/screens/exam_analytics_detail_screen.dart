@@ -7,10 +7,11 @@ import 'package:flutter/services.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/candidate_detail_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_menu_drawer.dart';
+import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
+import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/admin/services/csv_export_service.dart';
-import 'package:prep_mate/features/admin/widgets/edit_exam_options_sheet.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 
 class ExamAnalyticsDetailScreen extends StatefulWidget {
@@ -247,9 +248,22 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                   icon: Icon(Icons.more_vert, color: textColor),
                   onSelected: (val) async {
                     if (val == 'edit') {
-                      EditExamOptionsSheet.show(
+                      Navigator.push(
                         context,
-                        exam: activeExam!,
+                        MaterialPageRoute(
+                          builder: (context) => ExamConfigurationScreen(
+                            exam: activeExam!,
+                          ),
+                        ),
+                      );
+                    } else if (val == 'questions') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AddMultipleChoiceQuestionScreen(
+                            exam: activeExam!,
+                          ),
+                        ),
                       );
                     } else if (val == 'delete') {
                       final confirmed = await showDialog<bool>(
@@ -313,12 +327,28 @@ class _ExamAnalyticsDetailScreenState extends State<ExamAnalyticsDetailScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.edit_outlined,
+                            Icons.tune_rounded,
                             size: 18,
                             color: Color(0xFF7C3AED),
                           ),
                           SizedBox(width: 8),
-                          Text('Edit Exam'),
+                          Text('Edit Configurations'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'questions',
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.quiz_outlined,
+                            size: 18,
+                            color: Color(0xFF7C3AED),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Edit Questions (${activeExam!.questions.length})',
+                          ),
                         ],
                       ),
                     ),

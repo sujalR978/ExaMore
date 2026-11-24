@@ -12,7 +12,6 @@ import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_sc
 import 'package:prep_mate/features/admin/screens/exam_analytics_detail_screen.dart';
 import 'package:prep_mate/features/admin/screens/exam_configuration_screen.dart';
 import 'package:prep_mate/features/admin/widgets/admin_top_bar.dart';
-import 'package:prep_mate/features/admin/widgets/edit_exam_options_sheet.dart';
 import 'package:prep_mate/features/admin/services/exam_service.dart';
 import 'package:prep_mate/features/auth/services/auth_service.dart';
 
@@ -100,7 +99,11 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
   }
 
   void _handleEditExam(ExamModel exam) {
-    EditExamOptionsSheet.show(context, exam: exam);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ExamConfigurationScreen(exam: exam),
+      ),
+    );
   }
 
   void _handleManageQuestions(ExamModel exam) {
@@ -899,6 +902,26 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                   },
                   itemBuilder: (context) => [
                     PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.tune_rounded,
+                            size: 16,
+                            color: textPrimary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Edit Configurations',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
                       value: 'questions',
                       child: Row(
                         children: [
@@ -909,7 +932,7 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Manage Questions (${exam.questions.length})',
+                            'Edit Questions (${exam.questions.length})',
                             style: TextStyle(
                               fontSize: 12.5,
                               color: textPrimary,
@@ -930,26 +953,6 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
                           const SizedBox(width: 8),
                           Text(
                             'View Submissions',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 16,
-                            color: textPrimary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Edit Configuration',
                             style: TextStyle(
                               fontSize: 12.5,
                               color: textPrimary,
