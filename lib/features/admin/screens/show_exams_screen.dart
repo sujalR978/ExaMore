@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/core/theme/app_theme.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
@@ -118,7 +119,13 @@ class _ActiveExamsScreenState extends State<Showexamesscreen> {
         ? 'Draft'
         : 'Published';
     try {
-      await _examService.updateExam(exam.copyWith(status: newStatus));
+      final updatedExam = exam.copyWith(status: newStatus);
+      await _examService.updateExam(updatedExam);
+      if (newStatus == 'Published') {
+        try {
+          await NotificationService.instance.sendNewExamNotification(updatedExam);
+        } catch (_) {}
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

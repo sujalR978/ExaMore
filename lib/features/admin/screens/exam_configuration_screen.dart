@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:prep_mate/core/services/notification_service.dart';
 import 'package:prep_mate/features/admin/models/classroom_model.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/admin/screens/add_multiple_choice_question_screen.dart';
@@ -328,6 +329,7 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
 
       if (_isEditing) {
         final baseExam = _latestExam ?? widget.exam!;
+        final oldDeadline = baseExam.endDate;
         currentExam = baseExam.copyWith(
           title: title,
           category: category,
@@ -346,6 +348,22 @@ class _ExamConfigurationScreenState extends State<ExamConfigurationScreen> {
           updatedAt: DateTime.now(),
         );
         await _examService.updateExam(currentExam);
+
+        // 2) Trigger notification when any deadline gets changed (extended or rescheduled)
+        if (currentExam.status.toLowerCase() == 'published' &&
+            oldDeadline != null &&
+            _endDate != null &&
+            !_endDate!.isAtSameMomentAs(oldDeadline)) {
+          try {
+            await NotificationService.instance.sendDeadlineChangedNotification(
+              exam: currentExam,
+              oldDeadline: oldDeadline,
+              newDeadline: _endDate!,
+            );
+          } catch (e) {
+            debugPrint('Failed to send deadline changed notification: $e');
+          }
+        }
       } else {
         currentExam = ExamModel(
           id: '',

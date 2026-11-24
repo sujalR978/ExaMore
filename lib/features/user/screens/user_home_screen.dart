@@ -78,6 +78,8 @@ class _HomeScreenState extends State<Userhomescreen> {
           studentClassroomId: _studentClassroomId,
           adminId: _assignedAdminId,
         );
+        // Actively check if any upcoming exam deadline is approaching within 1 hour
+        NotificationService.instance.checkAndDispatchUpcomingDeadlines();
       }
     } catch (_) {}
 

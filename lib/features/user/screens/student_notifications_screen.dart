@@ -174,17 +174,37 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
             itemBuilder: (context, index) {
               final notif = notifications[index];
               final notifId = notif['id']?.toString() ?? '';
-              final title = notif['title']?.toString() ?? 'New Exam';
+              final title = notif['title']?.toString() ?? 'Exam Update';
               final body = notif['body']?.toString() ?? '';
               final subject = notif['subject']?.toString() ?? 'Assessment';
               final examId = notif['examId']?.toString() ?? '';
+              final notifType = notif['type']?.toString() ?? 'new_exam';
               final isRead = notif['isRead'] == true;
               final timestamp = notif['createdAt'];
+
+              // Context-specific theme per notification type
+              final IconData typeIcon;
+              final Color typeColor;
+              final String typeTag;
+
+              if (notifType == 'deadline_approaching') {
+                typeIcon = Icons.alarm_rounded;
+                typeColor = const Color(0xFFEF4444); // Alert Red
+                typeTag = '⏰ 1 Hour Left • $subject';
+              } else if (notifType == 'deadline_changed') {
+                typeIcon = Icons.edit_calendar_rounded;
+                typeColor = const Color(0xFFF59E0B); // Amber / Warning
+                typeTag = '⏳ Deadline Updated • $subject';
+              } else {
+                typeIcon = Icons.assignment_add;
+                typeColor = const Color(0xFF7C3AED); // Brand Purple
+                typeTag = 'New Exam • $subject';
+              }
 
               return Material(
                 color: isRead
                     ? cardColor
-                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF3E8FF)),
+                    : (isDark ? const Color(0xFF1E293B) : typeColor.withOpacity(0.08)),
                 borderRadius: BorderRadius.circular(16),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
@@ -203,7 +223,7 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
                       border: Border.all(
                         color: isRead
                             ? borderColor
-                            : const Color(0xFF7C3AED).withOpacity(0.4),
+                            : typeColor.withOpacity(0.4),
                         width: isRead ? 1 : 1.5,
                       ),
                     ),
@@ -215,12 +235,12 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withOpacity(0.15),
+                            color: typeColor.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(
-                            Icons.assignment_add,
-                            color: Color(0xFF7C3AED),
+                          child: Icon(
+                            typeIcon,
+                            color: typeColor,
                             size: 22,
                           ),
                         ),
@@ -239,13 +259,13 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF7C3AED).withOpacity(0.12),
+                                      color: typeColor.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      subject,
-                                      style: const TextStyle(
-                                        color: Color(0xFF7C3AED),
+                                      typeTag,
+                                      style: TextStyle(
+                                        color: typeColor,
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -264,8 +284,8 @@ class _StudentNotificationsScreenState extends State<StudentNotificationsScreen>
                                     Container(
                                       width: 8,
                                       height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF7C3AED),
+                                      decoration: BoxDecoration(
+                                        color: typeColor,
                                         shape: BoxShape.circle,
                                       ),
                                     ),

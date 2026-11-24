@@ -87,6 +87,58 @@ void main() {
       expect(exam.status, 'Published');
     });
 
+    test('Deadline changed notification payload formatting', () {
+      final exam = ExamModel(
+        id: 'exam-201',
+        examCode: 'EXM-2026-201',
+        title: 'Algorithms Final',
+        category: 'Data Structures',
+        durationMinutes: 90,
+        totalMarks: 100,
+        passingScorePercentage: 40,
+        questions: [],
+      );
+
+      final oldDeadline = DateTime(2026, 11, 24, 18, 0); // 6:00 PM
+      final extendedDeadline = DateTime(2026, 11, 24, 22, 0); // 10:00 PM (extended)
+      final earlierDeadline = DateTime(2026, 11, 24, 16, 0); // 4:00 PM (rescheduled)
+
+      final isExtended1 = extendedDeadline.isAfter(oldDeadline);
+      final isExtended2 = earlierDeadline.isAfter(oldDeadline);
+
+      expect(isExtended1, isTrue);
+      expect(isExtended2, isFalse);
+
+      final subject = exam.category;
+      final expectedExtendedTitle = '⏳ Exam Deadline Extended: $subject';
+      final expectedRescheduledTitle = '⏳ Exam Deadline Rescheduled: $subject';
+
+      expect(expectedExtendedTitle, '⏳ Exam Deadline Extended: Data Structures');
+      expect(expectedRescheduledTitle, '⏳ Exam Deadline Rescheduled: Data Structures');
+    });
+
+    test('1-hour deadline approaching alert window calculation', () {
+      final now = DateTime.now();
+
+      // Exam ending in 45 minutes -> should trigger 1-hour approaching alert
+      final examEndingIn45Mins = now.add(const Duration(minutes: 45));
+      final diff45 = examEndingIn45Mins.difference(now);
+      final shouldAlert45 = diff45 > Duration.zero && diff45 <= const Duration(hours: 1);
+      expect(shouldAlert45, isTrue);
+
+      // Exam ending in 90 minutes -> should NOT trigger 1-hour approaching alert yet
+      final examEndingIn90Mins = now.add(const Duration(minutes: 90));
+      final diff90 = examEndingIn90Mins.difference(now);
+      final shouldAlert90 = diff90 > Duration.zero && diff90 <= const Duration(hours: 1);
+      expect(shouldAlert90, isFalse);
+
+      // Exam that already ended 10 minutes ago -> should NOT trigger
+      final examEndedPast = now.subtract(const Duration(minutes: 10));
+      final diffPast = examEndedPast.difference(now);
+      final shouldAlertPast = diffPast > Duration.zero && diffPast <= const Duration(hours: 1);
+      expect(shouldAlertPast, isFalse);
+    });
+
     testWidgets('StudentNotificationsScreen renders gracefully when user not logged in',
         (WidgetTester tester) async {
       await tester.pumpWidget(

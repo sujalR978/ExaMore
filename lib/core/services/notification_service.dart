@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:prep_mate/features/admin/models/exam_model.dart';
 import 'package:prep_mate/features/user/screens/exam_detail_screen.dart';
 
@@ -82,9 +83,30 @@ class NotificationService {
       if (initialMessage != null) {
         _handleNotificationNavigation(initialMessage.data);
       }
+
+      // 9. Start periodic monitoring for approaching deadlines (1 hour alert)
+      startDeadlineMonitoring();
     } catch (e) {
       debugPrint('FCM initialization warning (may be test/unsupported environment): $e');
     }
+  }
+
+  Timer? _deadlineMonitoringTimer;
+
+  /// Starts automated periodic monitoring for exams closing within 1 hour
+  void startDeadlineMonitoring() {
+    _deadlineMonitoringTimer?.cancel();
+    checkAndDispatchUpcomingDeadlines();
+    _deadlineMonitoringTimer = Timer.periodic(
+      const Duration(minutes: 2),
+      (_) => checkAndDispatchUpcomingDeadlines(),
+    );
+  }
+
+  /// Cancels background deadline monitoring
+  void stopDeadlineMonitoring() {
+    _deadlineMonitoringTimer?.cancel();
+    _deadlineMonitoringTimer = null;
   }
 
   /// Updates the current authenticated user's FCM token in their Firestore user doc
@@ -122,19 +144,20 @@ class NotificationService {
     }
   }
 
-  /// Triggers a notification whenever an Admin creates/publishes a new exam.
-  /// User requirement:
-  /// "whenever Admin creates new exam then send the notification to the student user that New Exam of particular subject is added please check."
-  Future<void> sendNewExamNotification(ExamModel exam) async {
+  /// Generic dispatcher: targets relevant students, writes in-app inbox docs, and queues FCM push
+  Future<void> _dispatchNotification({
+    required ExamModel exam,
+    required String title,
+    required String body,
+    required String type, // 'new_exam', 'deadline_changed', 'deadline_approaching'
+    Map<String, dynamic>? extraData,
+  }) async {
     final subject = (exam.category.isNotEmpty ? exam.category : exam.title).trim();
-    const notificationTitle = 'New Exam Available!';
-    final notificationBody = 'New Exam of $subject is added, please check.';
 
     try {
       // 1. Target students for this exam
       Query query = _firestore.collection('users').where('role', isEqualTo: 'student');
 
-      // If tied to a specific instructor/admin
       if (exam.adminId.isNotEmpty) {
         query = query.where('adminId', isEqualTo: exam.adminId);
       }
@@ -164,8 +187,8 @@ class NotificationService {
       final globalNotificationRef = _firestore.collection('notifications').doc();
       final notificationPayload = {
         'id': globalNotificationRef.id,
-        'title': notificationTitle,
-        'body': notificationBody,
+        'title': title,
+        'body': body,
         'subject': subject,
         'examId': exam.id,
         'examTitle': exam.title,
@@ -175,7 +198,8 @@ class NotificationService {
         'classroomName': exam.classroomName ?? '',
         'targetTokensCount': targetTokens.length,
         'targetStudentsCount': studentIds.length,
-        'type': 'new_exam',
+        'type': type,
+        ...?extraData,
         'createdAt': FieldValue.serverTimestamp(),
       };
 
@@ -192,14 +216,15 @@ class NotificationService {
 
         batch.set(userNotifRef, {
           'id': userNotifRef.id,
-          'title': notificationTitle,
-          'body': notificationBody,
+          'title': title,
+          'body': body,
           'subject': subject,
           'examId': exam.id,
           'examTitle': exam.title,
           'examCode': exam.examCode,
           'adminId': exam.adminId,
-          'type': 'new_exam',
+          'type': type,
+          ...?extraData,
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -208,8 +233,8 @@ class NotificationService {
 
       // 4. Save to fcm_dispatch collection (for FCM Cloud Functions / HTTP v1 relay)
       await _firestore.collection('fcm_dispatch').add({
-        'title': notificationTitle,
-        'body': notificationBody,
+        'title': title,
+        'body': body,
         'tokens': targetTokens,
         'topic': exam.classroomId?.isNotEmpty == true
             ? 'classroom_${exam.classroomId}'
@@ -217,15 +242,125 @@ class NotificationService {
         'data': {
           'examId': exam.id,
           'subject': subject,
-          'type': 'new_exam',
+          'type': type,
+          ...?extraData,
         },
         'createdAt': FieldValue.serverTimestamp(),
         'status': 'queued',
       });
 
-      debugPrint('Dispatched New Exam notification for "$subject" to ${studentIds.length} students.');
+      debugPrint('Dispatched "$type" notification for "${exam.title}" to ${studentIds.length} students.');
     } catch (e) {
-      debugPrint('Error dispatching new exam notification: $e');
+      debugPrint('Error dispatching "$type" notification: $e');
+    }
+  }
+
+  /// 1) When any new Exam is getting published
+  Future<void> sendNewExamNotification(ExamModel exam) async {
+    final subject = (exam.category.isNotEmpty ? exam.category : exam.title).trim();
+    const notificationTitle = 'New Exam Available!';
+    final notificationBody = 'New Exam of $subject is added, please check.';
+
+    await _dispatchNotification(
+      exam: exam,
+      title: notificationTitle,
+      body: notificationBody,
+      type: 'new_exam',
+    );
+  }
+
+  /// 2) When any deadline is changed (extended or rescheduled)
+  Future<void> sendDeadlineChangedNotification({
+    required ExamModel exam,
+    required DateTime oldDeadline,
+    required DateTime newDeadline,
+  }) async {
+    final bool isExtended = newDeadline.isAfter(oldDeadline);
+    final String formattedDate = DateFormat('MMM dd, yyyy • hh:mm a').format(newDeadline);
+
+    final String title = isExtended ? '⏳ Exam Deadline Extended!' : '📅 Exam Deadline Updated';
+    final String body = 'Deadline for "${exam.title}" has been ${isExtended ? 'extended' : 'rescheduled'} to $formattedDate. Please check the updated schedule.';
+
+    await _dispatchNotification(
+      exam: exam,
+      title: title,
+      body: body,
+      type: 'deadline_changed',
+      extraData: {
+        'oldDeadline': Timestamp.fromDate(oldDeadline),
+        'newDeadline': Timestamp.fromDate(newDeadline),
+        'isExtended': isExtended,
+      },
+    );
+  }
+
+  /// 3) When an exam deadline is approaching (1 hour earlier)
+  Future<void> sendDeadlineApproachingNotification(ExamModel exam) async {
+    final String closeTimeStr = exam.endDate != null
+        ? DateFormat('hh:mm a').format(exam.endDate!)
+        : 'soon';
+
+    final String title = '⏰ 1 Hour Left: ${exam.title}';
+    final String body = 'Deadline approaching! "${exam.title}" closes in 1 hour at $closeTimeStr. Please submit your exam before it closes!';
+
+    await _dispatchNotification(
+      exam: exam,
+      title: title,
+      body: body,
+      type: 'deadline_approaching',
+      extraData: {
+        if (exam.endDate != null) 'endDate': Timestamp.fromDate(exam.endDate!),
+      },
+    );
+  }
+
+  /// Automated monitor: checks all published exams and sends 1-hour approaching alerts
+  Future<void> checkAndDispatchUpcomingDeadlines() async {
+    try {
+      final snapshot = await _firestore
+          .collection('exams')
+          .where('status', isEqualTo: 'Published')
+          .get();
+
+      final now = DateTime.now();
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final rawEnd = data['endDate'];
+        if (rawEnd == null) continue;
+
+        DateTime? endDate;
+        if (rawEnd is Timestamp) {
+          endDate = rawEnd.toDate();
+        } else if (rawEnd is String) {
+          endDate = DateTime.tryParse(rawEnd);
+        }
+        if (endDate == null) continue;
+
+        final difference = endDate.difference(now);
+
+        // Approaching deadline check: closes in > 0 minutes and <= 60 minutes (1 hour)
+        if (difference > Duration.zero && difference <= const Duration(hours: 1)) {
+          final alertDocId = '${doc.id}_1hour';
+          final alertRef = _firestore.collection('exam_deadline_alerts').doc(alertDocId);
+          final alertDoc = await alertRef.get();
+
+          // Deduplicate: send only once per exam
+          if (!alertDoc.exists) {
+            await alertRef.set({
+              'examId': doc.id,
+              'examTitle': data['title'] ?? '',
+              'endDate': Timestamp.fromDate(endDate),
+              'sentAt': FieldValue.serverTimestamp(),
+            });
+
+            final exam = ExamModel.fromFirestore(doc);
+            await sendDeadlineApproachingNotification(exam);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in checkAndDispatchUpcomingDeadlines: $e');
     }
   }
 
@@ -280,19 +415,33 @@ class NotificationService {
   void _handleForegroundMessage(RemoteMessage message) {
     final title = message.notification?.title ?? message.data['title'] ?? 'ExaMore';
     final body = message.notification?.body ?? message.data['body'] ?? '';
+    final type = message.data['type']?.toString() ?? 'new_exam';
 
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
+    Color bg;
+    IconData icon;
+    if (type == 'deadline_approaching') {
+      bg = const Color(0xFFDC2626); // Alert red
+      icon = Icons.alarm_rounded;
+    } else if (type == 'deadline_changed') {
+      bg = const Color(0xFFD97706); // Amber
+      icon = Icons.edit_calendar_rounded;
+    } else {
+      bg = const Color(0xFF7C3AED); // Brand purple
+      icon = Icons.notifications_active_rounded;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 4),
-        backgroundColor: const Color(0xFF7C3AED),
+        backgroundColor: bg,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         content: Row(
           children: [
-            const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 22),
+            Icon(icon, color: Colors.white, size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -309,7 +458,7 @@ class NotificationService {
         ),
         action: SnackBarAction(
           label: 'VIEW',
-          textColor: const Color(0xFFA78BFA),
+          textColor: Colors.white,
           onPressed: () => _handleNotificationNavigation(message.data),
         ),
       ),

@@ -224,9 +224,24 @@ class _ReviewAndPublishScreenState extends State<ReviewAndPublishScreen> {
 
       // Trigger notification for eligible students
       try {
-        await NotificationService.instance.sendNewExamNotification(updatedExam);
+        final wasPublished = widget.exam?.status.toLowerCase() == 'published';
+        final oldDeadline = widget.exam?.endDate;
+        final newDeadline = updatedExam.endDate;
+
+        if (wasPublished &&
+            oldDeadline != null &&
+            newDeadline != null &&
+            !newDeadline.isAtSameMomentAs(oldDeadline)) {
+          await NotificationService.instance.sendDeadlineChangedNotification(
+            exam: updatedExam,
+            oldDeadline: oldDeadline,
+            newDeadline: newDeadline,
+          );
+        } else if (!wasPublished) {
+          await NotificationService.instance.sendNewExamNotification(updatedExam);
+        }
       } catch (notifErr) {
-        debugPrint('Error triggering new exam notification: $notifErr');
+        debugPrint('Error triggering notification: $notifErr');
       }
 
       if (!mounted) return;
