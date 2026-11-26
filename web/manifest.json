@@ -1,11 +1,11 @@
 {
-    "name": "prep_mate",
-    "short_name": "prep_mate",
+    "name": "ExaMore",
+    "short_name": "App",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Smart online exam platform with secure proctoring, test banks & instant scores.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
