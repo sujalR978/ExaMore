@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:706499653261:android:e8e06c40f1ba170d053cc4",
         "android_client_info": {
-          "package_name": "com.examore.app"
+          "package_name": "com.example.prep_mate"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "706499653261-rdq5phnbmienfbm9rv1fvigojr6l5de3.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.examore.app",
+            "package_name": "com.example.prep_mate",
             "certificate_hash": "a9f4357e39f475a059bbc40d07a6c3decd99efa2"
           }
         },
@@ -44,20 +44,12 @@
     },
     {
       "client_info": {
-        "mobilesdk_app_id": "1:706499653261:android:e8e06c40f1ba170d053cc4",
+        "mobilesdk_app_id": "1:706499653261:android:af1e30349c3ad867053cc4",
         "android_client_info": {
-          "package_name": "com.example.prep_mate"
+          "package_name": "com.rishvi.examore"
         }
       },
       "oauth_client": [
-        {
-          "client_id": "706499653261-rdq5phnbmienfbm9rv1fvigojr6l5de3.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.prep_mate",
-            "certificate_hash": "a9f4357e39f475a059bbc40d07a6c3decd99efa2"
-          }
-        },
         {
           "client_id": "706499653261-2rt59tfu887s12tdo0s7iea03emhke70.apps.googleusercontent.com",
           "client_type": 3
