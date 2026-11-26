@@ -82,10 +82,13 @@ class _GooglebuttonState extends State<Googlebutton> {
       final errorStr = e.toString();
       if (errorStr.contains('sign_in_canceled')) {
         _showFriendlyMessage(
-          "Sign-in cancelled. An instructor code is required to join.",
+          "Sign-in cancelled.",
         );
       } else if (errorStr.contains('network-request-failed')) {
-        _showFriendlyMessage("No instructor found.", isError: true);
+        _showFriendlyMessage(
+          "Network error. Please check your internet connection and try again.",
+          isError: true,
+        );
       } else {
         _showFriendlyMessage(
           "Google Sign-In failed. Please try again.",

@@ -126,10 +126,9 @@ class _LoginState extends State<Login> {
 
     final String rawInput = _identifier.text.trim();
     final String passwordInput = _password.text;
+    String emailToAuth = rawInput.toLowerCase();
 
     try {
-      String emailToAuth = rawInput.toLowerCase();
-
       // Support 10-digit Phone Number lookup (LOG-001)
       if (RegExp(r'^\d{10}$').hasMatch(rawInput)) {
         try {
@@ -194,7 +193,7 @@ class _LoginState extends State<Login> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) =>
-                EmailVerificationScreen(email: _identifier.text.trim()),
+                EmailVerificationScreen(email: emailToAuth),
           ),
         );
       } else if (e.code == 'invalid-email') {

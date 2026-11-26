@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prep_mate/core/utils/validators.dart';
@@ -99,6 +100,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   }
 
   Future<bool> _hasInternetConnection() async {
+    if (kIsWeb) return true;
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return true;
     }
