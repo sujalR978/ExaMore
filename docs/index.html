@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExaMore - App Usage Guide & Platform Overview</title>
+  <meta name="description" content="Complete user guide, features, and platform overview for ExaMore - the modern assessment and smart classroom exam platform for students and instructors.">
+  <link rel="icon" type="image/png" href="../assets/image/examore_logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-dark: #6D28D9;
+      --primary-light: #A78BFA;
+      --primary-bg: rgba(124, 58, 237, 0.08);
+      --amber: #F59E0B;
+      --emerald: #10B981;
+      --dark-bg: #0D121F;
+      --dark-surface: #171E31;
+      --dark-card: #1E2638;
+      --dark-border: #28334D;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--dark-bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--primary-light);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    a:hover {
+      color: #C4B5FD;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navbar */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13, 18, 31, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--dark-border);
+    }
+
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), #4F46E5);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+    }
+
+    .nav-tabs {
+      display: flex;
+      background: var(--dark-surface);
+      border: 1px solid var(--dark-border);
+      border-radius: 30px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .tab-link {
+      padding: 8px 20px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .tab-link.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+    }
+
+    .tab-link:hover:not(.active) {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 72px 0 48px;
+      text-align: center;
+      background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.18) 0%, transparent 70%);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--primary-bg);
+      border: 1px solid rgba(124, 58, 237, 0.3);
+      color: var(--primary-light);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .hero-title {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, #A78BFA, #C084FC);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 18px;
+      color: var(--text-secondary);
+      max-width: 680px;
+      margin: 0 auto 32px;
+    }
+
+    .cta-group {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: var(--dark-surface);
+      color: var(--text-primary);
+      border: 1px solid var(--dark-border);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--primary-light);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    /* Section */
+    .section {
+      padding: 64px 0;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .section-subtitle {
+      color: var(--text-secondary);
+      font-size: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 28px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    @media (max-width: 840px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+      .hero-title {
+        font-size: 32px;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--dark-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(124, 58, 237, 0.4);
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .icon-purple {
+      background: rgba(124, 58, 237, 0.15);
+      color: var(--primary-light);
+    }
+
+    .icon-emerald {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--emerald);
+    }
+
+    .icon-amber {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+    }
+
+    .card-title {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .card-desc {
+      color: var(--text-secondary);
+      font-size: 14.5px;
+      line-height: 1.6;
+    }
+
+    /* Workflow Steps */
+    .steps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 16px;
+      background: var(--dark-surface);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-md);
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #fff;
+    }
+
+    .step-content p {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Highlights Banner */
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(79, 70, 229, 0.08));
+      border: 1px solid rgba(124, 58, 237, 0.35);
+      border-radius: var(--radius-lg);
+      padding: 36px;
+      margin: 40px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .highlight-content h3 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .highlight-content p {
+      color: var(--text-secondary);
+      font-size: 15px;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid var(--dark-border);
+      background: var(--dark-surface);
+      padding: 48px 0 24px;
+      margin-top: 64px;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 32px;
+      margin-bottom: 36px;
+    }
+
+    @media (max-width: 640px) {
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 24px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sticky Navigation Header with 2 Tabs -->
+  <header class="header">
+    <div class="container navbar">
+      <div class="brand">
+        <div class="brand-icon">🎓</div>
+        <span>ExaMore</span>
+      </div>
+
+      <!-- Tab Switcher -->
+      <nav class="nav-tabs">
+        <a href="index.html" class="tab-link active">App Usage Guide</a>
+        <a href="privacy-policy.html" class="tab-link">Privacy Policy</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="badge">🚀 Modern Assessment Platform</div>
+      <h1 class="hero-title">Welcome to <span>ExaMore</span><br>Comprehensive User & App Guide</h1>
+      <p class="hero-subtitle">
+        ExaMore empowers students with real-time timed assessments, instant analytics, and classroom cohorts, while providing instructors with question bank imports, automated scoring, and anti-cheating proctoring tools.
+      </p>
+      <div class="cta-group">
+        <a href="#student-guide" class="btn btn-primary">📖 Student Guide</a>
+        <a href="#admin-guide" class="btn btn-outline">⚙️ Instructor / Admin Guide</a>
+        <a href="privacy-policy.html" class="btn btn-outline">🛡️ View Privacy Policy</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Two Personas Section -->
+  <main class="container">
+    
+    <!-- Highlights -->
+    <div class="highlight-box">
+      <div class="highlight-content">
+        <h3>Need to review data safety or compliance?</h3>
+        <p>Read our full Google Play compliant Privacy Policy on its dedicated page.</p>
+      </div>
+      <a href="privacy-policy.html" class="btn btn-primary">Read Privacy Policy →</a>
+    </div>
+
+    <!-- Student Guide Section -->
+    <section id="student-guide" class="section">
+      <div class="section-header">
+        <h2 class="section-title">Student (Candidate) Guide</h2>
+        <p class="section-subtitle">How students enroll in classrooms, take scheduled exams, and view performance breakdowns.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon icon-purple">🔐</div>
+          <h3 class="card-title">1. Registration & Sign-In</h3>
+          <p class="card-desc">
+            Sign up with your Name, Email, and 10-digit mobile number, or use Google Sign-In with one tap. Verify your email to activate assessment features.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon icon-emerald">🏫</div>
+          <h3 class="card-title">2. Join Classrooms</h3>
+          <p class="card-desc">
+            Enter your instructor's 6-character Classroom Code on the Home screen to enroll in cohorts and unlock teacher-curated mock tests and study materials.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon icon-amber">⏱️</div>
+          <h3 class="card-title">3. Timed Assessments</h3>
+          <p class="card-desc">
+            Take scheduled exams within valid active windows. Progress auto-saves locally so you can resume safely if network connectivity drops.
+          </p>
+        </div>
+      </div>
+
+      <div class="steps-container">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Active Window & Timeslot Adherence</h4>
+            <p>Exams are governed by an Open / Publish time and a Close / Deadline time. You can only start an exam while the window is active. Push notifications notify you when an exam opens or approaches its 1-hour closing deadline.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Anti-Cheating & Integrity Guard</h4>
+            <p>During an active exam, switching away from the application or minimizing the window is recorded. Reaching the maximum allowed app switch threshold automatically submits your exam to uphold academic integrity.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Results, Answer Keys & Performance History</h4>
+            <p>Upon submission, view your total marks, accuracy percentage, correct/incorrect questions, and passing status. Filter by subject to track performance improvement over time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin Guide Section -->
+    <section id="admin-guide" class="section">
+      <div class="section-header">
+        <h2 class="section-title">Instructor & Administrator Guide</h2>
+        <p class="section-subtitle">Manage subjects, build comprehensive question banks, configure deadlines, and inspect candidate scorecards.</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon icon-purple">📚</div>
+          <h3 class="card-title">Classrooms & Cohorts</h3>
+          <p class="card-desc">
+            Generate unique classroom codes, invite students, and organize subjects (Mathematics, Science, History, Literature) with isolated roster management.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon icon-emerald">📝</div>
+          <h3 class="card-title">Exam Creator & Timers</h3>
+          <p class="card-desc">
+            Configure exam duration, total marks, negative marking, passing score percentages, and schedule exact start/end deadlines or publish instantly.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-icon icon-amber">📊</div>
+          <h3 class="card-title">Question Banks & CSV Import</h3>
+          <p class="card-desc">
+            Create single-choice, multiple-choice, or descriptive questions, or bulk-import hundreds of questions using our standardized CSV / Excel templates.
+          </p>
+        </div>
+      </div>
+
+      <div class="steps-container">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Independent Configurations & Question Editing</h4>
+            <p>From the Exam card menu (⋮), instructors can choose to "Edit Configurations" (timings, duration, passing percentage) or "Edit Questions" independently without stepping through lengthy multi-step wizards.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Real-time Candidate Analytics & CSV Export</h4>
+            <p>Inspect submissions in real time, view candidate-by-candidate answer breakdowns, and export complete gradebooks to CSV for institutional records.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="brand" style="margin-bottom: 12px;">
+          <div class="brand-icon">🎓</div>
+          <span>ExaMore</span>
+        </div>
+        <p style="max-width: 380px; line-height: 1.6;">
+          Next-generation online examination and assessment platform empowering academic institutions, tutors, and candidates with secure, fair, and intuitive tests.
+        </p>
+      </div>
+
+      <div>
+        <h4 style="color: #fff; margin-bottom: 12px; font-size: 15px;">Navigation</h4>
+        <ul style="list-style: none; line-height: 2;">
+          <li><a href="index.html">App Usage Guide</a></li>
+          <li><a href="#student-guide">Student Features</a></li>
+          <li><a href="#admin-guide">Admin Features</a></li>
+          <li><a href="privacy-policy.html">Privacy Policy</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 style="color: #fff; margin-bottom: 12px; font-size: 15px;">Support & Contact</h4>
+        <ul style="list-style: none; line-height: 2;">
+          <li>Email: <a href="mailto:support@examore.app">support@examore.app</a></li>
+          <li>Developer: Rishvi</li>
+          <li>App Version: 1.0.0</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="container footer-bottom">
+      <p>© 2026 ExaMore by Rishvi. All rights reserved. | <a href="privacy-policy.html">Privacy Policy</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
